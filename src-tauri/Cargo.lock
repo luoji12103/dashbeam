@@ -1465,6 +1465,7 @@ dependencies = [
  "anyhow",
  "ashpd",
  "base64 0.22.1",
+ "cc",
  "core-foundation 0.10.1",
  "core-graphics 0.24.0",
  "dunce",

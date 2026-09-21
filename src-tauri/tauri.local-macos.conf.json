@@ -1,0 +1,9 @@
+{
+  "build": { "beforeBuildCommand": "VITE_LOCAL_MACOS_BUILD=true pnpm run build" },
+  "plugins": { "deep-link": { "desktop": { "schemes": ["dashbeam-local"] } } },
+  "bundle": {
+    "createUpdaterArtifacts": false,
+    "targets": ["app"],
+    "macOS": { "signingIdentity": "-", "providerShortName": null, "bundleVersion": "70101" }
+  }
+}

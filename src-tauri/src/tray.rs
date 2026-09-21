@@ -1,13 +1,15 @@
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem},
-    path::BaseDirectory,
+    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
+
+#[cfg(not(target_os = "macos"))]
+use tauri::path::BaseDirectory;
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use tauri::menu::ContextMenu;
@@ -16,6 +18,7 @@ use tauri::menu::ContextMenu;
 // use tauri_plugin_dialog::DialogExt;
 
 static TRAY_ACTIVE: AtomicBool = AtomicBool::new(false);
+static FLASH_DROP_ENABLED: AtomicBool = AtomicBool::new(false);
 
 /// Mirrors the frontend's `minimizeToTray` setting. Not in `AppState` because
 /// the window-close handler is synchronous and can't lock `AppStateMutex`.
@@ -38,8 +41,16 @@ pub fn set_background_on_close(enabled: bool) {
 /// Tray strings, pushed from the frontend so the menu follows the app language.
 /// English defaults cover startup, before the first `set_tray_labels` call.
 #[derive(Clone, serde::Deserialize)]
+#[serde(default)]
 pub struct TrayLabels {
     pub open: String,
+    pub settings: String,
+    pub share_files: String,
+    pub share_folder: String,
+    pub flash_drop: String,
+    pub target_none: String,
+    /// Template with `{{name}}` for the selected destination.
+    pub target_selected: String,
     pub quit: String,
     pub no_devices: String,
     /// Template with `{{online}}` and `{{total}}` placeholders.
@@ -52,6 +63,12 @@ impl Default for TrayLabels {
     fn default() -> Self {
         Self {
             open: "Open".to_string(),
+            settings: "Settings...".to_string(),
+            share_files: "Share Files...".to_string(),
+            share_folder: "Share Folder...".to_string(),
+            flash_drop: "Flash Drop".to_string(),
+            target_none: "Target: Not selected".to_string(),
+            target_selected: "Target: {{name}}".to_string(),
             quit: "Quit".to_string(),
             no_devices: "No paired devices".to_string(),
             devices_online: "{{online}} of {{total}} devices online".to_string(),
@@ -91,6 +108,15 @@ fn format_device_online_row(labels: &TrayLabels, name: &str) -> String {
         .replace("{{name}}", &truncate_device_name(name))
 }
 
+fn format_target(labels: &TrayLabels, target: Option<&str>) -> String {
+    match target {
+        Some(name) if !name.trim().is_empty() => labels
+            .target_selected
+            .replace("{{name}}", &truncate_device_name(name)),
+        _ => labels.target_none.clone(),
+    }
+}
+
 /// Active+online display names, sorted case-insensitively.
 fn sorted_online_names(devices: &[engine::PairedDeviceInfo]) -> Vec<String> {
     let mut names: Vec<String> = devices
@@ -104,8 +130,13 @@ fn sorted_online_names(devices: &[engine::PairedDeviceInfo]) -> Vec<String> {
 
 /// Return true if window was shown (or attempted) successfully, false otherwise.
 pub fn open_and_focus(app: &AppHandle) -> bool {
+    #[cfg(target_os = "macos")]
+    if let Err(error) = app.set_activation_policy(tauri::ActivationPolicy::Regular) {
+        tracing::warn!(%error, "failed to restore Dock icon");
+    }
     // try main window by label first
     if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
         if let Err(e) = window.show() {
             tracing::warn!("Failed to show window: {}", e);
             return false;
@@ -148,8 +179,14 @@ pub struct TrayHandles {
     /// Disabled per-device rows currently in the menu (between status and separator).
     pub device_items: Mutex<Vec<MenuItem<tauri::Wry>>>,
     pub open: MenuItem<tauri::Wry>,
+    pub settings: MenuItem<tauri::Wry>,
+    pub share_files: MenuItem<tauri::Wry>,
+    pub share_folder: MenuItem<tauri::Wry>,
+    pub flash_drop: CheckMenuItem<tauri::Wry>,
+    pub target: MenuItem<tauri::Wry>,
     pub quit: MenuItem<tauri::Wry>,
     pub labels: Mutex<TrayLabels>,
+    current_target: Mutex<Option<String>>,
     /// Last known presence snapshot. Generation shares the lock with the counts
     /// so a stale refresh can't overwrite a fresher one — see `refresh_presence`.
     presence: Mutex<PresenceState>,
@@ -178,10 +215,46 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let labels = TrayLabels::default();
     // Disabled: a status readout, not an action.
     let status = MenuItem::with_id(app, "status", &labels.no_devices, false, None::<&str>)?;
-    let separator = PredefinedMenuItem::separator(app)?;
+    let target = MenuItem::with_id(app, "target", &labels.target_none, false, None::<&str>)?;
+    let status_separator = PredefinedMenuItem::separator(app)?;
     let open = MenuItem::with_id(app, "open", &labels.open, true, None::<&str>)?;
+    let settings = MenuItem::with_id(app, "settings", &labels.settings, true, None::<&str>)?;
+    let action_separator = PredefinedMenuItem::separator(app)?;
+    let share_files =
+        MenuItem::with_id(app, "share-files", &labels.share_files, true, None::<&str>)?;
+    let share_folder = MenuItem::with_id(
+        app,
+        "share-folder",
+        &labels.share_folder,
+        true,
+        None::<&str>,
+    )?;
+    let flash_drop = CheckMenuItem::with_id(
+        app,
+        "flash-drop",
+        &labels.flash_drop,
+        true,
+        FLASH_DROP_ENABLED.load(Ordering::Relaxed),
+        None::<&str>,
+    )?;
+    let quit_separator = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", &labels.quit, true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&status, &separator, &open, &quit])?;
+    let menu = Menu::with_items(
+        app,
+        &[
+            &status,
+            &target,
+            &status_separator,
+            &open,
+            &settings,
+            &action_separator,
+            &share_files,
+            &share_folder,
+            &flash_drop,
+            &quit_separator,
+            &quit,
+        ],
+    )?;
 
     // macOS/Windows: attach the context menu so the platform opens it natively.
     // On Windows left-click focuses the window (left = primary action, right =
@@ -244,6 +317,32 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         "open" => {
             open_and_focus(app);
         }
+        "settings" => {
+            open_and_focus(app);
+            if let Err(error) = app.emit("open-settings", ()) {
+                tracing::warn!(%error, "failed to emit tray settings action");
+            }
+        }
+        "share-files" => {
+            if let Err(error) = app.emit("choose-share-files", ()) {
+                tracing::warn!(%error, "failed to emit tray file picker action");
+            }
+        }
+        "share-folder" => {
+            if let Err(error) = app.emit("choose-share-folder", ()) {
+                tracing::warn!(%error, "failed to emit tray folder picker action");
+            }
+        }
+        "flash-drop" => {
+            let enabled = app
+                .try_state::<TrayHandles>()
+                .and_then(|handles| handles.flash_drop.is_checked().ok())
+                .unwrap_or_else(|| !FLASH_DROP_ENABLED.load(Ordering::Relaxed));
+            FLASH_DROP_ENABLED.store(enabled, Ordering::Relaxed);
+            if let Err(error) = app.emit("toggle-flash-drop", enabled) {
+                tracing::warn!(%error, "failed to emit tray flash-drop action");
+            }
+        }
         "quit" => {
             tracing::info!("Quit requested from tray");
 
@@ -258,13 +357,18 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     // Windows: centre-cropped colour mark so the rings fill ~2× more of the
     // notification-area slot than the full app icon (which has heavy padding).
     // Linux: full colour app icon.
+    // Embed the macOS template so the status item cannot silently lose its icon
+    // because a packaging/resource path changed. At 44 px this is the native
+    // 22-point @2x size, and `icon_as_template` supplies light/dark rendering.
     #[cfg(target_os = "macos")]
-    let tray_icon_resource = "icons/tray-template.png";
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-template.png"))?;
+
     #[cfg(target_os = "windows")]
     let tray_icon_resource = "icons/tray-windows.png";
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     let tray_icon_resource = "icons/128x128.png";
 
+    #[cfg(not(target_os = "macos"))]
     let icon = match app
         .path()
         .resolve(tray_icon_resource, BaseDirectory::Resource)
@@ -302,8 +406,14 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         status,
         device_items: Mutex::new(Vec::new()),
         open,
+        settings,
+        share_files,
+        share_folder,
+        flash_drop,
+        target,
         quit,
         labels: Mutex::new(labels),
+        current_target: Mutex::new(None),
         presence: Mutex::new(PresenceState::default()),
         next_generation: AtomicU64::new(0),
     });
@@ -318,6 +428,18 @@ fn render(app: &AppHandle, handles: &TrayHandles) {
     let status = format_presence(&labels, presence.online, presence.total);
     let _ = handles.status.set_text(&status);
     let _ = handles.open.set_text(&labels.open);
+    let _ = handles.settings.set_text(&labels.settings);
+    let _ = handles.share_files.set_text(&labels.share_files);
+    let _ = handles.share_folder.set_text(&labels.share_folder);
+    let _ = handles.flash_drop.set_text(&labels.flash_drop);
+    let current_target = handles
+        .current_target
+        .lock()
+        .expect("tray current target lock")
+        .clone();
+    let _ = handles
+        .target
+        .set_text(format_target(&labels, current_target.as_deref()));
     let _ = handles.quit.set_text(&labels.quit);
     let _ = handles
         .tray
@@ -355,6 +477,30 @@ pub fn apply_labels(app: &AppHandle, labels: TrayLabels) {
         return;
     };
     *handles.labels.lock().expect("tray labels lock") = labels;
+    render(app, &handles);
+}
+
+/// Synchronize the native checkmark after settings are loaded or changed by
+/// another UI. This does not emit an event back to the frontend.
+pub fn set_flash_drop_enabled(app: &AppHandle, enabled: bool) {
+    FLASH_DROP_ENABLED.store(enabled, Ordering::Relaxed);
+    if let Some(handles) = app.try_state::<TrayHandles>() {
+        if let Err(error) = handles.flash_drop.set_checked(enabled) {
+            tracing::warn!(%error, "failed to update tray flash-drop checkmark");
+        }
+    }
+}
+
+/// Show the destination selected by the main UI. `None` renders the localized
+/// "not selected" label. This is display-only and performs no network work.
+pub fn set_current_target(app: &AppHandle, target: Option<String>) {
+    let Some(handles) = app.try_state::<TrayHandles>() else {
+        return;
+    };
+    *handles
+        .current_target
+        .lock()
+        .expect("tray current target lock") = target;
     render(app, &handles);
 }
 
@@ -503,6 +649,7 @@ mod presence_label_tests {
             no_devices: "No paired devices".to_string(),
             devices_online: "{{online}} of {{total}} devices online".to_string(),
             device_online: "{{name}} - Online".to_string(),
+            ..TrayLabels::default()
         }
     }
 

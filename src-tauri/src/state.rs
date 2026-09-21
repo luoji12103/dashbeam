@@ -12,7 +12,7 @@ pub struct AppState {
     pub current_share: Option<ShareHandle>,
     pub is_share_starting: bool,
     pub is_transporting: bool,
-    pub launch_intent: Option<String>,
+    pub launch_intent: Vec<String>,
     pub current_receive_cancel: Option<tokio::sync::oneshot::Sender<()>>,
     /// Hash of the receive in flight, so history cannot delete the partial
     /// store out from under an active download.
@@ -28,7 +28,7 @@ impl Default for AppState {
             current_share: None,
             is_share_starting: false,
             is_transporting: false,
-            launch_intent: None,
+            launch_intent: Vec::new(),
             current_receive_cancel: None,
             current_receive_hash: None,
             last_cancelled_recv_hash: None,

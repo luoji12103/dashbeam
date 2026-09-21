@@ -3,6 +3,17 @@ use std::fs;
 use std::path::PathBuf;
 
 fn main() {
+    // Build scripts run for the host, so gate on Cargo's requested target.
+    // This keeps Android/iOS cross-builds on a Mac from linking AppKit.
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        cc::Build::new()
+            .file("native/flash_drop.m")
+            .flag_if_supported("-fobjc-arc")
+            .compile("dashbeam_flash_drop");
+        println!("cargo:rustc-link-lib=framework=AppKit");
+        println!("cargo:rerun-if-changed=native/flash_drop.m");
+    }
+
     // Read version from package.json (single source of truth)
     // build.rs is in src-tauri/, so package.json is in the same directory
     let manifest_dir =

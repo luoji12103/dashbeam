@@ -12,6 +12,8 @@ mod autostart;
 mod autostart_portal;
 mod commands;
 mod features;
+#[cfg(desktop)]
+mod flash_drop_native;
 mod history;
 mod logging;
 mod platform;
@@ -108,21 +110,9 @@ pub fn run() {
             // A duplicate autostart trigger re-invokes a running instance with
             // `--hidden`; don't force the window open then.
             if !wants_hidden_launch(args.iter().cloned()) {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.unminimize();
-                    let _ = window.set_focus();
-                }
+                tray::open_and_focus(app);
             }
-            let maybe_path = first_non_flag_arg(args.into_iter().skip(1));
-            if let Some(path) = maybe_path {
-                let app_handle = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    let state = app_handle.state::<state::AppStateMutex>();
-                    state.lock().await.launch_intent = Some(path.clone());
-                    let _ = app_handle.emit("launch-intent", path);
-                });
-            }
+            queue_launch_paths(app, launch_paths(args.into_iter().skip(1)));
         }))
     };
 
@@ -171,6 +161,10 @@ pub fn run() {
             #[cfg(desktop)]
             autostart_set,
             check_launch_intent,
+            #[cfg(desktop)]
+            configure_flash_drop,
+            #[cfg(desktop)]
+            flash_drop_feedback,
             fetch_ticket_metadata,
             verify_relays,
             verify_discovery,
@@ -325,6 +319,10 @@ pub fn run() {
             }
             #[cfg(desktop)]
             {
+                #[cfg(target_os = "macos")]
+                if wants_hidden_launch(std::env::args().skip(1)) && tray::is_active() {
+                    app.handle().set_activation_policy(tauri::ActivationPolicy::Accessory)?;
+                }
                 // Without a tray icon there's no way back to a hidden window.
                 if wants_hidden_launch(std::env::args().skip(1)) && !tray::is_active() {
                     if let Some(window) = app.get_webview_window("main") {
@@ -351,6 +349,10 @@ pub fn run() {
                 api.prevent_close();
                 if let Err(e) = window.hide() {
                     tracing::warn!(error = %e, "failed to hide window");
+                } else if tray::is_active() {
+                    let _ = window
+                        .app_handle()
+                        .set_activation_policy(tauri::ActivationPolicy::Accessory);
                 }
             }
 
@@ -374,7 +376,14 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let RunEvent::Opened { ref urls } = event {
+                let paths = urls.iter().flat_map(paths_from_open_url).collect();
+                queue_launch_paths(app, paths);
+            }
             if matches!(event, RunEvent::Exit) {
+                #[cfg(desktop)]
+                flash_drop_native::stop();
                 #[cfg(any(desktop, target_os = "android"))]
                 {
                     let state = app.state::<state::AppStateMutex>();
@@ -396,8 +405,48 @@ pub fn run() {
         });
 }
 
-fn first_non_flag_arg(args: impl IntoIterator<Item = String>) -> Option<String> {
-    args.into_iter().find(|arg| !arg.starts_with('-'))
+fn launch_paths(args: impl IntoIterator<Item = String>) -> Vec<String> {
+    args.into_iter()
+        .filter(|arg| !arg.starts_with('-') && std::path::Path::new(arg).exists())
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn paths_from_open_url(url: &tauri::Url) -> Vec<String> {
+    if url.scheme() == "file" {
+        return url
+            .to_file_path()
+            .ok()
+            .and_then(|p| p.to_str().map(str::to_owned))
+            .into_iter()
+            .collect();
+    }
+    if url.scheme() != "dashbeam-local" || url.host_str() != Some("share") {
+        return Vec::new();
+    }
+    url.query_pairs()
+        .filter(|(key, _)| key == "file")
+        .filter_map(|(_, value)| tauri::Url::parse(&value).ok())
+        .filter_map(|url| url.to_file_path().ok())
+        .filter(|path| path.exists())
+        .filter_map(|path| path.to_str().map(str::to_owned))
+        .collect()
+}
+
+#[cfg(desktop)]
+fn queue_launch_paths(app: &tauri::AppHandle, paths: Vec<String>) {
+    if paths.is_empty() {
+        return;
+    }
+    tray::open_and_focus(app);
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<state::AppStateMutex>();
+        state.lock().await.launch_intent.extend(paths);
+        // The event only wakes the consumer; a drain command owns the payload,
+        // so cold starts and a simultaneously mounting listener cannot lose it.
+        let _ = app.emit("launch-intent", ());
+    });
 }
 
 /// True when autostart launched us and no window should show. Exact match, so a
@@ -408,7 +457,7 @@ fn wants_hidden_launch(args: impl IntoIterator<Item = String>) -> bool {
 }
 
 fn app_state_initial() -> AppState {
-    let launch_intent = first_non_flag_arg(std::env::args().skip(1));
+    let launch_intent = launch_paths(std::env::args().skip(1));
     AppState {
         launch_intent,
         ..Default::default()
@@ -479,11 +528,47 @@ mod hidden_launch_tests {
     fn coexists_with_a_launch_intent_path() {
         // Autostart passes --hidden; a file association passes a path. Both
         // can arrive together, and neither may shadow the other.
-        let both = args(&["--hidden", "/Users/me/file.txt"]);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("测试 space #.txt");
+        std::fs::write(&path, "test").unwrap();
+        let both = args(&["--hidden", path.to_str().unwrap()]);
         assert!(wants_hidden_launch(both.clone()));
         assert_eq!(
-            super::first_non_flag_arg(both),
-            Some("/Users/me/file.txt".to_string())
+            super::launch_paths(both),
+            vec![path.to_str().unwrap().to_string()]
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn share_urls_accept_multiple_local_files_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = [
+            dir.path().join("中文 # & %.txt"),
+            dir.path().join("second.txt"),
+        ];
+        let mut url = tauri::Url::parse("dashbeam-local://share").unwrap();
+        for path in &paths {
+            std::fs::write(path, "fixture").unwrap();
+            url.query_pairs_mut()
+                .append_pair("file", tauri::Url::from_file_path(path).unwrap().as_str());
+        }
+        url.query_pairs_mut()
+            .append_pair("file", "https://example.com/test");
+        assert_eq!(
+            super::paths_from_open_url(&url),
+            paths
+                .iter()
+                .map(|p| p.to_str().unwrap().to_string())
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            super::paths_from_open_url(&tauri::Url::parse("https://example.com/").unwrap())
+                .is_empty()
+        );
+        assert_eq!(
+            super::paths_from_open_url(&tauri::Url::from_file_path(&paths[0]).unwrap()),
+            vec![paths[0].to_str().unwrap().to_string()]
         );
     }
 

@@ -188,7 +188,7 @@ async function invokeWeb<T>(
 function invokeWebStub<T>(cmd: string, args?: Record<string, unknown>): T {
 	switch (cmd) {
 		case 'check_launch_intent':
-			return null as T
+			return [] as T
 		case 'check_path_type': {
 			const path = String(args?.path ?? '')
 			if (isWebDirectory(path)) {

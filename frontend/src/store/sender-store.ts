@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { AlertDialogState, AlertType } from '../types/ui'
 import type { TransferMetadata, TransferProgress } from '../types/transfer'
+import type { AlertDialogState, AlertType } from '../types/ui'
 
 // Define explicit view states for predictable UI rendering
 export type SenderViewState = 'IDLE' | 'SHARING' | 'TRANSPORTING' | 'SUCCESS'
@@ -24,6 +24,8 @@ export interface SenderStore {
 	isBroadcastMode: boolean
 	alertDialog: AlertDialogState
 	activeConnectionCount: number
+	/** True after Sender has subscribed to native transfer lifecycle events. */
+	transferEventListenersReady: boolean
 
 	// Actions
 	setViewState: (state: SenderViewState) => void
@@ -42,6 +44,7 @@ export interface SenderStore {
 	toggleBroadcastMode: () => void
 	setAlertDialog: (dialog: AlertDialogState) => void
 	setActiveConnectionCount: (count: number) => void
+	setTransferEventListenersReady: (ready: boolean) => void
 	showAlert: (title: string, description: string, type?: AlertType) => void
 	closeAlert: () => void
 
@@ -64,6 +67,7 @@ export const useSenderStore = create<SenderStore>()((set) => ({
 	copySuccess: false,
 	isBroadcastMode: false,
 	activeConnectionCount: 0,
+	transferEventListenersReady: false,
 	alertDialog: {
 		isOpen: false,
 		title: '',
@@ -118,6 +122,8 @@ export const useSenderStore = create<SenderStore>()((set) => ({
 	setAlertDialog: (alertDialog) => set({ alertDialog }),
 	setActiveConnectionCount: (activeConnectionCount) =>
 		set({ activeConnectionCount }),
+	setTransferEventListenersReady: (transferEventListenersReady) =>
+		set({ transferEventListenersReady }),
 
 	showAlert: (title, description, type = 'info') =>
 		set({

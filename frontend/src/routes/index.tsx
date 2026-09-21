@@ -27,7 +27,7 @@ export function IndexPage() {
 	const { handleTicketChange } = useReceiverContext()
 
 	// Store actions
-	const setSelectedPath = useSenderStore((state) => state.setSelectedPath)
+	const addSelectedPaths = useSenderStore((state) => state.addSelectedPaths)
 	const setPathType = useSenderStore((state) => state.setPathType)
 	const requestedTab = useTransferTabStore((state) => state.requestedTab)
 	const clearRequestedTab = useTransferTabStore(
@@ -58,10 +58,25 @@ export function IndexPage() {
 	useEffect(() => {
 		isInitialRender.current = true
 
-		const applyIntent = async (path: string) => {
+		const applyIntent = async () => {
+			const paths = await invoke<string[]>('check_launch_intent')
+			if (!paths?.length) return
+			const sender = useSenderStore.getState()
+			if (
+				sender.viewState === 'SHARING' ||
+				sender.viewState === 'TRANSPORTING' ||
+				sender.isLoading
+			) {
+				toastManager.add({
+					title: '请先完成当前分享，再从 Finder 添加文件',
+					type: 'warning',
+				})
+				return
+			}
 			setActiveTab('send')
-			setSelectedPath(path)
+			addSelectedPaths(paths)
 			try {
+				const path = useSenderStore.getState().selectedPaths[0]
 				const type = await invoke<string>('check_path_type', { path })
 				setPathType(type as 'file' | 'directory')
 			} catch {
@@ -69,15 +84,13 @@ export function IndexPage() {
 			}
 		}
 
-		invoke<string | null>('check_launch_intent')
-			.then((path) => {
-				if (path) applyIntent(path)
-			})
-			.catch((e) => console.error('Failed to check launch intent:', e))
-
-		const unlistenPromise = listen<string>('launch-intent', (event) => {
-			if (event.payload) applyIntent(event.payload)
-		})
+		const consume = () =>
+			void applyIntent().catch((e) =>
+				console.error('Failed to check launch intent:', e)
+			)
+		const unlistenPromise = listen('launch-intent', consume)
+		// Register before draining the cold-start queue to avoid dropping an open event.
+		void unlistenPromise.then(consume)
 
 		// Surface the custom->public relay fallback at transfer time so a user who
 		// chose "custom for privacy" is not silently put on public relays.
@@ -101,7 +114,7 @@ export function IndexPage() {
 			unlistenPromise.then((unlisten) => unlisten())
 			unlistenFellBackPromise.then((unlisten) => unlisten())
 		}
-	}, [setSelectedPath, setPathType, t])
+	}, [addSelectedPaths, setPathType, t])
 
 	// Example: Routes can be accessed at different paths
 	// You can navigate using: import { useNavigate } from 'react-router-dom'

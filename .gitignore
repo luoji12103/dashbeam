@@ -1,5 +1,6 @@
 # Rust build artifacts
 /target
+/rollback/
 **/target
 
 # TypeScript build info files (incremental compilation cache)

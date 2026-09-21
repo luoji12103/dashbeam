@@ -175,6 +175,8 @@ pub async fn get_file_size(path: String) -> Result<u64, String> {
 #[tauri::command]
 #[cfg(desktop)]
 pub async fn focus_main_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    app_handle.set_activation_policy(tauri::ActivationPolicy::Regular).map_err(|e| e.to_string())?;
     if let Some(window) = app_handle.get_webview_window("main") {
         window.show().map_err(|e| e.to_string())?;
         if window.is_minimized().map_err(|e| e.to_string())? {
@@ -971,12 +973,33 @@ pub async fn get_transport_status(state: State<'_, AppStateMutex>) -> Result<boo
 
 /// Check if there was a launch intent (file path passed via CLI)
 /// Returns the path if present and clears it from state
+#[cfg(desktop)]
+#[tauri::command]
+pub fn configure_flash_drop(
+    app_handle: tauri::AppHandle,
+    enabled: bool,
+    target_label: String,
+    available: bool,
+) -> Result<(), String> {
+    crate::flash_drop_native::configure(&app_handle, enabled, &target_label, available)?;
+    crate::tray::set_flash_drop_enabled(&app_handle, enabled);
+    crate::tray::set_current_target(&app_handle, if target_label.is_empty() { None } else { Some(target_label) });
+    Ok(())
+}
+
+#[cfg(desktop)]
+#[tauri::command]
+pub fn flash_drop_feedback(message: String, success: bool) {
+    crate::flash_drop_native::show_result(success, &message);
+}
+
+/// Atomically drains pending files from CLI, Finder, or the Share extension.
 #[tauri::command]
 pub async fn check_launch_intent(
     state: State<'_, AppStateMutex>,
-) -> Result<Option<String>, String> {
+) -> Result<Vec<String>, String> {
     let mut app_state = state.lock().await;
-    Ok(app_state.launch_intent.take())
+    Ok(std::mem::take(&mut app_state.launch_intent))
 }
 
 #[tauri::command]

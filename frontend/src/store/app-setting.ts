@@ -52,6 +52,12 @@ export type AppSettingsState = {
 	 * Existing rows are left alone — disabling is not clearing.
 	 */
 	enableTransferHistory: boolean
+	/**
+	 * macOS-only quick-send surface. It remains unavailable until the user
+	 * explicitly chooses a currently paired destination.
+	 */
+	flashDropEnabled: boolean
+	flashDropTargetId: string | null
 }
 
 export type AppSettingsActions = {
@@ -76,6 +82,8 @@ export type AppSettingsActions = {
 	setDiscoverability: (value: 'everyone' | 'paired-only' | 'off') => void
 	setAutostartInitialized: (value: boolean) => void
 	setEnableTransferHistory: (value: boolean) => void
+	setFlashDropEnabled: (value: boolean) => void
+	setFlashDropTargetId: (value: string | null) => void
 }
 
 export type AppSettings = AppSettingsState & AppSettingsActions
@@ -152,6 +160,9 @@ export const useAppSettingStore = create<AppSettings>()(
 				set({ autostartInitialized: value }),
 			setEnableTransferHistory: (value: boolean) =>
 				set({ enableTransferHistory: value }),
+			setFlashDropEnabled: (value: boolean) => set({ flashDropEnabled: value }),
+			setFlashDropTargetId: (value: string | null) =>
+				set({ flashDropTargetId: value }),
 		}),
 		{
 			name: AppSettingsKey,

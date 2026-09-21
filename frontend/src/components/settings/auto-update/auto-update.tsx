@@ -49,6 +49,22 @@ export function AutoUpdate() {
 		})
 	}
 
+	if (import.meta.env.VITE_LOCAL_MACOS_BUILD === 'true') {
+		return (
+			<Frame>
+				<FramePanel>
+					<FrameTitle>本地定制版 · macOS 集成</FrameTitle>
+					<FrameDescription>
+						关闭窗口后仅保留菜单栏图标。Finder 中可通过“共享 →
+						DashBeam”或“快速操作 → 用 DashBeam 分享”添加文件。 可在系统设置 →
+						键盘 → 键盘快捷键 → 服务中，为“用 DashBeam 分享”设置快捷键。
+						此版本不自动安装官方更新，以保留本地改动。
+					</FrameDescription>
+				</FramePanel>
+			</Frame>
+		)
+	}
+
 	if (isPortable) {
 		return (
 			<Frame>

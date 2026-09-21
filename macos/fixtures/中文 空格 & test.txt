@@ -1,0 +1,1 @@
+DashBeam local integration fixture. No private data.

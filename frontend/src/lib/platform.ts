@@ -57,4 +57,5 @@ export const IS_ANDROID_UPDATE_CHECK_ENABLED =
  * Windows portable is excluded too, but only at runtime (`useIsWindowsPortable`).
  */
 export const IS_UPDATER_AVAILABLE =
-	(IS_DESKTOP && !IS_FLATPAK) || IS_ANDROID_UPDATE_CHECK_ENABLED
+	import.meta.env?.VITE_LOCAL_MACOS_BUILD !== 'true' &&
+	((IS_DESKTOP && !IS_FLATPAK) || IS_ANDROID_UPDATE_CHECK_ENABLED)

@@ -1,6 +1,12 @@
-import { Outlet } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, useNavigate } from 'react-router-dom'
+import { invoke, listen, openDialog } from '@/lib/platform-api'
+import { useSenderStore } from '@/store/sender-store'
+import { useTransferTabStore } from '@/store/transfer-tab-store'
+import { toastManager } from '../ui/toast'
 
 import { AppFooter } from '../AppFooter'
+import { FlashDropBridge } from '@/components/flash-drop'
 import { TitleBar } from '../TitleBar'
 import { useTranslation } from '@/i18n'
 import { AppUpdater } from '../common/AppUpdater'
@@ -25,12 +31,64 @@ import {
 } from '@/lib/platform'
 
 export function RootLayout() {
+	const navigate = useNavigate()
+	useEffect(() => {
+		const choose = async (directory: boolean) => {
+			const busy = () => {
+				const state = useSenderStore.getState()
+				return (
+					state.isLoading ||
+					state.viewState === 'SHARING' ||
+					state.viewState === 'TRANSPORTING'
+				)
+			}
+			if (busy()) {
+				toastManager.add({
+					title: '请先完成当前分享，再添加文件',
+					type: 'warning',
+				})
+				return
+			}
+			const selected = await openDialog({ multiple: true, directory })
+			if (!selected || busy()) return
+			const paths = Array.isArray(selected) ? selected : [selected]
+			if (!paths.length) return
+			const sender = useSenderStore.getState()
+			sender.addSelectedPaths(paths)
+			const path = useSenderStore.getState().selectedPaths[0]
+			sender.setPathType(
+				await invoke<'file' | 'directory'>('check_path_type', { path })
+			)
+			useTransferTabStore.getState().requestTab('send')
+			navigate('/')
+		}
+		const report = (error: unknown) =>
+			toastManager.add({
+				title: '无法选择文件',
+				description: String(error),
+				type: 'error',
+			})
+		const stops = [
+			listen('launch-intent', () => navigate('/')),
+			listen('open-settings', () => navigate('/settings')),
+			listen('choose-share-files', () => {
+				void choose(false).catch(report)
+			}),
+			listen('choose-share-folder', () => {
+				void choose(true).catch(report)
+			}),
+		]
+		return () => {
+			for (const stop of stops) void stop.then((unlisten) => unlisten())
+		}
+	}, [navigate])
 	const { t } = useTranslation('common')
 	const { data: isWindowsPortable = false } = useIsWindowsPortable()
 	useTrayLabels()
 	useAutostartFirstRun()
 	return (
 		<ReceiverProvider>
+			<FlashDropBridge />
 			{/* Mounts the periodic check as well as the banner, so this gate decides
 			    whether the app checks for updates at all — Android included. */}
 			{IS_UPDATER_AVAILABLE && !isWindowsPortable && <AppUpdater />}

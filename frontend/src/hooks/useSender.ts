@@ -24,14 +24,14 @@ import { toastManager } from '../components/ui/toast'
 import { useTranslation } from '../i18n/react-i18next-compat'
 import { getDiscoveryConfigArg } from '../lib/discovery'
 import { getRelayConfigArg } from '../lib/relay'
-import { copyTextToClipboard } from '../lib/utils'
-import { useSenderStore } from '../store/sender-store'
-import type { TransferMetadata, TransferProgress } from '../types/transfer'
-import type { AlertType } from '../types/ui'
 import {
 	parseCompletionPayload,
 	parseProgressPayload,
 } from '../lib/transfer-events'
+import { copyTextToClipboard } from '../lib/utils'
+import { useSenderStore } from '../store/sender-store'
+import type { TransferMetadata, TransferProgress } from '../types/transfer'
+import type { AlertType } from '../types/ui'
 
 export type PairedInviteStatus = 'sending' | 'sent' | 'failed'
 
@@ -545,6 +545,13 @@ export function useSender(): UseSenderReturn {
 			} else {
 				unlistenFailed = nextUnlistenFailed
 			}
+
+			// Flash Drop can navigate here from a different route. It must wait for
+			// these listeners before inviting the selected device, otherwise a very
+			// fast acceptance could lose the first progress/completion event.
+			if (!disposed) {
+				useSenderStore.getState().setTransferEventListenersReady(true)
+			}
 		}
 
 		setupListeners().catch((error) => {
@@ -553,6 +560,7 @@ export function useSender(): UseSenderReturn {
 
 		return () => {
 			disposed = true
+			useSenderStore.getState().setTransferEventListenersReady(false)
 			if (progressUpdateIntervalRef.current) {
 				clearInterval(progressUpdateIntervalRef.current)
 				progressUpdateIntervalRef.current = null

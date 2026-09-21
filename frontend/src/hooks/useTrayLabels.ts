@@ -18,6 +18,22 @@ export function useTrayLabels(): void {
 		if (!IS_DESKTOP) return
 		void invoke('set_tray_labels', {
 			labels: {
+				settings: i18n.language.startsWith('zh') ? '快捷设置…' : 'Settings…',
+				share_files: i18n.language.startsWith('zh')
+					? '选择文件分享…'
+					: 'Share Files…',
+				share_folder: i18n.language.startsWith('zh')
+					? '选择文件夹分享…'
+					: 'Share Folder…',
+				flash_drop: i18n.language.startsWith('zh')
+					? '右上角闪传'
+					: 'Flash Drop',
+				target_none: i18n.language.startsWith('zh')
+					? '闪传目标：未选择'
+					: 'Target: Not selected',
+				target_selected: i18n.language.startsWith('zh')
+					? '闪传目标：{{name}}'
+					: 'Target: {{name}}',
 				open: t('settings.general.systembar.trayOpen'),
 				quit: t('settings.general.systembar.trayQuit'),
 				no_devices: t('settings.general.systembar.trayNoDevices'),

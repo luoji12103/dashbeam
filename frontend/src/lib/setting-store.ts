@@ -26,6 +26,8 @@ export const defaultAppSettings: AppSettingsState = {
 	discoverability: 'everyone',
 	autostartInitialized: false,
 	enableTransferHistory: true,
+	flashDropEnabled: false,
+	flashDropTargetId: null,
 }
 
 const webSettingStorage: StateStorage = {
