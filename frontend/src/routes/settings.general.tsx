@@ -1,6 +1,8 @@
 import {
 	IS_DESKTOP,
+	IS_LOCAL_BUILD,
 	IS_MACOS,
+	IS_PAIRING_CAPABLE,
 	IS_TAURI,
 	IS_UPDATER_AVAILABLE,
 } from '@/lib/platform'
@@ -26,11 +28,11 @@ export function SettingGeneralPage() {
 			<BroadcastSettings />
 			<RelayStatusSettings />
 			{IS_TAURI && <Notifications />}
-			{IS_DESKTOP && <ReceivedTextSettings />}
+			{IS_PAIRING_CAPABLE && <ReceivedTextSettings />}
 			{IS_DESKTOP && <SystemTray />}
 			{IS_MACOS && <FlashDropSettings />}
 			{IS_TAURI && <TransferHistorySettings />}
-			{IS_UPDATER_AVAILABLE && <AutoUpdate />}
+			{(IS_UPDATER_AVAILABLE || IS_LOCAL_BUILD) && <AutoUpdate />}
 			<DebugMode />
 		</>
 	)

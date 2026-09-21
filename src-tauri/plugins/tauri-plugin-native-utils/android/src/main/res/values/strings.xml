@@ -13,4 +13,7 @@
     <string name="presence_channel_description">Keeps this device reachable by your paired and nearby devices while DashBeam is in the background.</string>
     <string name="presence_notification_title">DashBeam is running</string>
     <string name="presence_notification_text">Staying reachable by your devices</string>
+    <string name="received_text_channel_name">Received text</string>
+    <string name="received_text_channel_description">Alerts when a text transfer arrives while DashBeam is in the background.</string>
+    <string name="received_text_notification_title">Text received</string>
 </resources>

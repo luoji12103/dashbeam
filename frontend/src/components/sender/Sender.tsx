@@ -1,6 +1,6 @@
 import { ClipboardIcon, FileTextIcon, StopCircleIcon } from 'lucide-react'
 import { useEffect } from 'react'
-import { IS_DESKTOP } from '@/lib/platform'
+import { IS_PAIRING_CAPABLE } from '@/lib/platform'
 import { useSender } from '../../hooks/useSender'
 import { useTranslation } from '../../i18n/react-i18next-compat'
 import { useSenderStore } from '../../store/sender-store'
@@ -111,7 +111,7 @@ export function Sender({ isActive, onTransferStateChange }: SenderProps) {
 							<FileTextIcon />
 							{t('common:sender.text.file')}
 						</ToggleGroupItem>
-						{IS_DESKTOP ? (
+						{IS_PAIRING_CAPABLE ? (
 							<ToggleGroupItem
 								value="text"
 								aria-label={t('common:sender.text.text')}

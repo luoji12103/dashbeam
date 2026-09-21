@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="received_text_channel_name">接收文本</string>
+    <string name="received_text_channel_description">DashBeam 在后台时，收到文本传输后发出提醒。</string>
+    <string name="received_text_notification_title">已收到文本</string>
+</resources>

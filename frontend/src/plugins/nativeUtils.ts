@@ -6,6 +6,12 @@ export type DownloadFolderSelectionResponse = {
 	path: string
 }
 
+/** A Markdown document decoded and bounded by the Android system picker. */
+export type SelectedTextDocument = {
+	text: string
+	fileName: string
+}
+
 export type CopyProgress = {
 	totalBytes: string
 	progress: number
@@ -41,6 +47,18 @@ export async function selectDownloadFolder(): Promise<DownloadFolderSelectionRes
 
 	return await invoke<DownloadFolderSelectionResponse>(
 		'plugin:native-utils|select_download_folder'
+	)
+}
+
+/**
+ * Android's SAF returns content URIs rather than filesystem paths. The native
+ * picker reads and validates Markdown before it crosses the webview boundary.
+ */
+export async function selectSendMarkdown(): Promise<SelectedTextDocument | null> {
+	if (!IS_TAURI) return null
+
+	return invoke<SelectedTextDocument | null>(
+		'plugin:native-utils|select_send_markdown'
 	)
 }
 

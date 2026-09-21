@@ -45,6 +45,28 @@ pub struct WriteTextToUriArgs {
     pub contents: String,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WriteClipboardTextArgs {
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectedTextDocument {
+    pub text: String,
+    pub file_name: String,
+}
+
+/// An Android `ACTION_SEND` text payload. Invalid or oversized input is
+/// reported separately so it can never be mistaken for an empty draft.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedText {
+    pub text: Option<String>,
+    pub error: Option<String>,
+}
+
 /// What to show for a MediaStore export, most specific first: a single file's
 /// `uri`, else the `relative_path` it landed in, else the Downloads list.
 #[derive(Debug, Clone, Deserialize, Serialize)]

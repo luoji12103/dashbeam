@@ -36,8 +36,10 @@ import { sendSystemNotification } from '../lib/systemNotification'
 import { copyTextToClipboard } from '../lib/utils'
 import {
 	isMarkedTextMetadata,
+	parsePendingReceivedText,
 	parseReceivedTextReady,
 } from '../lib/received-text'
+import type { ReceivedTextReadyPayload } from '../lib/received-text'
 import type {
 	TicketPreviewMetadata,
 	TransferMetadata,
@@ -207,13 +209,91 @@ export function useReceiver(): UseReceiverReturn {
 		autoCopyReceivedTextRef.current = autoCopyReceivedText
 	}, [autoCopyReceivedText])
 
+	const showAlert = useCallback(
+		(title: string, description: string, type: AlertType = 'info') => {
+			setAlertDialog({ isOpen: true, title, description, type })
+		},
+		[]
+	)
+
 	const writeClipboard = useCallback(async (text: string) => {
 		if (IS_DESKTOP) {
 			await invoke('write_clipboard_text', { text })
 			return
 		}
+		if (IS_ANDROID) {
+			await invoke('plugin:native-utils|write_clipboard_text', { text })
+			return
+		}
 		await copyTextToClipboard(text)
 	}, [])
+
+	const loadReceivedText = useCallback(
+		async (
+			payload: ReceivedTextReadyPayload,
+			{
+				isCurrent,
+				shouldAutoCopy,
+			}: {
+				isCurrent: () => boolean
+				shouldAutoCopy: boolean
+			}
+		) => {
+			const key = `${payload.ticket}:${payload.path}`
+			if (handledTextKeysRef.current.has(key)) return
+			handledTextKeysRef.current.add(key)
+
+			try {
+				const content = await invoke<string>('read_received_text', {
+					path: payload.path,
+				})
+				if (!isCurrent()) {
+					handledTextKeysRef.current.delete(key)
+					return
+				}
+
+				let isCopied = false
+				let copyError: string | null = null
+				if (shouldAutoCopy) {
+					try {
+						await writeClipboard(content)
+						isCopied = true
+					} catch (error) {
+						copyError = String(error)
+					}
+				}
+				if (!isCurrent()) {
+					handledTextKeysRef.current.delete(key)
+					return
+				}
+
+				setReceivedText({
+					resultId: `${textGenerationRef.current}:${payload.path}`,
+					content,
+					size: payload.size,
+					path: payload.path,
+					isCopied,
+					isCopying: false,
+					copyError,
+				})
+				await invoke<void>('acknowledge_received_text', {
+					path: payload.path,
+				}).catch((error) => {
+					console.warn('Failed to acknowledge received text:', error)
+				})
+			} catch (error) {
+				handledTextKeysRef.current.delete(key)
+				if (!isCurrent()) return
+				console.error('Failed to load received text:', error)
+				showAlert(
+					t('common:receiver.receivedText.loadFailed'),
+					String(error),
+					'error'
+				)
+			}
+		},
+		[showAlert, t, writeClipboard]
+	)
 
 	const copyReceivedText = useCallback(async () => {
 		const textState = receivedText
@@ -389,13 +469,6 @@ export function useReceiver(): UseReceiverReturn {
 		}
 	}, [ticket, isReceiving])
 
-	const showAlert = useCallback(
-		(title: string, description: string, type: AlertType = 'info') => {
-			setAlertDialog({ isOpen: true, title, description, type })
-		},
-		[]
-	)
-
 	const closeAlert = useCallback(() => {
 		setAlertDialog((prev) => ({ ...prev, isOpen: false }))
 	}, [])
@@ -479,43 +552,14 @@ export function useReceiver(): UseReceiverReturn {
 						activeTicketRef.current
 					)
 					if (!payload) return
-					const { ticket: eventTicket, path, size } = payload
-					const key = `${seq}:${path}`
-					if (handledTextKeysRef.current.has(key)) return
-					handledTextKeysRef.current.add(key)
-
-					const content = await invoke<string>('read_received_text', { path })
-					if (
-						transferSeqRef.current !== seq ||
-						textGenerationRef.current !== generation ||
-						activeTicketRef.current !== eventTicket
-					)
-						return
-
-					let isCopied = false
-					let copyError: string | null = null
-					if (autoCopyReceivedTextRef.current) {
-						try {
-							await writeClipboard(content)
-							isCopied = true
-						} catch (error) {
-							copyError = String(error)
-						}
-					}
-					if (
-						transferSeqRef.current !== seq ||
-						textGenerationRef.current !== generation ||
-						activeTicketRef.current !== eventTicket
-					)
-						return
-					setReceivedText({
-						resultId: `${generation}:${path}`,
-						content,
-						size,
-						path,
-						isCopied,
-						isCopying: false,
-						copyError,
+					await loadReceivedText(payload, {
+						isCurrent: () =>
+							transferSeqRef.current === seq &&
+							textGenerationRef.current === generation &&
+							activeTicketRef.current === payload.ticket,
+						shouldAutoCopy:
+							autoCopyReceivedTextRef.current &&
+							(!IS_ANDROID || document.visibilityState === 'visible'),
 					})
 				} catch (error) {
 					if (
@@ -717,7 +761,84 @@ export function useReceiver(): UseReceiverReturn {
 				unlisten()
 			})
 		}
-	}, [t, showAlert, writeClipboard])
+	}, [loadReceivedText, t, showAlert])
+
+	useEffect(() => {
+		if (!IS_ANDROID) return
+
+		let disposed = false
+		let unlisten: (() => void) | undefined
+		const recoverPendingText = async () => {
+			if (disposed || document.visibilityState !== 'visible') return
+			const seq = transferSeqRef.current
+			const generation = textGenerationRef.current
+			const activeTicket = activeTicketRef.current
+			try {
+				const pending = await invoke<unknown>('get_pending_received_text')
+				const payload = parsePendingReceivedText(pending)
+				if (!payload || disposed) return
+				if (
+					transferSeqRef.current !== seq ||
+					textGenerationRef.current !== generation ||
+					activeTicketRef.current !== activeTicket ||
+					(activeTicket !== '' && payload.ticket !== activeTicket)
+				)
+					return
+				await loadReceivedText(payload, {
+					isCurrent: () =>
+						!disposed &&
+						transferSeqRef.current === seq &&
+						textGenerationRef.current === generation &&
+						activeTicketRef.current === activeTicket &&
+						(activeTicket === '' || payload.ticket === activeTicket),
+					// Recovered text may have arrived while backgrounded; never copy it
+					// without an explicit foreground action.
+					shouldAutoCopy: false,
+				})
+			} catch (error) {
+				if (!disposed) {
+					console.error('Failed to recover pending received text:', error)
+				}
+			}
+		}
+
+		const setup = async () => {
+			await recoverPendingText()
+			const { addPluginListener } = await import('@tauri-apps/api/core')
+			const listener = await addPluginListener(
+				'native-utils',
+				'receivedTextNotificationTapped',
+				async () => {
+					try {
+						const tapped = await invoke<boolean>(
+							'plugin:native-utils|consume_received_text_notification_tap'
+						)
+						if (tapped) await recoverPendingText()
+					} catch (error) {
+						console.error('Failed to handle received text notification:', error)
+					}
+				}
+			)
+			if (disposed) {
+				void listener.unregister()
+				return
+			}
+			unlisten = () => void listener.unregister()
+		}
+
+		void setup().catch((error) => {
+			console.error('Failed to set up received text recovery:', error)
+		})
+		window.addEventListener('focus', recoverPendingText)
+		document.addEventListener('visibilitychange', recoverPendingText)
+
+		return () => {
+			disposed = true
+			unlisten?.()
+			window.removeEventListener('focus', recoverPendingText)
+			document.removeEventListener('visibilitychange', recoverPendingText)
+		}
+	}, [loadReceivedText])
 
 	const handleTicketChange = useCallback((newTicket: string) => {
 		const fromLink = ticketFromReceiveLink(newTicket)

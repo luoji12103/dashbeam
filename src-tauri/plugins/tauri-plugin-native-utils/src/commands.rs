@@ -37,6 +37,37 @@ pub(crate) async fn consume_share_intent<R: Runtime>(
 }
 
 #[command]
+pub(crate) async fn select_send_markdown<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Option<SelectedTextDocument>> {
+    app.native_utils().select_send_markdown()
+}
+
+#[command]
+pub(crate) async fn write_clipboard_text<R: Runtime>(
+    app: AppHandle<R>,
+    text: String,
+) -> Result<()> {
+    app.native_utils()
+        .write_clipboard_text(WriteClipboardTextArgs { text })
+}
+
+#[command]
+pub(crate) async fn consume_shared_text<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Option<SharedText>> {
+    app.native_utils().consume_shared_text()
+}
+
+#[command]
+pub(crate) async fn consume_received_text_notification_tap<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<bool> {
+    app.native_utils()
+        .consume_received_text_notification_tap()
+}
+
+#[command]
 pub(crate) async fn cancel_job<R: Runtime>(app: tauri::AppHandle<R>, job: AsyncJob) -> Result<()> {
     app.native_utils().cancel_job(job)
 }

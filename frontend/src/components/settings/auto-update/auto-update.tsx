@@ -18,6 +18,7 @@ import {
 import { useIsWindowsPortable } from '../../../hooks/use-windows-portable'
 import { UpdateProgressBar } from '../../common/update-progress'
 import { toastManager } from '../../ui/toast'
+import { IS_LOCAL_BUILD } from '../../../lib/platform'
 
 export function AutoUpdate() {
 	const { t } = useTranslation()
@@ -49,16 +50,13 @@ export function AutoUpdate() {
 		})
 	}
 
-	if (import.meta.env.VITE_LOCAL_MACOS_BUILD === 'true') {
+	if (IS_LOCAL_BUILD) {
 		return (
 			<Frame>
 				<FramePanel>
-					<FrameTitle>本地定制版 · macOS 集成</FrameTitle>
+					<FrameTitle>本地构建</FrameTitle>
 					<FrameDescription>
-						关闭窗口后仅保留菜单栏图标。Finder 中可通过“共享 →
-						DashBeam”或“快速操作 → 用 DashBeam 分享”添加文件。 可在系统设置 →
-						键盘 → 键盘快捷键 → 服务中，为“用 DashBeam 分享”设置快捷键。
-						此版本不自动安装官方更新，以保留本地改动。
+						此版本不检查或安装官方更新，以保留本地包标识和改动。
 					</FrameDescription>
 				</FramePanel>
 			</Frame>

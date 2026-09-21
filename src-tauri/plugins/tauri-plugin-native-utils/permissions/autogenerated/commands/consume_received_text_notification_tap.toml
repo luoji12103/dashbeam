@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-consume-received-text-notification-tap"
+description = "Enables the consume_received_text_notification_tap command without any pre-configured scope."
+commands.allow = ["consume_received_text_notification_tap"]
+
+[[permission]]
+identifier = "deny-consume-received-text-notification-tap"
+description = "Denies the consume_received_text_notification_tap command without any pre-configured scope."
+commands.deny = ["consume_received_text_notification_tap"]

@@ -89,7 +89,12 @@
 			"size": "{{bytes}} / {{limit}} 字节",
 			"empty": "请输入要共享的文字。",
 			"tooLarge": "文字超过 1 MiB 限制。",
-			"desktopOnly": "文字共享目前仅适用于桌面应用。"
+			"desktopOnly": "文字共享仅适用于原生应用。",
+			"sharedTextInvalid": "无法使用分享的文字",
+			"replaceDraftTitle": "替换当前文字？",
+			"replaceDraftDescription": "分享的文字已就绪，当前草稿尚未被修改。",
+			"keepDraft": "保留草稿",
+			"replaceDraft": "替换"
 		},
 		"broadcastMode": {
 			"index": "广播",
@@ -329,7 +334,8 @@
 			"receivedText": {
 				"title": "收到的文本",
 				"autoCopy": "自动复制收到的文本",
-				"autoCopyDescription": "带有文本标记的传输完成后，将内容复制到剪贴板。普通 .txt 和 .md 文件绝不会自动复制。"
+				"autoCopyDescription": "带有文本标记的传输完成后，将内容复制到剪贴板。普通 .txt 和 .md 文件绝不会自动复制。",
+				"autoCopyDescriptionAndroid": "仅当 DashBeam 在前台时，才会复制带有文本标记的内容。普通 .txt 和 .md 文件绝不会自动复制。"
 			},
 			"flashDrop": {
 				"title": "闪传",

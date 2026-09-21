@@ -139,6 +139,8 @@ pub fn run() {
             receive_file,
             read_text_file,
             read_received_text,
+            get_pending_received_text,
+            acknowledge_received_text,
             #[cfg(desktop)]
             write_clipboard_text,
             cancel_receive,

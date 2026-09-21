@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DashBeam Local",
+  "identifier": "com.dashbeam.android.local",
+  "build": {
+    "beforeBuildCommand": "VITE_LOCAL_BUILD=true pnpm run build"
+  },
+  "bundle": {
+    "android": {
+      "minSdkVersion": 29,
+      "versionCode": 70103
+    }
+  }
+}

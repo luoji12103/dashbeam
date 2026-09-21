@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { useReceiver, type UseReceiverReturn } from '@/hooks/useReceiver'
 import { invoke } from '@/lib/platform-api'
+import { IS_ANDROID } from '@/lib/platform'
 import { ReceivedTextCard } from './ReceivedTextCard'
 import { useTranslation } from '../../i18n/react-i18next-compat'
 import {
@@ -18,7 +19,23 @@ export function ReceiverProvider({ children }: { children: React.ReactNode }) {
 	const receiver = useReceiver()
 	const { t } = useTranslation()
 	const [textDialogOpen, setTextDialogOpen] = useState(false)
+	const [isForeground, setIsForeground] = useState(
+		() => !IS_ANDROID || document.visibilityState === 'visible'
+	)
 	const presentedTextIdRef = useRef<string | null>(null)
+
+	useEffect(() => {
+		if (!IS_ANDROID) return
+		const updateForeground = () => {
+			setIsForeground(document.visibilityState === 'visible')
+		}
+		document.addEventListener('visibilitychange', updateForeground)
+		window.addEventListener('focus', updateForeground)
+		return () => {
+			document.removeEventListener('visibilitychange', updateForeground)
+			window.removeEventListener('focus', updateForeground)
+		}
+	}, [])
 
 	useEffect(() => {
 		const text = receiver.receivedText
@@ -28,6 +45,10 @@ export function ReceiverProvider({ children }: { children: React.ReactNode }) {
 		}
 		// Let transfer errors/conflict notices finish first instead of stacking dialogs.
 		if (receiver.alertDialog.isOpen) return
+		// Android receives background text through a native notification. Keep the
+		// dialog dormant until the user returns through that notification instead
+		// of making the background WebView appear to take focus.
+		if (IS_ANDROID && !isForeground) return
 		if (presentedTextIdRef.current === text.resultId) {
 			return
 		}
@@ -38,11 +59,14 @@ export function ReceiverProvider({ children }: { children: React.ReactNode }) {
 			return
 		}
 		setTextDialogOpen(true)
-		// Manual action is required, so reveal the app if it was backgrounded.
-		void invoke('focus_main_window').catch((error) => {
-			console.warn('Failed to show received text window:', error)
-		})
-	}, [receiver.alertDialog.isOpen, receiver.receivedText])
+		if (!IS_ANDROID) {
+			// Desktop has an explicit window-focus command; Android notification
+			// taps own the foreground transition and must not be forced from JS.
+			void invoke('focus_main_window').catch((error) => {
+				console.warn('Failed to show received text window:', error)
+			})
+		}
+	}, [isForeground, receiver.alertDialog.isOpen, receiver.receivedText])
 
 	return (
 		<ReceiverContext.Provider value={receiver}>

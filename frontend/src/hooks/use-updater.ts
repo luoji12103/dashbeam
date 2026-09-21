@@ -12,6 +12,7 @@ import { toastManager } from '../components/ui/toast'
 import { useTranslation } from '../i18n/react-i18next-compat'
 import {
 	IS_ANDROID_UPDATE_CHECK_ENABLED,
+	IS_LOCAL_BUILD,
 	IS_MOBILE,
 	IS_WEB,
 	IS_FLATPAK,
@@ -52,7 +53,7 @@ export type UpdateInfo = {
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 
 async function checkForUpdate(): Promise<UpdateInfo> {
-	if (import.meta.env.VITE_LOCAL_MACOS_BUILD === 'true') return null
+	if (IS_LOCAL_BUILD) return null
 	// The updater plugin is registered `#[cfg(desktop)]`, so calling it on
 	// mobile always rejects. Sideloaded Android asks GitHub directly instead.
 	if (IS_MOBILE) {

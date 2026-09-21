@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 import {
 	isMarkedTextMetadata,
 	MAX_RECEIVED_TEXT_BYTES,
+	parsePendingReceivedText,
 	parseReceivedTextReady,
 } from './received-text.js'
 
@@ -64,6 +65,17 @@ describe('parseReceivedTextReady', () => {
 				ticket
 			),
 			null
+		)
+	})
+
+	it('accepts a validated recovery record without a live ticket', () => {
+		assert.deepEqual(
+			parsePendingReceivedText({
+				ticket,
+				path: '/tmp/message.txt',
+				size: 5,
+			}),
+			{ ticket, path: '/tmp/message.txt', size: 5 }
 		)
 	})
 })

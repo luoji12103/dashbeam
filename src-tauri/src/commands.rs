@@ -3,7 +3,7 @@ use crate::history::{
     history_enabled, partial_store_path_for, CompletionFacts, HistoryRecordingEmitter,
     TransferContext,
 };
-use crate::state::{AppStateMutex, OwnedSourceDir, ShareHandle};
+use crate::state::{AppStateMutex, OwnedSourceDir, ReceivedTextReady, ShareHandle};
 use engine::{
     build_discovery_mode, download, fetch_metadata, get_relay_status as engine_get_relay_status,
     resolve_relay_mode_with_fallback, start_share_items,
@@ -450,6 +450,23 @@ pub async fn read_received_text(
         .ok_or_else(|| "No validated completed text transfer exists for this path".to_string())
 }
 
+/// Recover an event missed while a mobile WebView was suspended. No filesystem read.
+#[tauri::command]
+pub async fn get_pending_received_text(
+    state: State<'_, AppStateMutex>,
+) -> Result<Option<ReceivedTextReady>, String> {
+    Ok(state.lock().await.pending_received_text.clone())
+}
+
+#[tauri::command]
+pub async fn acknowledge_received_text(
+    path: String,
+    state: State<'_, AppStateMutex>,
+) -> Result<(), String> {
+    state.lock().await.acknowledge_received_text(&path);
+    Ok(())
+}
+
 /// Native clipboard write works even when the webview does not have focus.
 #[cfg(desktop)]
 #[tauri::command]
@@ -788,6 +805,7 @@ pub async fn receive_file(
         app_state.current_receive_cancel = Some(cancel_tx);
         app_state.current_receive_hash = incoming_hash.clone();
         app_state.completed_text.clear();
+        app_state.pending_received_text = None;
     }
 
     // Metadata is advisory for ordinary files. Bound this second, independent
@@ -890,10 +908,16 @@ pub async fn receive_file(
 
             if let Some((path, text)) = validated_text {
                 let size = text.len();
+                let ready = ReceivedTextReady {
+                    ticket: ticket.clone(),
+                    path: path.clone(),
+                    size,
+                };
                 {
                     let mut app_state = state.lock().await;
                     app_state.completed_text.clear();
                     app_state.completed_text.insert(path.clone(), text);
+                    app_state.pending_received_text = Some(ready);
                 }
                 let payload = serde_json::json!({
                     "ticket": ticket,
@@ -901,6 +925,15 @@ pub async fn receive_file(
                     "size": size,
                 });
                 let _ = app_handle.emit("received-text-ready", payload.to_string());
+                #[cfg(target_os = "android")]
+                {
+                    use tauri_plugin_native_utils::NativeUtilsExt;
+                    // The WebView may be suspended. Native code decides whether
+                    // a background notification is appropriate and permitted.
+                    if let Err(error) = app_handle.native_utils().notify_received_text() {
+                        tracing::warn!(%error, "could not notify received text");
+                    }
+                }
             }
             Ok(r.message)
         }

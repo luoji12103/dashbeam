@@ -12,7 +12,7 @@ import {
 	listPairedDevices,
 	type PairedDevice,
 } from '@/lib/pairing-api'
-import { IS_DESKTOP, IS_PAIRING_CAPABLE } from '@/lib/platform'
+import { IS_PAIRING_CAPABLE } from '@/lib/platform'
 import { invoke, listen, type UnlistenFn } from '@/lib/platform-api'
 import {
 	getWebPreviewErrorMessage,
@@ -723,7 +723,7 @@ export function useSender(): UseSenderReturn {
 			return
 		}
 		const textValidation = validateTextDraft(textDraft)
-		if (sendMode === 'text' && !IS_DESKTOP) {
+		if (sendMode === 'text' && !IS_PAIRING_CAPABLE) {
 			showAlert(
 				t('common:errors.sharingFailed'),
 				t('common:sender.text.desktopOnly'),

@@ -89,7 +89,12 @@
 			"size": "{{bytes}} / {{limit}} bytes",
 			"empty": "Enter text before sharing.",
 			"tooLarge": "Text is larger than the 1 MiB limit.",
-			"desktopOnly": "Text sharing is available in desktop apps."
+			"desktopOnly": "Text sharing is available in native apps.",
+			"sharedTextInvalid": "Couldn't use the shared text",
+			"replaceDraftTitle": "Replace current text?",
+			"replaceDraftDescription": "Shared text is ready, but your current draft has not been changed.",
+			"keepDraft": "Keep draft",
+			"replaceDraft": "Replace"
 		},
 		"broadcastMode": {
 			"index": "Broadcast",
@@ -336,7 +341,8 @@
 			"receivedText": {
 				"title": "Received text",
 				"autoCopy": "Copy received text automatically",
-				"autoCopyDescription": "After a marked text transfer finishes, copy it to the clipboard. Regular .txt and .md files are never copied automatically."
+				"autoCopyDescription": "After a marked text transfer finishes, copy it to the clipboard. Regular .txt and .md files are never copied automatically.",
+				"autoCopyDescriptionAndroid": "Copies marked text only while DashBeam is in the foreground. Regular .txt and .md files are never copied automatically."
 			},
 			"flashDrop": {
 				"title": "Flash Drop",

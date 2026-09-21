@@ -58,6 +58,40 @@ impl<R: Runtime> NativeUtils<R> {
 }
 
 impl<R: Runtime> NativeUtils<R> {
+    pub fn select_send_markdown(&self) -> crate::Result<Option<SelectedTextDocument>> {
+        self.0
+            .run_mobile_plugin("select_send_markdown", ())
+            .map_err(Into::into)
+    }
+
+    pub fn write_clipboard_text(&self, args: WriteClipboardTextArgs) -> crate::Result<()> {
+        self.0
+            .run_mobile_plugin("write_clipboard_text", args)
+            .map_err(Into::into)
+    }
+
+    pub fn consume_shared_text(&self) -> crate::Result<Option<SharedText>> {
+        self.0
+            .run_mobile_plugin("consume_shared_text", ())
+            .map_err(Into::into)
+    }
+
+    pub fn consume_received_text_notification_tap(&self) -> crate::Result<bool> {
+        self.0
+            .run_mobile_plugin("consume_received_text_notification_tap", ())
+            .map_err(Into::into)
+    }
+
+    /// Post a privacy-preserving Android notification. `false` means the user
+    /// has disabled notification delivery; receiving the text still succeeds.
+    pub fn notify_received_text(&self) -> crate::Result<bool> {
+        self.0
+            .run_mobile_plugin("notify_received_text", ())
+            .map_err(Into::into)
+    }
+}
+
+impl<R: Runtime> NativeUtils<R> {
     pub fn cancel_job(&self, job: AsyncJob) -> crate::Result<()> {
         self.0
             .run_mobile_plugin("cancel_job", job)

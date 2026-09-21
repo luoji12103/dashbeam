@@ -7,6 +7,7 @@ import { toastManager } from '../ui/toast'
 
 import { AppFooter } from '../AppFooter'
 import { FlashDropBridge } from '@/components/flash-drop'
+import { AndroidTextShareBridge } from '@/components/sender/AndroidTextShareBridge'
 import { TitleBar } from '../TitleBar'
 import { useTranslation } from '@/i18n'
 import { AppUpdater } from '../common/AppUpdater'
@@ -90,6 +91,7 @@ export function RootLayout() {
 	return (
 		<ReceiverProvider>
 			<FlashDropBridge />
+			<AndroidTextShareBridge />
 			{/* Mounts the periodic check as well as the banner, so this gate decides
 			    whether the app checks for updates at all — Android included. */}
 			{IS_UPDATER_AVAILABLE && !isWindowsPortable && <AppUpdater />}

@@ -12,9 +12,8 @@ export function isMarkedTextMetadata(metadata: {
 	return metadata.content_kind === 'text'
 }
 
-export function parseReceivedTextReady(
-	payload: unknown,
-	activeTicket: string
+function parseReceivedTextPayload(
+	payload: unknown
 ): ReceivedTextReadyPayload | null {
 	try {
 		const value =
@@ -28,7 +27,6 @@ export function parseReceivedTextReady(
 		const size = typeof value.size === 'number' ? value.size : -1
 		if (
 			!ticket ||
-			ticket !== activeTicket ||
 			!path ||
 			!Number.isSafeInteger(size) ||
 			size < 0 ||
@@ -40,4 +38,19 @@ export function parseReceivedTextReady(
 	} catch {
 		return null
 	}
+}
+
+export function parseReceivedTextReady(
+	payload: unknown,
+	activeTicket: string
+): ReceivedTextReadyPayload | null {
+	const parsed = parseReceivedTextPayload(payload)
+	return parsed?.ticket === activeTicket ? parsed : null
+}
+
+/** Validates a Rust-side recovery record without requiring a live transfer. */
+export function parsePendingReceivedText(
+	payload: unknown
+): ReceivedTextReadyPayload | null {
+	return parseReceivedTextPayload(payload)
 }

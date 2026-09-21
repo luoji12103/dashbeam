@@ -1,7 +1,8 @@
 import { FileUp, Send, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentWindow, invoke, openDialog } from '@/lib/platform-api'
-import { IS_DESKTOP } from '@/lib/platform'
+import { IS_ANDROID, IS_DESKTOP } from '@/lib/platform'
+import { selectSendMarkdown } from '@/plugins/nativeUtils'
 import {
 	isMarkdownPath,
 	MAX_SEND_TEXT_BYTES,
@@ -91,8 +92,31 @@ export function TextComposer({
 	)
 
 	const chooseMarkdown = useCallback(async () => {
-		if (!IS_DESKTOP || !isMountedRef.current || isLoading || isImporting) return
+		if (
+			(!IS_DESKTOP && !IS_ANDROID) ||
+			!isMountedRef.current ||
+			isLoading ||
+			isImporting
+		)
+			return
 		try {
+			if (IS_ANDROID) {
+				setIsImporting(true)
+				try {
+					const selected = await selectSendMarkdown()
+					if (!selected || !isMountedRef.current) return
+					const imported = validateTextDraft(selected.text)
+					if (imported.issue === 'too-large') {
+						onImportError(t('common:sender.text.tooLarge'))
+						return
+					}
+					onDraftChange(selected.text)
+				} finally {
+					if (isMountedRef.current) setIsImporting(false)
+				}
+				return
+			}
+
 			const selected = await openDialog({
 				multiple: false,
 				directory: false,
@@ -107,7 +131,14 @@ export function TextComposer({
 				onImportError(String(error))
 			}
 		}
-	}, [importMarkdown, isImporting, isLoading, onImportError])
+	}, [
+		importMarkdown,
+		isImporting,
+		isLoading,
+		onDraftChange,
+		onImportError,
+		t,
+	])
 
 	useEffect(() => {
 		if (!isActive || !IS_DESKTOP || isLoading || isImporting) return

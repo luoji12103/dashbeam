@@ -37,6 +37,15 @@ export const IS_PAIRING_CAPABLE = IS_DESKTOP || IS_ANDROID
 export const IS_FLATPAK = IS_TAURI && import.meta.env.VITE_IS_FLATPAK === 'true'
 
 /**
+ * Local packages deliberately coexist with the release channel and therefore
+ * must not offer updates that cannot be installed over their package identity.
+ * Keep the former macOS-only flag as a compatibility alias for local builds.
+ */
+export const IS_LOCAL_BUILD =
+	import.meta.env?.VITE_LOCAL_BUILD === 'true' ||
+	import.meta.env?.VITE_LOCAL_MACOS_BUILD === 'true'
+
+/**
  * Android APKs are sideloaded from GitHub releases, so those builds check for
  * a newer one and hand the user to the release page — they cannot install it
  * themselves. Opt-in per build, because a Play Store build must not do this:
@@ -57,5 +66,5 @@ export const IS_ANDROID_UPDATE_CHECK_ENABLED =
  * Windows portable is excluded too, but only at runtime (`useIsWindowsPortable`).
  */
 export const IS_UPDATER_AVAILABLE =
-	import.meta.env?.VITE_LOCAL_MACOS_BUILD !== 'true' &&
+	!IS_LOCAL_BUILD &&
 	((IS_DESKTOP && !IS_FLATPAK) || IS_ANDROID_UPDATE_CHECK_ENABLED)

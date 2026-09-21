@@ -1,4 +1,5 @@
 import { useTranslation } from '../../../i18n'
+import { IS_ANDROID } from '../../../lib/platform'
 import { useAppSettingStore } from '../../../store/app-setting'
 import {
 	Frame,
@@ -15,6 +16,9 @@ export function ReceivedTextSettings() {
 	const setEnabled = useAppSettingStore(
 		(state) => state.setAutoCopyReceivedText
 	)
+	const descriptionKey = IS_ANDROID
+		? 'settings.general.receivedText.autoCopyDescriptionAndroid'
+		: 'settings.general.receivedText.autoCopyDescription'
 
 	return (
 		<Frame>
@@ -28,7 +32,7 @@ export function ReceivedTextSettings() {
 							{t('settings.general.receivedText.autoCopy')}
 						</FrameTitle>
 						<FrameDescription>
-							{t('settings.general.receivedText.autoCopyDescription')}
+							{t(descriptionKey)}
 						</FrameDescription>
 					</div>
 					<Switch checked={enabled} onCheckedChange={setEnabled} />

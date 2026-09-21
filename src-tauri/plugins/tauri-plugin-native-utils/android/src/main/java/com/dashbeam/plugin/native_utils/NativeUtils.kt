@@ -2,15 +2,24 @@ package com.dashbeam.plugin.native_utils
 
 import android.app.Activity
 import android.app.DownloadManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ContentResolver
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import android.webkit.WebView
 import androidx.activity.result.ActivityResult
 import androidx.annotation.Keep
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -34,8 +43,13 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.ByteBuffer
+import java.nio.CharBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicBoolean
 
 @InvokeArg
 class SelectorArgs {
@@ -70,6 +84,11 @@ class WriteTextToUriArgs {
 }
 
 @InvokeArg
+class WriteClipboardTextArgs {
+    var text: String = ""
+}
+
+@InvokeArg
 class OpenDownloadTargetArgs {
     var uri: String = ""
 
@@ -86,16 +105,40 @@ data class DownloadFolderSelectionResponse(
     val path: String,
 )
 
+@Keep
+data class SelectedTextDocumentResponse(
+    val text: String,
+    val fileName: String,
+)
+
+@Keep
+data class SharedTextResponse(
+    val text: String? = null,
+    val error: String? = null,
+)
+
 @TauriPlugin
 class NativeUtils(private val activity: Activity) : Plugin(activity) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val jobs = ConcurrentHashMap<Long, Pair<Job, String>>()
     private val pendingShareBatches = ConcurrentLinkedQueue<List<Uri>>()
+    private val pendingSharedText = ConcurrentLinkedQueue<SharedTextResponse>()
+    private val pendingReceivedTextTap = AtomicBoolean(false)
+    @Volatile
+    private var isActivityResumed = false
 
     companion object {
         private const val RW_PERMISSION_FLAGS =
             Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION
         private const val SHARE_RECEIVED_EVENT = "shareReceived"
+        private const val TEXT_SHARE_RECEIVED_EVENT = "textShareReceived"
+        private const val RECEIVED_TEXT_TAP_EVENT = "receivedTextNotificationTapped"
+        private const val RECEIVED_TEXT_TAP_EXTRA =
+            "com.dashbeam.plugin.native_utils.RECEIVED_TEXT_NOTIFICATION_TAP"
+
+        private const val TEXT_MAX_BYTES = 1024 * 1024
+        private const val RECEIVED_TEXT_CHANNEL_ID = "dashbeam_received_text"
+        private const val RECEIVED_TEXT_NOTIFICATION_ID = 4712
 
         /** Sentinel the Rust side matches to fall back to app-private staging. */
         const val MEDIA_STORE_UNSUPPORTED = "MEDIA_STORE_UNSUPPORTED"
@@ -141,6 +184,92 @@ class NativeUtils(private val activity: Activity) : Plugin(activity) {
         Intent(Intent.ACTION_OPEN_DOCUMENT_TREE),
         this::handleSendSelection.name
     )
+
+    @Command
+    fun select_send_markdown(invoke: Invoke) = startActivityForResult(
+        invoke,
+        Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            // Some document providers report .md as application/octet-stream.
+            // Visibility is broad; the callback still requires a .md name and
+            // validates bounded, strict UTF-8 before returning any content.
+            type = "*/*"
+            putExtra(
+                Intent.EXTRA_MIME_TYPES,
+                arrayOf("text/markdown", "text/plain", "application/octet-stream")
+            )
+        },
+        this::handleMarkdownSelection.name
+    )
+
+    /** Android 10+ restricts background clipboard access. Enforce the same
+     * policy on every supported API so a background WebView cannot write. */
+    @Command
+    fun write_clipboard_text(invoke: Invoke) {
+        val args = invoke.parseArgs(WriteClipboardTextArgs::class.java)
+        val checkedText = try {
+            validateAndMeasureText(args.text)
+            args.text
+        } catch (e: Exception) {
+            return invoke.reject(e.message ?: "Clipboard text is invalid")
+        }
+
+        activity.runOnUiThread {
+            if (!isActivityResumed || activity.isFinishing || activity.isDestroyed) {
+                invoke.reject("Clipboard writes are only allowed while DashBeam is in the foreground")
+                return@runOnUiThread
+            }
+
+            try {
+                val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("", checkedText))
+                invoke.resolve()
+            } catch (e: Exception) {
+                invoke.reject(e.message ?: "Failed to write to the clipboard")
+            }
+        }
+    }
+
+    @Command
+    fun consume_shared_text(invoke: Invoke) {
+        captureShareIntent(activity.intent)
+        val shared = pendingSharedText.poll()
+        if (shared == null) invoke.resolve(null) else invoke.resolveObject(shared)
+    }
+
+    @Command
+    fun consume_received_text_notification_tap(invoke: Invoke) {
+        captureReceivedTextNotificationTap(activity.intent)
+        invoke.resolveObject(pendingReceivedTextTap.getAndSet(false))
+    }
+
+    /** Best effort by design: notification denial must not fail the receive. */
+    @Command
+    fun notify_received_text(invoke: Invoke) {
+        // The foreground UI presents the received text directly; avoid a
+        // duplicate alert and reserve notifications for background delivery.
+        if (isActivityResumed) {
+            invoke.resolveObject(false)
+            return
+        }
+
+        val notifications = NotificationManagerCompat.from(activity)
+        if (!notifications.areNotificationsEnabled()) {
+            invoke.resolveObject(false)
+            return
+        }
+
+        try {
+            createReceivedTextNotificationChannel()
+            notifications.notify(RECEIVED_TEXT_NOTIFICATION_ID, buildReceivedTextNotification())
+            invoke.resolveObject(true)
+        } catch (_: SecurityException) {
+            // Permission can be revoked between the check and notify().
+            invoke.resolveObject(false)
+        } catch (e: Exception) {
+            invoke.reject(e.message ?: "Failed to show received-text notification")
+        }
+    }
 
     @Command
     fun consume_share_intent(invoke: Invoke) {
@@ -393,6 +522,98 @@ class NativeUtils(private val activity: Activity) : Plugin(activity) {
         return buffer.toString(Charsets.UTF_8.name())
     }
 
+    private fun readStrictUtf8(input: InputStream, limit: Int): String {
+        val buffer = ByteArrayOutputStream()
+        val chunk = ByteArray(8 * 1024)
+        while (true) {
+            val read = input.read(chunk)
+            if (read == -1) break
+            if (buffer.size() + read > limit) {
+                throw IOException("Text is larger than $limit bytes")
+            }
+            buffer.write(chunk, 0, read)
+        }
+
+        return Charsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(buffer.toByteArray()))
+            .toString()
+            .removePrefix("\uFEFF")
+    }
+
+    /** Reject malformed UTF-16 (unpaired surrogates) and enforce the same
+     * byte limit used by the transfer protocol before retaining shared text. */
+    private fun validateAndMeasureText(text: String) {
+        if (text.length > TEXT_MAX_BYTES) {
+            throw IOException("Text is larger than $TEXT_MAX_BYTES bytes")
+        }
+        val bytes = Charsets.UTF_8.newEncoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .encode(CharBuffer.wrap(text))
+            .remaining()
+        if (bytes > TEXT_MAX_BYTES) {
+            throw IOException("Text is larger than $TEXT_MAX_BYTES bytes")
+        }
+    }
+
+    private fun queryDisplayName(uri: Uri): String? {
+        activity.contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) return cursor.getString(index)
+            }
+        }
+        return uri.lastPathSegment?.substringAfterLast('/')
+    }
+
+    private fun createReceivedTextNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = activity.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(
+            NotificationChannel(
+                RECEIVED_TEXT_CHANNEL_ID,
+                activity.getString(R.string.received_text_channel_name),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = activity.getString(R.string.received_text_channel_description)
+                setShowBadge(true)
+            }
+        )
+    }
+
+    private fun buildReceivedTextNotification(): android.app.Notification {
+        val launchIntent = activity.packageManager.getLaunchIntentForPackage(activity.packageName)
+            ?: Intent(activity, activity::class.java)
+        launchIntent.apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra(RECEIVED_TEXT_TAP_EXTRA, true)
+        }
+        val tapIntent = PendingIntent.getActivity(
+            activity,
+            RECEIVED_TEXT_NOTIFICATION_ID,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        return NotificationCompat.Builder(activity, RECEIVED_TEXT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_presence_notification)
+            .setContentTitle(activity.getString(R.string.received_text_notification_title))
+            // Deliberately no body, BigTextStyle, ticker, or payload extras.
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(tapIntent)
+            .build()
+    }
+
     /**
      * `ACTION_VIEW` intents pointing at a storage folder, most specific first.
      * Two document-URI shapes, because file managers disagree on which they
@@ -476,22 +697,46 @@ class NativeUtils(private val activity: Activity) : Plugin(activity) {
         invoke.resolveObject(true)
     }
 
+    @ActivityCallback
+    fun handleMarkdownSelection(invoke: Invoke, result: ActivityResult) {
+        if (Activity.RESULT_OK != result.resultCode) return invoke.resolve(null)
+        val uri = result.data?.data ?: return invoke.resolve(null)
+
+        scope.launch {
+            try {
+                val fileName = queryDisplayName(uri)
+                    ?: throw IOException("Could not read the selected document name")
+                if (!fileName.endsWith(".md", ignoreCase = true)) {
+                    throw IOException("Select a Markdown (.md) file")
+                }
+
+                val stream = activity.contentResolver.openInputStream(uri)
+                    ?: throw IOException("Could not open the selected document")
+                val text = stream.use { readStrictUtf8(it, TEXT_MAX_BYTES) }
+                invoke.resolveObject(SelectedTextDocumentResponse(text, fileName))
+            } catch (e: SecurityException) {
+                invoke.reject(e.message ?: "No permission to read the selected document")
+            } catch (e: CharacterCodingException) {
+                invoke.reject("The selected Markdown file is not valid UTF-8")
+            } catch (e: Exception) {
+                invoke.reject(e.message ?: "Failed to import the selected Markdown file")
+            }
+        }
+    }
+
     override fun load(webView: WebView) {
         super.load(webView)
-        // Cold start: capture share URI before / as the frontend mounts.
-        // Skip wiping file_cache when a share is pending so cleanup cannot race the copy.
-        val shareUris = takeShareUris(activity.intent)
-        if (shareUris != null) {
-            pendingShareBatches.add(shareUris)
-            // Notify after the WebView can register plugin listeners (cold-start race).
-            webView.post {
-                trigger(SHARE_RECEIVED_EVENT, JSObject())
-            }
-        } else {
+        // Cold start: capture all supported payloads before / as the frontend mounts.
+        // Skip wiping file_cache when a file share is pending so cleanup cannot race the copy.
+        captureShareIntent(activity.intent)
+        captureReceivedTextNotificationTap(activity.intent)
+        if (pendingShareBatches.isEmpty()) {
             scope.launch {
                 activity.cacheDir.resolve("file_cache").deleteRecursively()
             }
         }
+        // Commands also poll the queues, so a listener registration race cannot lose data.
+        webView.post { advertisePendingEvents() }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -499,18 +744,24 @@ class NativeUtils(private val activity: Activity) : Plugin(activity) {
         // Without this, activity.intent stays the old MAIN launcher intent under singleTask.
         activity.intent = intent
 
-        val uris = takeShareUris(intent) ?: return
-        pendingShareBatches.add(uris)
-        trigger(SHARE_RECEIVED_EVENT, JSObject())
+        captureShareIntent(intent)
+        captureReceivedTextNotificationTap(intent)
+        advertisePendingEvents()
     }
 
     override fun onResume() {
         super.onResume()
+        isActivityResumed = true
         // Safety net: if the frontend missed the first event (listener not ready yet),
-        // re-advertise any still-unconsumed share when we come to the foreground.
-        val uris = takeShareUris(activity.intent) ?: return
-        pendingShareBatches.add(uris)
-        trigger(SHARE_RECEIVED_EVENT, JSObject())
+        // re-advertise any still-unconsumed payload when we come to the foreground.
+        captureShareIntent(activity.intent)
+        captureReceivedTextNotificationTap(activity.intent)
+        advertisePendingEvents()
+    }
+
+    override fun onPause() {
+        isActivityResumed = false
+        super.onPause()
     }
 
     override fun onDestroy() {
@@ -596,22 +847,50 @@ class NativeUtils(private val activity: Activity) : Plugin(activity) {
 
     @Synchronized
     private fun takePendingOrIntentShare(): List<Uri>? {
-        return pendingShareBatches.poll() ?: takeShareUris(activity.intent)
+        captureShareIntent(activity.intent)
+        return pendingShareBatches.poll()
     }
 
-    private fun peekShareUris(intent: Intent?): List<Uri>? {
+    @Synchronized
+    private fun captureShareIntent(intent: Intent?) {
         if (intent == null ||
             (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE)
         ) {
-            return null
+            return
         }
-        return extractShareUris(intent).takeIf { it.isNotEmpty() }
+
+        extractShareUris(intent).takeIf { it.isNotEmpty() }?.let(pendingShareBatches::add)
+        extractSharedText(intent)?.let(pendingSharedText::add)
+        // Consume only after both independent payload kinds have been captured.
+        intent.action = null
     }
 
-    private fun takeShareUris(intent: Intent?): List<Uri>? {
-        val uris = peekShareUris(intent) ?: return null
-        intent?.action = null
-        return uris
+    private fun extractSharedText(intent: Intent): SharedTextResponse? {
+        val mime = intent.type?.substringBefore(';')?.lowercase()
+        if (intent.action != Intent.ACTION_SEND ||
+            mime?.startsWith("text/") != true
+        ) return null
+        // EXTRA_TEXT is the canonical plain CharSequence representation even
+        // for text/html. Never read or render EXTRA_HTML_TEXT here.
+        val raw = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString() ?: return null
+        return try {
+            validateAndMeasureText(raw)
+            SharedTextResponse(text = raw)
+        } catch (e: Exception) {
+            SharedTextResponse(error = e.message ?: "Shared text is invalid")
+        }
+    }
+
+    private fun advertisePendingEvents() {
+        if (pendingShareBatches.isNotEmpty()) trigger(SHARE_RECEIVED_EVENT, JSObject())
+        if (pendingSharedText.isNotEmpty()) trigger(TEXT_SHARE_RECEIVED_EVENT, JSObject())
+        if (pendingReceivedTextTap.get()) trigger(RECEIVED_TEXT_TAP_EVENT, JSObject())
+    }
+
+    private fun captureReceivedTextNotificationTap(intent: Intent?) {
+        if (intent?.getBooleanExtra(RECEIVED_TEXT_TAP_EXTRA, false) != true) return
+        intent.removeExtra(RECEIVED_TEXT_TAP_EXTRA)
+        pendingReceivedTextTap.set(true)
     }
 
     private fun extractShareUris(intent: Intent): List<Uri> {

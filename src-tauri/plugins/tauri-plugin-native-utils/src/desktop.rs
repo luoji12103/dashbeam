@@ -38,6 +38,28 @@ impl<R: Runtime> NativeUtils<R> {
 }
 
 impl<R: Runtime> NativeUtils<R> {
+    pub fn select_send_markdown(&self) -> crate::Result<Option<SelectedTextDocument>> {
+        Err(crate::Error::UnsupportedPlafrormError)
+    }
+
+    pub fn write_clipboard_text(&self, _: WriteClipboardTextArgs) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlafrormError)
+    }
+
+    pub fn consume_shared_text(&self) -> crate::Result<Option<SharedText>> {
+        Ok(None)
+    }
+
+    pub fn consume_received_text_notification_tap(&self) -> crate::Result<bool> {
+        Ok(false)
+    }
+
+    pub fn notify_received_text(&self) -> crate::Result<bool> {
+        Ok(false)
+    }
+}
+
+impl<R: Runtime> NativeUtils<R> {
     pub fn cancel_job(&self, _: AsyncJob) -> crate::Result<()> {
         Err(crate::Error::UnsupportedPlafrormError)
     }

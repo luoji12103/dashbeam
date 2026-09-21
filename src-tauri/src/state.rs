@@ -22,6 +22,15 @@ pub struct AppState {
     /// Completed marked text, cached immediately after validation so a later
     /// filesystem replacement cannot redirect the read command.
     pub completed_text: HashMap<String, String>,
+    /// Latest unpresented result: Android may suspend the WebView before its event arrives.
+    pub pending_received_text: Option<ReceivedTextReady>,
+}
+
+#[derive(Clone, serde::Serialize)]
+pub struct ReceivedTextReady {
+    pub ticket: String,
+    pub path: String,
+    pub size: usize,
 }
 
 impl Default for AppState {
@@ -37,7 +46,43 @@ impl Default for AppState {
             current_receive_hash: None,
             last_cancelled_recv_hash: None,
             completed_text: HashMap::new(),
+            pending_received_text: None,
         }
+    }
+}
+
+impl AppState {
+    pub fn acknowledge_received_text(&mut self, path: &str) {
+        if self
+            .pending_received_text
+            .as_ref()
+            .is_some_and(|pending| pending.path == path)
+        {
+            self.pending_received_text = None;
+        }
+    }
+}
+
+#[cfg(test)]
+mod received_text_tests {
+    use super::*;
+
+    #[test]
+    fn stale_acknowledgement_cannot_discard_new_text() {
+        let mut state = AppState::default();
+        state
+            .completed_text
+            .insert("new-path".into(), "message".into());
+        state.pending_received_text = Some(ReceivedTextReady {
+            ticket: "new-ticket".into(),
+            path: "new-path".into(),
+            size: 7,
+        });
+        state.acknowledge_received_text("old-path");
+        assert!(state.pending_received_text.is_some());
+        state.acknowledge_received_text("new-path");
+        assert!(state.pending_received_text.is_none());
+        assert_eq!(state.completed_text.get("new-path").unwrap(), "message");
     }
 }
 
