@@ -1,5 +1,6 @@
 use crate::history::HistoryRecordingEmitter;
 use engine::{NodeService, SendResult};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -18,6 +19,9 @@ pub struct AppState {
     /// store out from under an active download.
     pub current_receive_hash: Option<String>,
     pub last_cancelled_recv_hash: Option<String>,
+    /// Completed marked text, cached immediately after validation so a later
+    /// filesystem replacement cannot redirect the read command.
+    pub completed_text: HashMap<String, String>,
 }
 
 impl Default for AppState {
@@ -32,6 +36,7 @@ impl Default for AppState {
             current_receive_cancel: None,
             current_receive_hash: None,
             last_cancelled_recv_hash: None,
+            completed_text: HashMap::new(),
         }
     }
 }
@@ -45,6 +50,10 @@ pub struct ShareHandle {
     /// Present only while history recording is enabled. Held here so
     /// `stop_sharing` can close the row a broadcast share left open.
     pub recorder: Option<Arc<HistoryRecordingEmitter>>,
+    /// Owned only by typed-text shares. The blob store has its own imported
+    /// copy, but retaining the source for the whole session makes lifecycle
+    /// explicit and keeps cleanup deterministic.
+    pub owned_source_dir: Option<OwnedSourceDir>,
 }
 
 impl ShareHandle {
@@ -59,7 +68,13 @@ impl ShareHandle {
             _path: path,
             send_result,
             recorder,
+            owned_source_dir: None,
         }
+    }
+
+    pub fn with_owned_source_dir(mut self, dir: OwnedSourceDir) -> Self {
+        self.owned_source_dir = Some(dir);
+        self
     }
 
     /// Stop the sharing session and free its resources.
@@ -84,4 +99,45 @@ impl ShareHandle {
     }
 }
 
+pub struct OwnedSourceDir(PathBuf);
+
+impl OwnedSourceDir {
+    pub fn new(path: PathBuf) -> Self {
+        Self(path)
+    }
+
+    pub fn path(&self) -> &std::path::Path {
+        &self.0
+    }
+}
+
+impl Drop for OwnedSourceDir {
+    fn drop(&mut self) {
+        if let Err(error) = std::fs::remove_dir_all(&self.0) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                tracing::warn!(%error, "failed to remove typed-text source directory");
+            }
+        }
+    }
+}
+
 pub type AppStateMutex = Arc<Mutex<AppState>>;
+
+#[cfg(test)]
+mod tests {
+    use super::OwnedSourceDir;
+
+    #[test]
+    fn owned_text_source_lives_until_its_guard_is_dropped() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let source_dir = temp.path().join("owned-text");
+        std::fs::create_dir(&source_dir).expect("source dir");
+        std::fs::write(source_dir.join("DashBeam Text.txt"), "literal **markdown**")
+            .expect("source file");
+
+        let guard = OwnedSourceDir::new(source_dir.clone());
+        assert!(source_dir.exists());
+        drop(guard);
+        assert!(!source_dir.exists());
+    }
+}

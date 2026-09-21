@@ -28,6 +28,7 @@ export const defaultAppSettings: AppSettingsState = {
 	enableTransferHistory: true,
 	flashDropEnabled: false,
 	flashDropTargetId: null,
+	autoCopyReceivedText: false,
 }
 
 const webSettingStorage: StateStorage = {

@@ -1,6 +1,6 @@
-use std::path::PathBuf;
 use iroh_blobs::api::TempTag;
 use n0_future::task::AbortOnDropHandle;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct AutoCleanupDir {
@@ -67,4 +67,5 @@ impl SendResult {
 pub struct ReceiveResult {
     pub message: String,
     pub file_path: PathBuf,
+    pub exported_files: Vec<crate::export::ExportedFile>,
 }

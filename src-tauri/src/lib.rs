@@ -134,8 +134,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             start_sharing,
             send_items,
+            send_text,
             stop_sharing,
             receive_file,
+            read_text_file,
+            read_received_text,
+            #[cfg(desktop)]
+            write_clipboard_text,
             cancel_receive,
             list_transfer_history,
             delete_transfer_record,

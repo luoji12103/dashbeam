@@ -74,6 +74,7 @@ export function IndexPage() {
 				return
 			}
 			setActiveTab('send')
+			sender.setSendMode('file')
 			addSelectedPaths(paths)
 			try {
 				const path = useSenderStore.getState().selectedPaths[0]
@@ -144,7 +145,10 @@ export function IndexPage() {
 								value="send"
 								className="data-[state=inactive]:hidden"
 							>
-								<Sender onTransferStateChange={setIsSharing} />
+								<Sender
+									isActive={activeTab === 'send'}
+									onTransferStateChange={setIsSharing}
+								/>
 							</TabsContent>
 							<TabsContent
 								forceMount

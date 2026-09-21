@@ -30,6 +30,8 @@ export interface TicketPreviewMetadata {
 	size: number
 	thumbnail?: string
 	mimeType?: string
+	/** Set only by the typed-text transport marker, never inferred from a suffix. */
+	transferKind?: 'file' | 'text'
 	items?: TicketPreviewItem[]
 }
 

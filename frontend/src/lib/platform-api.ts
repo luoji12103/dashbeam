@@ -32,6 +32,7 @@ import { collectWebSendPayload } from './web-send-items'
 type DialogOptions = {
 	multiple?: boolean
 	directory?: boolean
+	filters?: { name: string; extensions: string[] }[]
 }
 
 type TauriWindowStub = {

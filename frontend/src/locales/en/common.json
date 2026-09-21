@@ -76,6 +76,21 @@
 		"scanToReceive": "Scan to receive",
 		"shareMessageIntro": "Private transfer - Sent with DashBeam",
 		"description": "Description (optional)",
+		"text": {
+			"file": "File",
+			"text": "Text",
+			"label": "Text:",
+			"clipboardText": "Clipboard text",
+			"placeholder": "Paste text or Markdown",
+			"importMarkdown": "Import Markdown",
+			"importMarkdownOnly": "Drop one .md file to import it as text.",
+			"importFailed": "Could not import Markdown",
+			"clear": "Clear text",
+			"size": "{{bytes}} / {{limit}} bytes",
+			"empty": "Enter text before sharing.",
+			"tooLarge": "Text is larger than the 1 MiB limit.",
+			"desktopOnly": "Text sharing is available in desktop apps."
+		},
 		"broadcastMode": {
 			"index": "Broadcast",
 			"on": {
@@ -191,6 +206,16 @@
 		"downloadCompleted": "Download completed",
 		"downloadCompletedWithConflicts": "Download completed with name conflicts resolved",
 		"downloadedFile": "Downloaded File",
+		"receivedText": {
+			"dialogTitle": "Text received",
+			"dialogDescription": "Select any part of the text, or copy it all with one click.",
+			"previewLabel": "Received text",
+			"ready": "Text is ready to copy",
+			"copied": "Copied to clipboard",
+			"copy": "Copy",
+			"copyFailed": "Couldn't copy: {{error}}",
+			"loadFailed": "Couldn't open received text"
+		},
 		"stopReceiving": "Stop receiving",
 		"download": "Download"
 	},
@@ -307,6 +332,11 @@
 				"title": "Notifications",
 				"label": "Show system notifications",
 				"description": "Get notified about pair requests, incoming files, and completed downloads when DashBeam isn't in front of you"
+			},
+			"receivedText": {
+				"title": "Received text",
+				"autoCopy": "Copy received text automatically",
+				"autoCopyDescription": "After a marked text transfer finishes, copy it to the clipboard. Regular .txt and .md files are never copied automatically."
 			},
 			"flashDrop": {
 				"title": "Flash Drop",

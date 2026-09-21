@@ -134,6 +134,36 @@ pub struct FileMetadata {
     pub mime_type: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub items: Option<Vec<FilePreviewItem>>,
+    /// Explicit application-level marker. Never infer this from the file name
+    /// or MIME type; older peers safely ignore an absent/new JSON field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_kind: Option<String>,
+}
+
+pub const TEXT_CONTENT_KIND: &str = "text";
+
+#[cfg(test)]
+mod file_metadata_tests {
+    use super::{FileMetadata, TEXT_CONTENT_KIND};
+
+    #[test]
+    fn old_metadata_without_content_kind_remains_compatible() {
+        let json = r#"{"file_name":"notes.txt","item_count":1,"size":3}"#;
+        let metadata: FileMetadata = serde_json::from_str(json).expect("old metadata");
+        assert_eq!(metadata.content_kind, None);
+    }
+
+    #[test]
+    fn text_marker_round_trips_as_an_optional_string() {
+        let json = format!(
+            r#"{{"file_name":"DashBeam Text.txt","item_count":1,"size":3,"content_kind":"{}"}}"#,
+            TEXT_CONTENT_KIND
+        );
+        let metadata: FileMetadata = serde_json::from_str(&json).expect("text metadata");
+        assert_eq!(metadata.content_kind.as_deref(), Some(TEXT_CONTENT_KIND));
+        let encoded = serde_json::to_value(metadata).expect("encoded metadata");
+        assert_eq!(encoded["content_kind"], TEXT_CONTENT_KIND);
+    }
 }
 
 #[derive(

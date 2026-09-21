@@ -11,6 +11,7 @@ import { DebugMode } from '../components/settings/debug-mode'
 import { FlashDropSettings } from '../components/settings/flash-drop'
 import { Notifications } from '../components/settings/notifications'
 import { RelayStatusSettings } from '../components/settings/relay-status'
+import { ReceivedTextSettings } from '../components/settings/received-text'
 import { SystemTray } from '../components/settings/system-tray/system-tray'
 import { TransferHistorySettings } from '../components/settings/transfer-history'
 import { useTranslation } from '../i18n'
@@ -25,6 +26,7 @@ export function SettingGeneralPage() {
 			<BroadcastSettings />
 			<RelayStatusSettings />
 			{IS_TAURI && <Notifications />}
+			{IS_DESKTOP && <ReceivedTextSettings />}
 			{IS_DESKTOP && <SystemTray />}
 			{IS_MACOS && <FlashDropSettings />}
 			{IS_TAURI && <TransferHistorySettings />}

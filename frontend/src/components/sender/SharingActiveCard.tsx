@@ -16,6 +16,7 @@ import { ShareLinkPanel } from './ShareLinkPanel'
 export function SharingActiveCard({
 	selectedPaths,
 	selectedPath,
+	sendMode = 'file',
 	ticket,
 	copySuccess,
 	transferProgress,
@@ -45,6 +46,7 @@ export function SharingActiveCard({
 			<ShareLinkPanel
 				selectedPaths={selectedPaths}
 				selectedPath={selectedPath}
+				sendMode={sendMode}
 				ticket={ticket}
 				copySuccess={copySuccess}
 				isTransporting={isTransporting}

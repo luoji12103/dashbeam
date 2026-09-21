@@ -7,6 +7,16 @@ export interface ReceiverState {
 	alertDialog: AlertDialogState
 }
 
+export interface ReceivedTextState {
+	resultId: string
+	content: string
+	size: number
+	path: string
+	isCopied: boolean
+	isCopying: boolean
+	copyError: string | null
+}
+
 export interface TicketInputProps {
 	ticket: string
 	isReceiving: boolean

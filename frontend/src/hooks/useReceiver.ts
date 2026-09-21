@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PairedInvitePayload } from '@/lib/pairing-api'
-import { IS_ANDROID, IS_WEB } from '@/lib/platform'
+import { IS_ANDROID, IS_DESKTOP, IS_WEB } from '@/lib/platform'
 import {
 	downloadDir,
 	invoke,
@@ -33,12 +33,18 @@ import { getRelayConfigArg } from '../lib/relay'
 import { getDiscoveryConfigArg } from '../lib/discovery'
 import { ticketFromReceiveLink } from '../lib/receive-link'
 import { sendSystemNotification } from '../lib/systemNotification'
+import { copyTextToClipboard } from '../lib/utils'
+import {
+	isMarkedTextMetadata,
+	parseReceivedTextReady,
+} from '../lib/received-text'
 import type {
 	TicketPreviewMetadata,
 	TransferMetadata,
 	TransferProgress,
 } from '../types/transfer'
 import type { AlertDialogState, AlertType } from '../types/ui'
+import type { ReceivedTextState } from '../types/receiver'
 import {
 	parseCompletionPayload,
 	parseProgressPayload,
@@ -50,6 +56,7 @@ interface BackendFileMetadata {
 	size: number
 	thumbnail?: string | null
 	mime_type?: string | null
+	content_kind?: 'text' | null
 	items?:
 		| {
 				file_name: string
@@ -106,6 +113,7 @@ export interface UseReceiverReturn {
 	/** Android is still copying the receive out of app-private staging. */
 	isExportPending: boolean
 	fileNames: string[]
+	receivedText: ReceivedTextState | null
 
 	handleTicketChange: (ticket: string) => void
 	handleBrowseFolder: () => Promise<void>
@@ -114,6 +122,7 @@ export interface UseReceiverReturn {
 	showAlert: (title: string, description: string, type?: AlertType) => void
 	closeAlert: () => void
 	resetForNewTransfer: () => Promise<void>
+	copyReceivedText: () => Promise<void>
 }
 
 export function useReceiver(): UseReceiverReturn {
@@ -143,6 +152,9 @@ export function useReceiver(): UseReceiverReturn {
 		null
 	)
 	const [fileNames, setFileNames] = useState<string[]>([])
+	const [receivedText, setReceivedText] = useState<ReceivedTextState | null>(
+		null
+	)
 	const [previewMetadata, setPreviewMetadata] =
 		useState<TicketPreviewMetadata | null>(null)
 	const [isPreviewLoading, setIsPreviewLoading] = useState(false)
@@ -177,12 +189,65 @@ export function useReceiver(): UseReceiverReturn {
 	// capture this value and ignore events whose seq no longer matches — preventing
 	// ghost completions from a just-cancelled download.
 	const transferSeqRef = useRef(0)
+	const textGenerationRef = useRef(0)
+	const activeTicketRef = useRef('')
+	const handledTextKeysRef = useRef(new Set<string>())
+	const autoCopyReceivedText = useAppSettingStore(
+		(state) => state.autoCopyReceivedText
+	)
+	const autoCopyReceivedTextRef = useRef(autoCopyReceivedText)
 	/**
 	 * Where the last completed receive actually wrote. Differs from `savePath`
 	 * when an auto-accepted transfer filed itself under a per-device subfolder,
 	 * so "Open" must prefer it.
 	 */
 	const completedOutputDirRef = useRef<string>('')
+
+	useEffect(() => {
+		autoCopyReceivedTextRef.current = autoCopyReceivedText
+	}, [autoCopyReceivedText])
+
+	const writeClipboard = useCallback(async (text: string) => {
+		if (IS_DESKTOP) {
+			await invoke('write_clipboard_text', { text })
+			return
+		}
+		await copyTextToClipboard(text)
+	}, [])
+
+	const copyReceivedText = useCallback(async () => {
+		const textState = receivedText
+		if (!textState) return
+		const generation = textGenerationRef.current
+		const matchesCopy = (current: ReceivedTextState) =>
+			textGenerationRef.current === generation &&
+			current.path === textState.path &&
+			current.content === textState.content
+		setReceivedText((current) =>
+			current && matchesCopy(current)
+				? { ...current, isCopying: true, copyError: null }
+				: current
+		)
+		try {
+			await writeClipboard(textState.content)
+			setReceivedText((current) =>
+				current && matchesCopy(current)
+					? { ...current, isCopying: false, isCopied: true }
+					: current
+			)
+		} catch (error) {
+			setReceivedText((current) =>
+				current && matchesCopy(current)
+					? {
+							...current,
+							isCopying: false,
+							isCopied: false,
+							copyError: String(error),
+						}
+					: current
+			)
+		}
+	}, [receivedText, writeClipboard])
 
 	const resolveRevealPath = async (basePath: string, names: string[]) => {
 		if (!basePath) return null
@@ -289,12 +354,13 @@ export function useReceiver(): UseReceiverReturn {
 					return
 				}
 
-				const metadata = {
+				const metadata: TicketPreviewMetadata = {
 					fileName: payload.file_name,
 					itemCount: payload.item_count,
 					size: payload.size,
 					thumbnail: payload.thumbnail ?? undefined,
 					mimeType: payload.mime_type ?? undefined,
+					transferKind: isMarkedTextMetadata(payload) ? 'text' : 'file',
 					items: payload.items?.map((item) => ({
 						fileName: item.file_name,
 						size: item.size,
@@ -400,6 +466,69 @@ export function useReceiver(): UseReceiverReturn {
 					fileNamesRef.current = names
 				} catch (error) {
 					console.error('Failed to parse file names event:', error)
+				}
+			})
+
+			await registerListener('received-text-ready', async (event: any) => {
+				const seq = transferSeqRef.current
+				const generation = textGenerationRef.current
+				if (seq === 0) return
+				try {
+					const payload = parseReceivedTextReady(
+						event.payload,
+						activeTicketRef.current
+					)
+					if (!payload) return
+					const { ticket: eventTicket, path, size } = payload
+					const key = `${seq}:${path}`
+					if (handledTextKeysRef.current.has(key)) return
+					handledTextKeysRef.current.add(key)
+
+					const content = await invoke<string>('read_received_text', { path })
+					if (
+						transferSeqRef.current !== seq ||
+						textGenerationRef.current !== generation ||
+						activeTicketRef.current !== eventTicket
+					)
+						return
+
+					let isCopied = false
+					let copyError: string | null = null
+					if (autoCopyReceivedTextRef.current) {
+						try {
+							await writeClipboard(content)
+							isCopied = true
+						} catch (error) {
+							copyError = String(error)
+						}
+					}
+					if (
+						transferSeqRef.current !== seq ||
+						textGenerationRef.current !== generation ||
+						activeTicketRef.current !== eventTicket
+					)
+						return
+					setReceivedText({
+						resultId: `${generation}:${path}`,
+						content,
+						size,
+						path,
+						isCopied,
+						isCopying: false,
+						copyError,
+					})
+				} catch (error) {
+					if (
+						transferSeqRef.current !== seq ||
+						textGenerationRef.current !== generation
+					)
+						return
+					console.error('Failed to load received text:', error)
+					showAlert(
+						t('common:receiver.receivedText.loadFailed'),
+						String(error),
+						'error'
+					)
 				}
 			})
 
@@ -588,7 +717,7 @@ export function useReceiver(): UseReceiverReturn {
 				unlisten()
 			})
 		}
-	}, [t, showAlert])
+	}, [t, showAlert, writeClipboard])
 
 	const handleTicketChange = useCallback((newTicket: string) => {
 		const fromLink = ticketFromReceiveLink(newTicket)
@@ -636,14 +765,21 @@ export function useReceiver(): UseReceiverReturn {
 	const receiveWithTicket = useCallback(
 		async (ticketValue: string, subFolder?: string | null) => {
 			if (!ticketValue.trim()) return
+			let receiveGeneration = -1
 
 			try {
+				const normalizedTicket = ticketValue.trim()
 				if (transferItemCountRef.current == null) {
 					transferItemCountRef.current =
 						previewMetadataRef.current?.itemCount ?? previewMetadata?.itemCount
 				}
 				previewRequestSeqRef.current += 1
 				transferSeqRef.current += 1
+				receiveGeneration = textGenerationRef.current + 1
+				textGenerationRef.current = receiveGeneration
+				activeTicketRef.current = normalizedTicket
+				handledTextKeysRef.current.clear()
+				setReceivedText(null)
 				setIsReceiving(true)
 				setIsTransporting(false)
 				setIsCompleted(false)
@@ -671,7 +807,7 @@ export function useReceiver(): UseReceiverReturn {
 				}
 
 				await invoke<string>('receive_file', {
-					ticket: ticketValue.trim(),
+					ticket: normalizedTicket,
 					outputPath,
 					treeUri: IS_ANDROID ? downloadsUriRef.current.trim() || null : null,
 					// Only the picker knows what the tree URI reads as, and
@@ -684,9 +820,16 @@ export function useReceiver(): UseReceiverReturn {
 					discovery: getDiscoveryConfigArg(),
 				})
 			} catch (error) {
+				// A cancelled old receive may reject after a new one has started.
+				if (textGenerationRef.current !== receiveGeneration) return
 				// A receive that never finished never exports, so nothing is
 				// coming to clear the pending flag.
 				setIsExportPending(false)
+				transferSeqRef.current = 0
+				textGenerationRef.current += 1
+				activeTicketRef.current = ''
+				handledTextKeysRef.current.clear()
+				setReceivedText(null)
 
 				if (
 					String(error) === 'cancelled' ||
@@ -796,6 +939,8 @@ export function useReceiver(): UseReceiverReturn {
 	const resetForNewTransfer = async () => {
 		// Zero the seq first so in-flight events from the cancelled transfer are ignored.
 		transferSeqRef.current = 0
+		textGenerationRef.current += 1
+		activeTicketRef.current = ''
 		previewRequestSeqRef.current += 1
 
 		// Tell the backend to cancel the active download (idempotent if none active).
@@ -809,6 +954,8 @@ export function useReceiver(): UseReceiverReturn {
 		setTransferProgress(null)
 		setTransferStartTime(null)
 		setFileNames([])
+		setReceivedText(null)
+		handledTextKeysRef.current.clear()
 		setPreviewMetadata(null)
 		setIsPreviewLoading(false)
 		pendingConflictNoticeRef.current = null
@@ -895,6 +1042,7 @@ export function useReceiver(): UseReceiverReturn {
 		isPreviewLoading,
 		isExportPending,
 		fileNames,
+		receivedText,
 
 		handleTicketChange,
 		handleBrowseFolder,
@@ -903,5 +1051,6 @@ export function useReceiver(): UseReceiverReturn {
 		showAlert,
 		closeAlert,
 		resetForNewTransfer,
+		copyReceivedText,
 	}
 }

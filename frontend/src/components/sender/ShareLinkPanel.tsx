@@ -15,6 +15,7 @@ import {
 } from '../../lib/receive-link'
 import { randomUUID, copyTextToClipboard } from '../../lib/utils'
 import { useAppSettingStore } from '../../store/app-setting'
+import type { SenderMode } from '../../store/sender-store'
 import type { TransferProgress } from '../../types/transfer'
 import { PulseAnimation } from '../common/PulseAnimation'
 import { TransferProgressBar } from '../common/TransferProgressBar'
@@ -34,6 +35,7 @@ import { SharingActiveHeader } from './SharingActiveHeader'
 interface ShareLinkPanelProps {
 	selectedPaths: string[]
 	selectedPath: string | null
+	sendMode: SenderMode
 	ticket: string | null
 	copySuccess: boolean
 	isTransporting: boolean
@@ -51,6 +53,7 @@ interface ShareLinkPanelProps {
 export function ShareLinkPanel({
 	selectedPaths,
 	selectedPath,
+	sendMode,
 	ticket,
 	copySuccess,
 	isTransporting,
@@ -103,6 +106,7 @@ export function ShareLinkPanel({
 			<SharingActiveHeader
 				selectedPaths={selectedPaths}
 				selectedPath={selectedPath}
+				sendMode={sendMode}
 				statusText={statusText}
 				isCompleted={isCompleted}
 				isTransporting={isTransporting}

@@ -26,6 +26,7 @@ const SENDER_LISTENER_TIMEOUT_MS = 4_000
 function isSenderBusy() {
 	const sender = useSenderStore.getState()
 	return (
+		sender.textDraft.length > 0 ||
 		sender.isLoading ||
 		sender.viewState === 'SHARING' ||
 		sender.viewState === 'TRANSPORTING'
@@ -258,6 +259,7 @@ export function FlashDropBridge() {
 
 				const sender = useSenderStore.getState()
 				sender.resetToIdle()
+				sender.setSendMode('file')
 				sender.setSelectedPaths(paths)
 				selectionChanged = true
 				if (paths.length === 1) {

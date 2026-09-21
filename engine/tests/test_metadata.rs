@@ -2,7 +2,8 @@ mod common;
 
 use common::TestFixture;
 use engine::{
-    fetch_metadata, start_share, start_share_items, FileMetadata, ReceiveOptions, SendOptions,
+    download, fetch_metadata, start_share, start_share_items, FileMetadata, ReceiveOptions,
+    SendOptions, TEXT_CONTENT_KIND,
 };
 
 #[tokio::test]
@@ -18,6 +19,7 @@ async fn e2e_metadata_preview() {
         thumbnail: Some("data:image/png;base64,dGVzdA==".into()),
         mime_type: Some("text/plain".into()),
         items: None,
+        content_kind: None,
     };
 
     let share = start_share(source, SendOptions::default(), None, Some(metadata.clone()))
@@ -55,6 +57,7 @@ async fn e2e_metadata_multi_item() {
         thumbnail: None,
         mime_type: None,
         items: None,
+        content_kind: None,
     };
 
     let share = start_share_items(
@@ -80,6 +83,68 @@ async fn e2e_metadata_multi_item() {
     assert_eq!(
         fetched.mime_type, None,
         "multi-item share should have no mime_type"
+    );
+
+    drop(share);
+}
+
+#[tokio::test]
+async fn e2e_marked_text_roundtrip_preserves_markdown_and_conflict_path() {
+    let fixture = TestFixture::new();
+    let content = b"# Typed text\n\n**literal markdown** `stays intact`\n";
+    let source = fixture.create_file("DashBeam Text.txt", content);
+    let recv_dir = fixture.output_dir();
+    std::fs::write(recv_dir.join("DashBeam Text.txt"), b"existing user file")
+        .expect("conflicting destination");
+
+    let metadata = FileMetadata {
+        file_name: "DashBeam Text.txt".into(),
+        item_count: 1,
+        size: content.len() as u64,
+        thumbnail: None,
+        mime_type: Some("text/plain".into()),
+        items: None,
+        content_kind: Some(TEXT_CONTENT_KIND.into()),
+    };
+    let share = start_share(source, SendOptions::default(), None, Some(metadata.clone()))
+        .await
+        .expect("marked text share");
+
+    let fetched = fetch_metadata(share.ticket.clone(), ReceiveOptions::default())
+        .await
+        .expect("marked text metadata");
+    assert_eq!(fetched.content_kind.as_deref(), Some(TEXT_CONTENT_KIND));
+    assert_eq!(fetched.size, content.len() as u64);
+
+    let (_cancel_tx, cancel_rx) = common::no_cancel();
+    let received = download(
+        share.ticket.clone(),
+        ReceiveOptions {
+            output_dir: Some(recv_dir.clone()),
+            ..Default::default()
+        },
+        None,
+        cancel_rx,
+    )
+    .await
+    .expect("marked text download");
+
+    assert_eq!(received.exported_files.len(), 1);
+    assert_eq!(
+        received.exported_files[0].collection_name,
+        "DashBeam Text.txt"
+    );
+    assert_eq!(
+        received.exported_files[0].path,
+        recv_dir.join("DashBeam Text (1).txt")
+    );
+    assert_eq!(
+        std::fs::read(&received.exported_files[0].path).expect("received bytes"),
+        content
+    );
+    assert_eq!(
+        std::fs::read(recv_dir.join("DashBeam Text.txt")).expect("existing bytes"),
+        b"existing user file"
     );
 
     drop(share);

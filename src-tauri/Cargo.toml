@@ -81,6 +81,7 @@ gstreamer-video = { version = "0.23", optional = true }
 # timeout (the plugin does not expose it).
 [target.'cfg(any(target_os = "linux", target_os = "macos", windows))'.dependencies]
 notify-rust = "4.18"
+arboard = { version = "3.6", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

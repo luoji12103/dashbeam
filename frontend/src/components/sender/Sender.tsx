@@ -1,5 +1,6 @@
-import { StopCircleIcon } from 'lucide-react'
+import { ClipboardIcon, FileTextIcon, StopCircleIcon } from 'lucide-react'
 import { useEffect } from 'react'
+import { IS_DESKTOP } from '@/lib/platform'
 import { useSender } from '../../hooks/useSender'
 import { useTranslation } from '../../i18n/react-i18next-compat'
 import { useSenderStore } from '../../store/sender-store'
@@ -14,15 +15,18 @@ import {
 	AlertDialogTitle,
 } from '../ui/alert-dialog'
 import { Button } from '../ui/button'
+import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group'
 import { DragDrop } from './DragDrop'
 import { ShareActionCard } from './ShareActionCard'
 import { SharingActiveCard } from './SharingActiveCard'
+import { TextComposer } from './TextComposer'
 
 interface SenderProps {
+	isActive: boolean
 	onTransferStateChange: (isSharing: boolean) => void
 }
 
-export function Sender({ onTransferStateChange }: SenderProps) {
+export function Sender({ isActive, onTransferStateChange }: SenderProps) {
 	const {
 		viewState,
 		isSharing,
@@ -36,6 +40,8 @@ export function Sender({ onTransferStateChange }: SenderProps) {
 		alertDialog,
 		transferMetadata,
 		transferProgress,
+		sendMode,
+		textDraft,
 		isBroadcastMode,
 		activeConnectionCount,
 		pairedDevices,
@@ -48,9 +54,13 @@ export function Sender({ onTransferStateChange }: SenderProps) {
 		handleFilesSelect,
 		clearSelectedPath,
 		removeSelectedPath,
+		setSendMode,
+		setTextDraft,
+		clearTextDraft,
 		startSharing,
 		stopSharing,
 		copyTicket,
+		showAlert,
 		closeAlert,
 		resetForNewTransfer,
 	} = useSender()
@@ -82,23 +92,72 @@ export function Sender({ onTransferStateChange }: SenderProps) {
 							{t('common:sender.subtitle')}
 						</p>
 					</div>
+					<ToggleGroup
+						value={[sendMode]}
+						variant="outline"
+						size="sm"
+						className="mx-auto"
+						onValueChange={(value) => {
+							const nextMode = value[0]
+							if (nextMode === 'file' || nextMode === 'text') {
+								setSendMode(nextMode)
+							}
+						}}
+					>
+						<ToggleGroupItem
+							value="file"
+							aria-label={t('common:sender.text.file')}
+						>
+							<FileTextIcon />
+							{t('common:sender.text.file')}
+						</ToggleGroupItem>
+						{IS_DESKTOP ? (
+							<ToggleGroupItem
+								value="text"
+								aria-label={t('common:sender.text.text')}
+							>
+								<ClipboardIcon />
+								{t('common:sender.text.text')}
+							</ToggleGroupItem>
+						) : null}
+					</ToggleGroup>
 					<div className="space-y-4 flex-1 flex flex-col">
-						<DragDrop
-							onFileSelect={handleFileSelect}
-							onFilesSelect={handleFilesSelect}
-							selectedPaths={selectedPaths}
-							selectedPath={selectedPath}
-							isLoading={isLoading}
-							onClearSelection={clearSelectedPath}
-							onRemoveSelectedPath={removeSelectedPath}
-						/>
+						{sendMode === 'text' ? (
+							<TextComposer
+								draft={textDraft}
+								isActive={isActive}
+								isLoading={isLoading}
+								onClear={clearTextDraft}
+								onDraftChange={setTextDraft}
+								onImportError={(description) =>
+									showAlert(
+										t('common:sender.text.importFailed'),
+										description,
+										'error'
+									)
+								}
+								onStartSharing={startSharing}
+							/>
+						) : isActive ? (
+							<>
+								<DragDrop
+									onFileSelect={handleFileSelect}
+									onFilesSelect={handleFilesSelect}
+									selectedPaths={selectedPaths}
+									selectedPath={selectedPath}
+									isLoading={isLoading}
+									onClearSelection={clearSelectedPath}
+									onRemoveSelectedPath={removeSelectedPath}
+								/>
 
-						<ShareActionCard
-							selectedPaths={selectedPaths}
-							selectedPath={selectedPath}
-							isLoading={isLoading}
-							onStartSharing={startSharing}
-						/>
+								<ShareActionCard
+									selectedPaths={selectedPaths}
+									selectedPath={selectedPath}
+									isLoading={isLoading}
+									onStartSharing={startSharing}
+								/>
+							</>
+						) : null}
 					</div>
 				</>
 			)}
@@ -126,6 +185,7 @@ export function Sender({ onTransferStateChange }: SenderProps) {
 						isCompleted={false}
 						selectedPaths={selectedPaths}
 						selectedPath={selectedPath}
+						sendMode={sendMode}
 						pathType={pathType}
 						ticket={ticket}
 						copySuccess={copySuccess}

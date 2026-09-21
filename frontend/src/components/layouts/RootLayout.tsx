@@ -54,6 +54,7 @@ export function RootLayout() {
 			const paths = Array.isArray(selected) ? selected : [selected]
 			if (!paths.length) return
 			const sender = useSenderStore.getState()
+			sender.setSendMode('file')
 			sender.addSelectedPaths(paths)
 			const path = useSenderStore.getState().selectedPaths[0]
 			sender.setPathType(

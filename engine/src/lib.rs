@@ -30,5 +30,5 @@ pub use protocol::{
     should_run_background_presence, sign_challenge, unpaired_message_allowed, verify_challenge,
     verify_relays, ControlMessage, Discoverability, DownloadToStoreResult, PairedDevice,
     PairingStatus, PairingTicket, RelayConfigArg, RelayFallbackPolicy, RelayStatusResponse,
-    ShareSessionOutcome, VerifyRelaysResponse, METADATA_ALPN,
+    ShareSessionOutcome, VerifyRelaysResponse, METADATA_ALPN, TEXT_CONTENT_KIND,
 };

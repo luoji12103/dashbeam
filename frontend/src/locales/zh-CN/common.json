@@ -76,6 +76,21 @@
 		"scanToReceive": "扫码以接收",
 		"shareMessageIntro": "私密传输 - 使用 DashBeam 发送",
 		"description": "描述（可选）",
+		"text": {
+			"file": "文件",
+			"text": "文字",
+			"label": "文字：",
+			"clipboardText": "剪贴板文本",
+			"placeholder": "粘贴文字或 Markdown",
+			"importMarkdown": "导入 Markdown",
+			"importMarkdownOnly": "请拖入单个 .md 文件以导入为文字。",
+			"importFailed": "无法导入 Markdown",
+			"clear": "清除文字",
+			"size": "{{bytes}} / {{limit}} 字节",
+			"empty": "请输入要共享的文字。",
+			"tooLarge": "文字超过 1 MiB 限制。",
+			"desktopOnly": "文字共享目前仅适用于桌面应用。"
+		},
 		"broadcastMode": {
 			"index": "广播",
 			"on": {
@@ -191,6 +206,16 @@
 		"downloadCompleted": "下载完成",
 		"downloadCompletedWithConflicts": "下载完成，已处理重名冲突",
 		"downloadedFile": "已下载文件",
+		"receivedText": {
+			"dialogTitle": "收到文本",
+			"dialogDescription": "可以自由选择部分文本，也可以一键复制全部内容。",
+			"previewLabel": "收到的文本",
+			"ready": "文本已就绪，可以复制",
+			"copied": "已复制到剪贴板",
+			"copy": "复制",
+			"copyFailed": "无法复制：{{error}}",
+			"loadFailed": "无法打开收到的文本"
+		},
 		"stopReceiving": "停止接收",
 		"download": "下载"
 	},
@@ -300,6 +325,11 @@
 				"title": "通知",
 				"label": "显示系统通知",
 				"description": "即使 DashBeam 不在前台，也可以收到配对请求、传入文件和下载完成的通知"
+			},
+			"receivedText": {
+				"title": "收到的文本",
+				"autoCopy": "自动复制收到的文本",
+				"autoCopyDescription": "带有文本标记的传输完成后，将内容复制到剪贴板。普通 .txt 和 .md 文件绝不会自动复制。"
 			},
 			"flashDrop": {
 				"title": "闪传",

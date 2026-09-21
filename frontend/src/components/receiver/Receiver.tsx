@@ -17,6 +17,7 @@ import { ReceivingActiveCard } from './ReceivingActiveCard'
 import { TicketInput } from './TicketInput'
 import { ReceiveSaveLocationPicker } from './ReceiveSaveLocationPicker'
 import { Button } from '../ui/button'
+import { ReceivedTextCard } from './ReceivedTextCard'
 
 interface ReceiverProps {
 	onTransferStateChange: (isReceiving: boolean) => void
@@ -39,12 +40,14 @@ export function Receiver({ onTransferStateChange }: ReceiverProps) {
 		isPreviewLoading,
 		isExportPending,
 		fileNames,
+		receivedText,
 		handleTicketChange,
 		handleBrowseFolder,
 		handleReceive,
 		handleOpenFolder,
 		closeAlert,
 		resetForNewTransfer,
+		copyReceivedText,
 	} = useReceiverContext()
 
 	useEffect(() => {
@@ -92,7 +95,10 @@ export function Receiver({ onTransferStateChange }: ReceiverProps) {
 					</div>
 				</>
 			) : isCompleted && transferMetadata ? (
-				<div className="flex-1 flex flex-col">
+				<div className="flex-1 flex flex-col gap-4">
+					{receivedText && (
+						<ReceivedTextCard state={receivedText} onCopy={copyReceivedText} />
+					)}
 					<TransferSuccessScreen
 						metadata={transferMetadata}
 						onDone={resetForNewTransfer}

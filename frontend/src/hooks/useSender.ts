@@ -12,7 +12,7 @@ import {
 	listPairedDevices,
 	type PairedDevice,
 } from '@/lib/pairing-api'
-import { IS_PAIRING_CAPABLE } from '@/lib/platform'
+import { IS_DESKTOP, IS_PAIRING_CAPABLE } from '@/lib/platform'
 import { invoke, listen, type UnlistenFn } from '@/lib/platform-api'
 import {
 	getWebPreviewErrorMessage,
@@ -24,6 +24,7 @@ import { toastManager } from '../components/ui/toast'
 import { useTranslation } from '../i18n/react-i18next-compat'
 import { getDiscoveryConfigArg } from '../lib/discovery'
 import { getRelayConfigArg } from '../lib/relay'
+import { getTextByteLength, validateTextDraft } from '../lib/send-text'
 import {
 	parseCompletionPayload,
 	parseProgressPayload,
@@ -53,6 +54,8 @@ export interface UseSenderReturn {
 	alertDialog: any
 	transferMetadata: TransferMetadata | null
 	transferProgress: TransferProgress | null
+	sendMode: 'file' | 'text'
+	textDraft: string
 	isBroadcastMode: boolean
 	activeConnectionCount: number
 	pairedDevices: PairedDevice[]
@@ -72,6 +75,9 @@ export interface UseSenderReturn {
 	) => Promise<void>
 	clearSelectedPath: () => void
 	removeSelectedPath: (path: string) => void
+	setSendMode: (mode: 'file' | 'text') => void
+	setTextDraft: (text: string) => void
+	clearTextDraft: () => void
 	startSharing: () => Promise<void>
 	stopSharing: () => Promise<void>
 	copyTicket: () => Promise<void>
@@ -95,6 +101,8 @@ export function useSender(): UseSenderReturn {
 		alertDialog,
 		transferMetadata,
 		transferProgress,
+		sendMode,
+		textDraft,
 		isBroadcastMode,
 		activeConnectionCount,
 		setViewState,
@@ -107,6 +115,9 @@ export function useSender(): UseSenderReturn {
 		setCopySuccess,
 		setTransferMetadata,
 		setTransferProgress,
+		setSendMode,
+		setTextDraft,
+		clearTextDraft,
 		setIsBroadcastMode,
 		showAlert,
 		closeAlert,
@@ -339,6 +350,7 @@ export function useSender(): UseSenderReturn {
 				'transfer-completed',
 				async (event: any) => {
 					const storeState = useSenderStore.getState()
+					const isTextShare = storeState.sendMode === 'text'
 
 					// Guard: Skip if manually stopped
 					if (wasManuallyStoppedRef.current) {
@@ -350,8 +362,8 @@ export function useSender(): UseSenderReturn {
 						return
 					}
 
-					// Guard: Skip if selectedPath is null in store (already reset)
-					if (!storeState.selectedPath) {
+					// Text shares have no source path selected in the file picker.
+					if (!storeState.selectedPath && !isTextShare) {
 						return
 					}
 
@@ -384,6 +396,31 @@ export function useSender(): UseSenderReturn {
 						(transferStartTimeRef.current
 							? endTime - transferStartTimeRef.current
 							: 0)
+
+					if (isTextShare) {
+						const textSize = getTextByteLength(storeState.textDraft)
+						setTransferMetadata({
+							fileName: t('common:sender.text.clipboardText'),
+							fileSize: textSize,
+							duration,
+							startTime: transferStartTimeRef.current || endTime,
+							endTime,
+							pathType: 'file',
+							itemCount: 1,
+						})
+
+						if (storeState.isBroadcastMode) {
+							setTimeout(() => {
+								resetForBroadcast()
+								latestProgressRef.current = null
+								transferStartTimeRef.current = null
+							}, 2000)
+						} else {
+							setViewState('SUCCESS')
+							setTransferProgress(null)
+						}
+						return
+					}
 
 					const currentPath = selectedPathRef.current
 					const currentPathType = pathTypeRef.current
@@ -470,6 +507,7 @@ export function useSender(): UseSenderReturn {
 
 			const nextUnlistenFailed = await listen('transfer-failed', async () => {
 				const storeState = useSenderStore.getState()
+				const isTextShare = storeState.sendMode === 'text'
 
 				// Guard: Skip if manually stopped
 				if (wasManuallyStoppedRef.current) {
@@ -481,8 +519,8 @@ export function useSender(): UseSenderReturn {
 					return
 				}
 
-				// Guard: Skip if selectedPath is null in store (already reset)
-				if (!storeState.selectedPath) {
+				// Text shares have no source path selected in the file picker.
+				if (!storeState.selectedPath && !isTextShare) {
 					return
 				}
 
@@ -517,6 +555,22 @@ export function useSender(): UseSenderReturn {
 				const duration = transferStartTimeRef.current
 					? endTime - transferStartTimeRef.current
 					: 0
+
+				if (isTextShare) {
+					setTransferMetadata({
+						fileName: t('common:sender.text.clipboardText'),
+						fileSize: getTextByteLength(storeState.textDraft),
+						duration,
+						startTime: transferStartTimeRef.current || endTime,
+						endTime,
+						wasStopped: true,
+						pathType: 'file',
+						itemCount: 1,
+					})
+					setViewState('SUCCESS')
+					setTransferProgress(null)
+					return
+				}
 
 				if (pathToUse) {
 					const fileName = pathToUse.split('/').pop() || 'Unknown'
@@ -588,6 +642,7 @@ export function useSender(): UseSenderReturn {
 		setActiveConnectionCount,
 		refreshPairedDevices,
 		setInviteStatus,
+		t,
 	])
 
 	const handleFilesSelect = async (
@@ -661,9 +716,28 @@ export function useSender(): UseSenderReturn {
 	}
 
 	const startSharing = async () => {
-		if (!selectedPaths.length) {
+		if (sendMode === 'file' && !selectedPaths.length) {
 			console.warn(
 				'[useSender] startSharing: no selectedPaths, returning early'
+			)
+			return
+		}
+		const textValidation = validateTextDraft(textDraft)
+		if (sendMode === 'text' && !IS_DESKTOP) {
+			showAlert(
+				t('common:errors.sharingFailed'),
+				t('common:sender.text.desktopOnly'),
+				'error'
+			)
+			return
+		}
+		if (sendMode === 'text' && !textValidation.isValid) {
+			showAlert(
+				t('common:errors.sharingFailed'),
+				textValidation.issue === 'too-large'
+					? t('common:sender.text.tooLarge')
+					: t('common:sender.text.empty'),
+				'error'
 			)
 			return
 		}
@@ -678,11 +752,18 @@ export function useSender(): UseSenderReturn {
 			latestProgressRef.current = null
 
 			setIsLoading(true)
-			const result = await invoke<string>('send_items', {
-				paths: selectedPaths,
-				relay: getRelayConfigArg(),
-				discovery: getDiscoveryConfigArg(),
-			})
+			const result =
+				sendMode === 'text'
+					? await invoke<string>('send_text', {
+							text: textDraft,
+							relay: getRelayConfigArg(),
+							discovery: getDiscoveryConfigArg(),
+						})
+					: await invoke<string>('send_items', {
+							paths: selectedPaths,
+							relay: getRelayConfigArg(),
+							discovery: getDiscoveryConfigArg(),
+						})
 			setTicket(result)
 			setViewState('SHARING')
 		} catch (error) {
@@ -714,8 +795,9 @@ export function useSender(): UseSenderReturn {
 			const currentSelectedPath = selectedPathRef.current
 			const currentTransferStartTime = transferStartTimeRef.current
 			const storeState = useSenderStore.getState()
+			const isTextShare = storeState.sendMode === 'text'
 
-			if (wasActiveTransfer && currentSelectedPath) {
+			if (wasActiveTransfer && (currentSelectedPath || isTextShare)) {
 				// In broadcast mode, reset to SHARING instead of showing SUCCESS
 				if (storeState.isBroadcastMode) {
 					wasManuallyStoppedRef.current = true
@@ -737,13 +819,15 @@ export function useSender(): UseSenderReturn {
 					}
 
 					const endTime = Date.now()
-					const fileName = currentSelectedPath.split('/').pop() || 'Unknown'
-					const currentPathType = pathTypeRef.current
-					const itemCount = storeState.selectedPaths.length
+					const fileName = isTextShare
+						? t('common:sender.text.clipboardText')
+						: currentSelectedPath?.split('/').pop() || 'Unknown'
+					const currentPathType = isTextShare ? 'file' : pathTypeRef.current
+					const itemCount = isTextShare ? 1 : storeState.selectedPaths.length
 
 					const stoppedMetadata: TransferMetadata = {
 						fileName,
-						fileSize: 0,
+						fileSize: isTextShare ? getTextByteLength(storeState.textDraft) : 0,
 						duration: 0,
 						startTime: currentTransferStartTime || endTime,
 						endTime,
@@ -774,7 +858,7 @@ export function useSender(): UseSenderReturn {
 			await invoke('stop_sharing')
 
 			// If no active transfer (just sharing, waiting for acceptance), reset to idle
-			if (!wasActiveTransfer || !currentSelectedPath) {
+			if (!wasActiveTransfer || (!currentSelectedPath && !isTextShare)) {
 				wasManuallyStoppedRef.current = false
 				setActiveConnectionCount(0)
 				resetToIdle()
@@ -804,6 +888,9 @@ export function useSender(): UseSenderReturn {
 	}
 
 	const resolveShareTotalSize = async (): Promise<number> => {
+		if (sendMode === 'text') {
+			return getTextByteLength(textDraft)
+		}
 		if (transferMetadata?.fileSize) return transferMetadata.fileSize
 		try {
 			const sizes = await Promise.all(
@@ -846,7 +933,8 @@ export function useSender(): UseSenderReturn {
 			return false
 		}
 		incrementPairedSendCount(endpointId)
-		const fileCount = Math.max(selectedPaths.length, 1)
+		const fileCount =
+			sendMode === 'text' ? 1 : Math.max(selectedPaths.length, 1)
 		setInviteStatus(endpointId, 'sending')
 		try {
 			const totalSize = await resolveShareTotalSize()
@@ -915,7 +1003,8 @@ export function useSender(): UseSenderReturn {
 			(endpointId
 				? `${endpointId.slice(0, 8)}…`
 				: t('common:sender.pairedDevices.unknownPeer'))
-		const fileCount = Math.max(selectedPaths.length, 1)
+		const fileCount =
+			sendMode === 'text' ? 1 : Math.max(selectedPaths.length, 1)
 		setInviteStatus(endpointId, 'sending')
 		try {
 			const totalSize = await resolveShareTotalSize()
@@ -998,6 +1087,8 @@ export function useSender(): UseSenderReturn {
 		alertDialog,
 		transferMetadata,
 		transferProgress,
+		sendMode,
+		textDraft,
 		isBroadcastMode,
 		activeConnectionCount,
 		pairedDevices,
@@ -1011,6 +1102,9 @@ export function useSender(): UseSenderReturn {
 		handleFilesSelect,
 		clearSelectedPath,
 		removeSelectedPath,
+		setSendMode,
+		setTextDraft,
+		clearTextDraft,
 		startSharing,
 		stopSharing,
 		copyTicket,

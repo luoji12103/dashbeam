@@ -1,4 +1,5 @@
 import type { PairedDevice } from '@/lib/pairing-api'
+import type { SenderMode } from '@/store/sender-store'
 import type { TransferProgress } from './transfer'
 import type { AlertDialogState } from './ui'
 
@@ -32,6 +33,7 @@ export interface SharingControlsProps {
 	isCompleted: boolean
 	selectedPaths: string[]
 	selectedPath: string | null
+	sendMode?: SenderMode
 	pathType: 'file' | 'directory' | null
 	ticket: string | null
 	copySuccess: boolean

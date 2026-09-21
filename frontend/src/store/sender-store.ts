@@ -4,6 +4,7 @@ import type { AlertDialogState, AlertType } from '../types/ui'
 
 // Define explicit view states for predictable UI rendering
 export type SenderViewState = 'IDLE' | 'SHARING' | 'TRANSPORTING' | 'SUCCESS'
+export type SenderMode = 'file' | 'text'
 
 export interface SenderStore {
 	// View state (replaces isSharing, isTransporting, isCompleted)
@@ -17,6 +18,9 @@ export interface SenderStore {
 	thumbnailUrl: string | null
 	transferMetadata: TransferMetadata | null
 	transferProgress: TransferProgress | null
+	sendMode: SenderMode
+	/** Runtime-only text draft. It must never be written to settings or history. */
+	textDraft: string
 
 	// UI flags
 	isLoading: boolean
@@ -38,6 +42,9 @@ export interface SenderStore {
 	setThumbnailUrl: (url: string | null) => void
 	setTransferMetadata: (metadata: TransferMetadata | null) => void
 	setTransferProgress: (progress: TransferProgress | null) => void
+	setSendMode: (mode: SenderMode) => void
+	setTextDraft: (text: string) => void
+	clearTextDraft: () => void
 	setIsLoading: (loading: boolean) => void
 	setCopySuccess: (success: boolean) => void
 	setIsBroadcastMode: (enabled: boolean) => void
@@ -63,6 +70,8 @@ export const useSenderStore = create<SenderStore>()((set) => ({
 	thumbnailUrl: null,
 	transferMetadata: null,
 	transferProgress: null,
+	sendMode: 'file',
+	textDraft: '',
 	isLoading: false,
 	copySuccess: false,
 	isBroadcastMode: false,
@@ -114,6 +123,9 @@ export const useSenderStore = create<SenderStore>()((set) => ({
 		set({ transferMetadata })
 	},
 	setTransferProgress: (transferProgress) => set({ transferProgress }),
+	setSendMode: (sendMode) => set({ sendMode }),
+	setTextDraft: (textDraft) => set({ textDraft }),
+	clearTextDraft: () => set({ textDraft: '' }),
 	setIsLoading: (isLoading) => set({ isLoading }),
 	setCopySuccess: (copySuccess) => set({ copySuccess }),
 	setIsBroadcastMode: (isBroadcastMode) => set({ isBroadcastMode }),

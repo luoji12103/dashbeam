@@ -3,7 +3,7 @@ use crate::history::{
     history_enabled, partial_store_path_for, CompletionFacts, HistoryRecordingEmitter,
     TransferContext,
 };
-use crate::state::{AppStateMutex, ShareHandle};
+use crate::state::{AppStateMutex, OwnedSourceDir, ShareHandle};
 use engine::{
     build_discovery_mode, download, fetch_metadata, get_relay_status as engine_get_relay_status,
     resolve_relay_mode_with_fallback, start_share_items,
@@ -11,7 +11,7 @@ use engine::{
     AddrInfoOptions, AppHandle, DeviceInfo, Discoverability, EventEmitter, FileMetadata,
     FilePreviewItem, NearbyDevice, NodeService, PairedDevice, PairedDeviceInfo, ReceiveOptions,
     SendOptions, TransferDirection, TransferHistoryStore, TransferPathType, TransferPeer,
-    TransferRecord, TransferStatus,
+    TransferRecord, TransferStatus, TEXT_CONTENT_KIND,
 };
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -30,6 +30,34 @@ fn relay_fallback_event_payload(
     fell_back_to_public: bool,
 ) -> Option<&'static str> {
     fell_back_to_public.then_some(stage)
+}
+
+const MAX_TEXT_BYTES: usize = 1024 * 1024;
+const TRANSFER_TEXT_FILE_NAME: &str = "DashBeam Text.txt";
+
+fn validate_text_size(text: &str) -> Result<(), String> {
+    if text.is_empty() {
+        return Err("Text cannot be empty".to_string());
+    }
+    if text.len() > MAX_TEXT_BYTES {
+        return Err(format!("Text exceeds the {} byte limit", MAX_TEXT_BYTES));
+    }
+    Ok(())
+}
+
+fn read_utf8_file_bounded(path: &Path) -> Result<String, String> {
+    use std::io::Read;
+
+    let file =
+        std::fs::File::open(path).map_err(|error| format!("Could not open text file: {error}"))?;
+    let mut bytes = Vec::with_capacity(MAX_TEXT_BYTES.min(16 * 1024));
+    file.take(MAX_TEXT_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("Could not read text file: {error}"))?;
+    if bytes.len() > MAX_TEXT_BYTES {
+        return Err(format!("Text exceeds the {} byte limit", MAX_TEXT_BYTES));
+    }
+    String::from_utf8(bytes).map_err(|_| "Text file is not valid UTF-8".to_string())
 }
 
 /// Check which relay the app can reach, with public fallback only when selected.
@@ -176,7 +204,9 @@ pub async fn get_file_size(path: String) -> Result<u64, String> {
 #[cfg(desktop)]
 pub async fn focus_main_window(app_handle: tauri::AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
-    app_handle.set_activation_policy(tauri::ActivationPolicy::Regular).map_err(|e| e.to_string())?;
+    app_handle
+        .set_activation_policy(tauri::ActivationPolicy::Regular)
+        .map_err(|e| e.to_string())?;
     if let Some(window) = app_handle.get_webview_window("main") {
         window.show().map_err(|e| e.to_string())?;
         if window.is_minimized().map_err(|e| e.to_string())? {
@@ -220,6 +250,22 @@ pub async fn send_items(
     history: State<'_, Arc<TransferHistoryStore>>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
+    send_items_impl(
+        paths, relay, discovery, state, history, app_handle, None, None,
+    )
+    .await
+}
+
+async fn send_items_impl(
+    paths: Vec<String>,
+    relay: Option<RelayConfigArg>,
+    discovery: Option<DiscoveryConfigArg>,
+    state: State<'_, AppStateMutex>,
+    history: State<'_, Arc<TransferHistoryStore>>,
+    app_handle: tauri::AppHandle,
+    content_kind: Option<&'static str>,
+    owned_source_dir: Option<OwnedSourceDir>,
+) -> Result<String, String> {
     // Validate input before doing any work.
     if paths.is_empty() {
         return Err("No paths provided".to_string());
@@ -238,7 +284,8 @@ pub async fn send_items(
 
     let start_result = async {
         // Prepare metadata outside the state mutex.
-        let metadata = build_send_metadata(&path_bufs).await?;
+        let mut metadata = build_send_metadata(&path_bufs).await?;
+        metadata.content_kind = content_kind.map(str::to_string);
         tracing::info!(
             first_path_stem = ?path_bufs[0].file_stem(),
             total_size = metadata.size,
@@ -307,8 +354,11 @@ pub async fn send_items(
 
             // Keep full send result alive to preserve router/temp_tag lifecycle.
             let primary = paths.first().cloned().unwrap_or_else(|| PathBuf::from("."));
-            app_state.current_share =
-                Some(ShareHandle::new(ticket.clone(), primary, result, recorder));
+            let mut handle = ShareHandle::new(ticket.clone(), primary, result, recorder);
+            if let Some(dir) = owned_source_dir {
+                handle = handle.with_owned_source_dir(dir);
+            }
+            app_state.current_share = Some(handle);
             Ok(ticket)
         }
         Err(e) => {
@@ -317,6 +367,170 @@ pub async fn send_items(
             Err(e)
         }
     }
+}
+
+/// Share typed/pasted text through the normal encrypted file transport.
+#[tauri::command]
+pub async fn send_text(
+    text: String,
+    relay: Option<RelayConfigArg>,
+    discovery: Option<DiscoveryConfigArg>,
+    state: State<'_, AppStateMutex>,
+    history: State<'_, Arc<TransferHistoryStore>>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    validate_text_size(&text)?;
+
+    let source_dir = engine::storage::new_send_blobs_dir();
+    create_private_text_dir(&source_dir)?;
+    let source_guard = OwnedSourceDir::new(source_dir);
+    let source_path = source_guard.path().join(TRANSFER_TEXT_FILE_NAME);
+    tokio::fs::write(&source_path, text.as_bytes())
+        .await
+        .map_err(|error| format!("Could not prepare text transfer: {error}"))?;
+
+    send_items_impl(
+        vec![source_path.to_string_lossy().into_owned()],
+        relay,
+        discovery,
+        state,
+        history,
+        app_handle,
+        Some(TEXT_CONTENT_KIND),
+        Some(source_guard),
+    )
+    .await
+}
+
+fn create_private_text_dir(path: &Path) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        let mut builder = std::fs::DirBuilder::new();
+        builder.mode(0o700);
+        return builder
+            .create(path)
+            .map_err(|error| format!("Could not prepare text transfer: {error}"));
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::create_dir(path)
+            .map_err(|error| format!("Could not prepare text transfer: {error}"))
+    }
+}
+
+/// Read a user-selected text/Markdown file for editing before it is sent.
+#[tauri::command]
+pub async fn read_text_file(path: String) -> Result<String, String> {
+    let path = PathBuf::from(path);
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase);
+    if !matches!(extension.as_deref(), Some("txt" | "md")) {
+        return Err("Only .txt and .md files can be imported as text".to_string());
+    }
+    tokio::task::spawn_blocking(move || read_utf8_file_bounded(&path))
+        .await
+        .map_err(|error| format!("Text import task failed: {error}"))?
+}
+
+/// Return only text cached from a validated, completed marked transfer.
+#[tauri::command]
+pub async fn read_received_text(
+    path: String,
+    state: State<'_, AppStateMutex>,
+) -> Result<String, String> {
+    state
+        .lock()
+        .await
+        .completed_text
+        .get(&path)
+        .cloned()
+        .ok_or_else(|| "No validated completed text transfer exists for this path".to_string())
+}
+
+/// Native clipboard write works even when the webview does not have focus.
+#[cfg(desktop)]
+#[tauri::command]
+pub async fn write_clipboard_text(text: String) -> Result<(), String> {
+    validate_text_size(&text)?;
+    tokio::task::spawn_blocking(move || write_clipboard_on_owner_thread(text))
+        .await
+        .map_err(|error| format!("Clipboard task failed: {error}"))?
+}
+
+#[cfg(desktop)]
+struct ClipboardRequest {
+    text: String,
+    reply: std::sync::mpsc::Sender<Result<(), String>>,
+}
+
+/// X11 serves clipboard contents from the owning process, so the Clipboard
+/// object must outlive a single command invocation. One dedicated thread also
+/// keeps native clipboard APIs off async worker threads on every desktop OS.
+#[cfg(desktop)]
+fn write_clipboard_on_owner_thread(text: String) -> Result<(), String> {
+    use std::sync::{mpsc, Mutex, OnceLock};
+
+    static OWNER: OnceLock<Mutex<Option<mpsc::Sender<ClipboardRequest>>>> = OnceLock::new();
+    let owner = OWNER.get_or_init(|| Mutex::new(None));
+    let mut sender_slot = owner
+        .lock()
+        .map_err(|_| "Clipboard owner state is unavailable".to_string())?;
+
+    let sender = match sender_slot.as_ref() {
+        Some(sender) => sender.clone(),
+        None => {
+            let (request_tx, request_rx) = mpsc::channel::<ClipboardRequest>();
+            let (ready_tx, ready_rx) = mpsc::sync_channel(1);
+            std::thread::Builder::new()
+                .name("dashbeam-clipboard".to_string())
+                .spawn(move || {
+                    let mut clipboard = match arboard::Clipboard::new() {
+                        Ok(clipboard) => {
+                            let _ = ready_tx.send(Ok(()));
+                            clipboard
+                        }
+                        Err(error) => {
+                            let _ =
+                                ready_tx.send(Err(format!("Could not access clipboard: {error}")));
+                            return;
+                        }
+                    };
+                    for request in request_rx {
+                        let result = clipboard
+                            .set_text(request.text)
+                            .map_err(|error| format!("Could not write clipboard: {error}"));
+                        let _ = request.reply.send(result);
+                    }
+                })
+                .map_err(|error| format!("Could not start clipboard owner: {error}"))?;
+            ready_rx
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .map_err(|_| "Clipboard owner did not start in time".to_string())??;
+            *sender_slot = Some(request_tx.clone());
+            request_tx
+        }
+    };
+    drop(sender_slot);
+
+    let (reply_tx, reply_rx) = mpsc::channel();
+    if sender
+        .send(ClipboardRequest {
+            text,
+            reply: reply_tx,
+        })
+        .is_err()
+    {
+        if let Ok(mut slot) = owner.lock() {
+            *slot = None;
+        }
+        return Err("Clipboard owner is unavailable".to_string());
+    }
+    reply_rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .map_err(|_| "Clipboard write did not complete in time".to_string())?
 }
 
 async fn build_send_metadata(paths: &[PathBuf]) -> Result<FileMetadata, String> {
@@ -364,6 +578,7 @@ async fn build_send_metadata(paths: &[PathBuf]) -> Result<FileMetadata, String> 
             thumbnail,
             mime_type,
             items: None,
+            content_kind: None,
         });
     }
 
@@ -383,6 +598,7 @@ async fn build_send_metadata(paths: &[PathBuf]) -> Result<FileMetadata, String> 
         thumbnail,
         mime_type: Some("application/x-iroh-collection".to_string()),
         items: Some(preview_items),
+        content_kind: None,
     })
 }
 
@@ -493,6 +709,13 @@ pub async fn receive_file(
         resolve_receive_output_dir(&app_handle, output_path, sanitized_sub_folder.as_deref())?;
     let (relay_mode, fell_back_to_public) = resolve_relay_mode_with_fallback(relay).await?;
     let discovery_mode = build_discovery_mode(discovery)?;
+    let metadata_options = ReceiveOptions {
+        output_dir: None,
+        relay_mode: relay_mode.clone(),
+        discovery_mode: discovery_mode.clone(),
+        magic_ipv4_addr: None,
+        magic_ipv6_addr: None,
+    };
     let options = ReceiveOptions {
         output_dir: Some(output_dir.clone()),
         relay_mode,
@@ -554,7 +777,7 @@ pub async fn receive_file(
     }
 
     // Create a cancel channel and store the sender so cancel_receive can fire it.
-    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel::<()>();
+    let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel::<()>();
     {
         let mut app_state = state.lock().await;
         if app_state.current_receive_cancel.is_some() {
@@ -564,9 +787,26 @@ pub async fn receive_file(
         }
         app_state.current_receive_cancel = Some(cancel_tx);
         app_state.current_receive_hash = incoming_hash.clone();
+        app_state.completed_text.clear();
     }
 
-    let result = download(ticket, options, boxed_handle, cancel_rx).await;
+    // Metadata is advisory for ordinary files. Bound this second, independent
+    // verification so old/unavailable metadata servers do not delay a normal
+    // download, while keeping cancellation live during the lookup.
+    let incoming_metadata = tokio::select! {
+        _ = &mut cancel_rx => {
+            let mut app_state = state.lock().await;
+            app_state.current_receive_cancel = None;
+            app_state.current_receive_hash = None;
+            return Err("cancelled".to_string());
+        }
+        result = tokio::time::timeout(
+            std::time::Duration::from_secs(3),
+            fetch_metadata(ticket.clone(), metadata_options),
+        ) => result.ok().and_then(Result::ok),
+    };
+
+    let result = download(ticket.clone(), options, boxed_handle, cancel_rx).await;
 
     // Update state based on outcome.
     {
@@ -606,6 +846,21 @@ pub async fn receive_file(
 
     match result {
         Ok(r) => {
+            // Read and cache before Android moves staging into its final public
+            // destination. The value is emitted only after that export succeeds.
+            let validated_text = incoming_metadata.as_ref().and_then(|metadata| {
+                if metadata.content_kind.as_deref() != Some(TEXT_CONTENT_KIND) {
+                    return None;
+                }
+                match validate_received_text(metadata, &r) {
+                    Ok(value) => Some(value),
+                    Err(error) => {
+                        tracing::warn!(%error, "marked text transfer failed validation");
+                        None
+                    }
+                }
+            });
+
             #[cfg(target_os = "android")]
             {
                 let destination = finalize_android_receive(
@@ -632,6 +887,21 @@ pub async fn receive_file(
             {
                 let _ = (tree_uri, tree_display_path);
             }
+
+            if let Some((path, text)) = validated_text {
+                let size = text.len();
+                {
+                    let mut app_state = state.lock().await;
+                    app_state.completed_text.clear();
+                    app_state.completed_text.insert(path.clone(), text);
+                }
+                let payload = serde_json::json!({
+                    "ticket": ticket,
+                    "path": path,
+                    "size": size,
+                });
+                let _ = app_handle.emit("received-text-ready", payload.to_string());
+            }
             Ok(r.message)
         }
         Err(e) if e.to_string() == "cancelled" => {
@@ -643,6 +913,49 @@ pub async fn receive_file(
             Err(format!("Failed to receive file: {}", e))
         }
     }
+}
+
+fn validate_received_text(
+    metadata: &FileMetadata,
+    result: &engine::ReceiveResult,
+) -> Result<(String, String), String> {
+    if metadata.content_kind.as_deref() != Some(TEXT_CONTENT_KIND)
+        || metadata.item_count != 1
+        || metadata.size > MAX_TEXT_BYTES as u64
+        || metadata.mime_type.as_deref() != Some("text/plain")
+        || metadata.file_name != TRANSFER_TEXT_FILE_NAME
+        || result.exported_files.len() != 1
+    {
+        return Err("marked text metadata does not match the text transfer contract".to_string());
+    }
+
+    let exported = &result.exported_files[0];
+    if exported.collection_name != metadata.file_name {
+        return Err("downloaded manifest does not match marked text metadata".to_string());
+    }
+    let link_metadata = std::fs::symlink_metadata(&exported.path)
+        .map_err(|error| format!("Could not inspect received text: {error}"))?;
+    if !link_metadata.file_type().is_file() || link_metadata.file_type().is_symlink() {
+        return Err("Received text is not a regular file".to_string());
+    }
+
+    let output_dir = result
+        .file_path
+        .canonicalize()
+        .map_err(|error| format!("Could not validate receive directory: {error}"))?;
+    let path = exported
+        .path
+        .canonicalize()
+        .map_err(|error| format!("Could not validate received text path: {error}"))?;
+    if !path.starts_with(&output_dir) {
+        return Err("Received text path is outside the receive directory".to_string());
+    }
+
+    let text = read_utf8_file_bounded(&path)?;
+    if text.len() as u64 != metadata.size {
+        return Err("Received text size does not match metadata".to_string());
+    }
+    Ok((path.to_string_lossy().into_owned(), text))
 }
 
 /// Where an export put the files: `display` is what history shows, `uri` is the
@@ -983,7 +1296,14 @@ pub fn configure_flash_drop(
 ) -> Result<(), String> {
     crate::flash_drop_native::configure(&app_handle, enabled, &target_label, available)?;
     crate::tray::set_flash_drop_enabled(&app_handle, enabled);
-    crate::tray::set_current_target(&app_handle, if target_label.is_empty() { None } else { Some(target_label) });
+    crate::tray::set_current_target(
+        &app_handle,
+        if target_label.is_empty() {
+            None
+        } else {
+            Some(target_label)
+        },
+    );
     Ok(())
 }
 
@@ -995,9 +1315,7 @@ pub fn flash_drop_feedback(message: String, success: bool) {
 
 /// Atomically drains pending files from CLI, Finder, or the Share extension.
 #[tauri::command]
-pub async fn check_launch_intent(
-    state: State<'_, AppStateMutex>,
-) -> Result<Vec<String>, String> {
+pub async fn check_launch_intent(state: State<'_, AppStateMutex>) -> Result<Vec<String>, String> {
     let mut app_state = state.lock().await;
     Ok(std::mem::take(&mut app_state.launch_intent))
 }
@@ -2251,6 +2569,7 @@ mod tests {
             thumbnail: Some("data:image/jpeg;base64,ZmFrZS10aHVtYg==".to_string()),
             mime_type: Some("text/plain".to_string()),
             items: None,
+            content_kind: None,
         };
 
         let options = SendOptions {
@@ -2281,6 +2600,97 @@ mod tests {
 
         drop(share);
         let _ = fs::remove_file(temp_path);
+    }
+
+    #[test]
+    fn text_size_limit_is_measured_in_utf8_bytes() {
+        assert!(validate_text_size("").is_err());
+        assert!(validate_text_size(&"a".repeat(MAX_TEXT_BYTES)).is_ok());
+        assert!(validate_text_size(&"a".repeat(MAX_TEXT_BYTES + 1)).is_err());
+        assert!(validate_text_size(&"中".repeat(MAX_TEXT_BYTES / 3 + 1)).is_err());
+    }
+
+    #[test]
+    fn bounded_text_reader_preserves_literal_markdown_and_rejects_bad_input() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let markdown = "# heading\n\n**bold** `code` [link](https://example.test)\n";
+        let markdown_path = dir.path().join("notes.md");
+        fs::write(&markdown_path, markdown.as_bytes()).expect("markdown");
+        assert_eq!(read_utf8_file_bounded(&markdown_path).unwrap(), markdown);
+
+        let invalid_path = dir.path().join("invalid.txt");
+        fs::write(&invalid_path, [0xff, 0xfe]).expect("invalid utf8");
+        assert!(read_utf8_file_bounded(&invalid_path).is_err());
+
+        let oversized_path = dir.path().join("oversized.txt");
+        fs::write(&oversized_path, vec![b'x'; MAX_TEXT_BYTES + 1]).expect("oversized");
+        assert!(read_utf8_file_bounded(&oversized_path).is_err());
+    }
+
+    fn marked_text_metadata(size: u64) -> FileMetadata {
+        FileMetadata {
+            file_name: TRANSFER_TEXT_FILE_NAME.to_string(),
+            item_count: 1,
+            size,
+            thumbnail: None,
+            mime_type: Some("text/plain".to_string()),
+            items: None,
+            content_kind: Some(TEXT_CONTENT_KIND.to_string()),
+        }
+    }
+
+    #[test]
+    fn received_text_uses_the_actual_conflict_resolved_path() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let content = "literal **markdown**";
+        let resolved = dir.path().join("DashBeam Text (1).txt");
+        fs::write(&resolved, content).expect("received text");
+        let result = engine::ReceiveResult {
+            message: "done".to_string(),
+            file_path: dir.path().to_path_buf(),
+            exported_files: vec![engine::export::ExportedFile {
+                collection_name: TRANSFER_TEXT_FILE_NAME.to_string(),
+                path: resolved.clone(),
+            }],
+        };
+
+        let (path, read) =
+            validate_received_text(&marked_text_metadata(content.len() as u64), &result)
+                .expect("valid marked text");
+        assert_eq!(PathBuf::from(path), resolved.canonicalize().unwrap());
+        assert_eq!(read, content);
+    }
+
+    #[test]
+    fn ordinary_txt_is_never_treated_as_received_text() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join(TRANSFER_TEXT_FILE_NAME);
+        fs::write(&path, "plain file").expect("plain file");
+        let result = engine::ReceiveResult {
+            message: "done".to_string(),
+            file_path: dir.path().to_path_buf(),
+            exported_files: vec![engine::export::ExportedFile {
+                collection_name: TRANSFER_TEXT_FILE_NAME.to_string(),
+                path,
+            }],
+        };
+        let mut metadata = marked_text_metadata(10);
+        metadata.content_kind = None;
+        assert!(validate_received_text(&metadata, &result).is_err());
+    }
+
+    /// Run only under an isolated display, for example:
+    /// `xvfb-run -a cargo test --lib clipboard_owner_persists -- --ignored`.
+    #[cfg(all(desktop, target_os = "linux"))]
+    #[test]
+    #[ignore = "requires an isolated X11 display"]
+    fn clipboard_owner_persists_after_each_command() {
+        write_clipboard_on_owner_thread("dashbeam-clipboard-one".to_string()).unwrap();
+        let mut reader = arboard::Clipboard::new().expect("clipboard reader");
+        assert_eq!(reader.get_text().unwrap(), "dashbeam-clipboard-one");
+
+        write_clipboard_on_owner_thread("dashbeam-clipboard-two".to_string()).unwrap();
+        assert_eq!(reader.get_text().unwrap(), "dashbeam-clipboard-two");
     }
 }
 

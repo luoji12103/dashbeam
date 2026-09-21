@@ -58,6 +58,8 @@ export type AppSettingsState = {
 	 */
 	flashDropEnabled: boolean
 	flashDropTargetId: string | null
+	/** Copy explicitly marked text transfers after a completed receive. */
+	autoCopyReceivedText: boolean
 }
 
 export type AppSettingsActions = {
@@ -84,6 +86,7 @@ export type AppSettingsActions = {
 	setEnableTransferHistory: (value: boolean) => void
 	setFlashDropEnabled: (value: boolean) => void
 	setFlashDropTargetId: (value: string | null) => void
+	setAutoCopyReceivedText: (value: boolean) => void
 }
 
 export type AppSettings = AppSettingsState & AppSettingsActions
@@ -163,6 +166,8 @@ export const useAppSettingStore = create<AppSettings>()(
 			setFlashDropEnabled: (value: boolean) => set({ flashDropEnabled: value }),
 			setFlashDropTargetId: (value: string | null) =>
 				set({ flashDropTargetId: value }),
+			setAutoCopyReceivedText: (value: boolean) =>
+				set({ autoCopyReceivedText: value }),
 		}),
 		{
 			name: AppSettingsKey,

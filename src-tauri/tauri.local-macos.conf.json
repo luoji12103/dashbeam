@@ -4,6 +4,6 @@
   "bundle": {
     "createUpdaterArtifacts": false,
     "targets": ["app"],
-    "macOS": { "signingIdentity": "-", "providerShortName": null, "bundleVersion": "70101" }
+    "macOS": { "signingIdentity": "-", "providerShortName": null, "bundleVersion": "70102" }
   }
 }

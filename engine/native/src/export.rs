@@ -17,13 +17,26 @@ pub struct ExportConflict {
     pub resolved: String,
 }
 
+#[derive(Debug)]
+pub struct ExportedFile {
+    pub collection_name: String,
+    pub path: PathBuf,
+}
+
+#[derive(Debug)]
+pub struct ExportResult {
+    pub conflicts: Vec<ExportConflict>,
+    pub files: Vec<ExportedFile>,
+}
+
 /// Export a collection into `output_dir`, resolving filename conflicts when needed.
 pub async fn export_to_directory(
     db: &Store,
     collection: Collection,
     output_dir: &Path,
-) -> anyhow::Result<Vec<ExportConflict>> {
+) -> anyhow::Result<ExportResult> {
     let mut conflicts = Vec::new();
+    let mut files = Vec::new();
 
     for (_i, (name, hash)) in collection.iter().enumerate() {
         let desired_target = get_export_path(output_dir, name)?;
@@ -47,7 +60,7 @@ pub async fn export_to_directory(
         let mut stream = db
             .export_with_opts(ExportOptions {
                 hash: *hash,
-                target,
+                target: target.clone(),
                 mode: ExportMode::Copy,
             })
             .stream()
@@ -63,9 +76,13 @@ pub async fn export_to_directory(
                 }
             }
         }
+        files.push(ExportedFile {
+            collection_name: name.to_string(),
+            path: target,
+        });
     }
 
-    Ok(conflicts)
+    Ok(ExportResult { conflicts, files })
 }
 
 fn resolve_conflict_path(path: &Path) -> anyhow::Result<PathBuf> {
