@@ -1,0 +1,89 @@
+name: Windows local release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref containing the local Windows changes
+        required: true
+        default: local/macos-integration
+        type: string
+      release_tag:
+        description: Existing GitHub release tag to receive the Windows assets
+        required: true
+        default: v0.7.1-local.3
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout local fork
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
+        with:
+          version: 10.12.1
+
+      - name: Set up Node
+        uses: actions/setup-node@a085fcb24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@3056ad9b1fc916cb9a55f7f72ae4a848b7d50249
+        with:
+          targets: x86_64-pc-windows-msvc,wasm32-unknown-unknown
+
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis -y
+
+      - name: Install dependencies
+        shell: pwsh
+        run: pnpm install --frozen-lockfile
+
+      - name: Install wasm-bindgen
+        shell: pwsh
+        run: cargo install wasm-bindgen-cli --version 0.2.126 --locked
+
+      - name: Build local Windows NSIS package
+        shell: pwsh
+        run: pnpm exec tauri build --config src-tauri/tauri.local-windows.conf.json --target x86_64-pc-windows-msvc --bundles nsis
+
+      - name: Package portable ZIP
+        shell: pwsh
+        env:
+          RUST_TARGET: x86_64-pc-windows-msvc
+          VERSION: 0.7.1
+        run: node scripts/package-windows-portable.js
+
+      - name: Upload Windows assets to the local release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          $setup = Get-ChildItem "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis" -Filter "*-setup.exe" | Select-Object -First 1
+          $portable = Get-ChildItem "dist" -Filter "*-portable.zip" | Select-Object -First 1
+          if ($null -eq $setup -or $null -eq $portable) {
+            throw "Windows release assets were not produced"
+          }
+          gh release upload $env:RELEASE_TAG $setup.FullName $portable.FullName --repo $env:GITHUB_REPOSITORY --clobber
+
+      - name: Upload build artifacts for troubleshooting
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashbeam-windows-local
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*
+            dist/*portable.zip
