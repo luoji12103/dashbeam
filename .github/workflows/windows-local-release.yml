@@ -43,6 +43,10 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc,wasm32-unknown-unknown
 
+      - name: Ensure WASM target
+        shell: pwsh
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Install NSIS
         shell: pwsh
         run: choco install nsis -y
