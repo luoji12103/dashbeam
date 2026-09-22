@@ -28,6 +28,49 @@
 
 </div>
 
+## This fork: local integrations
+
+This repository is a community fork of [tonyantony300/dashbeam](https://github.com/tonyantony300/dashbeam). It keeps the upstream **AGPL-3.0** license and adds local desktop/mobile integrations maintained in [luoji12103/dashbeam](https://github.com/luoji12103/dashbeam).
+
+The prepared local release target is [v0.7.1-local.1](https://github.com/luoji12103/dashbeam/releases/tag/v0.7.1-local.1):
+
+- macOS Apple Silicon: [DashBeam-0.7.1-local-macos-arm64.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.1/DashBeam-0.7.1-local-macos-arm64.zip)
+- Android ARM64: [DashBeam-0.7.1-local-android-arm64.apk](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.1/DashBeam-0.7.1-local-android-arm64.apk)
+
+### Local changes
+
+- macOS menu-bar controls, compact Dock behavior, Finder Share Extension, Quick Action, and an optional top-right Flash Drop window.
+- Editable text sharing, Markdown import/paste, encrypted text metadata, receiver-side selectable text, one-click copy, and optional automatic clipboard copy.
+- Android text/file sharing, Markdown Storage Access Framework import, background text notifications, ARM64 packaging, and a separate local application identity.
+- macOS tray redraws are marshalled onto the AppKit main thread to fix the file-picker deadlock that caused an endless spinning cursor.
+- The local desktop build disables the upstream in-app update entry point so it cannot overwrite this customized build.
+
+### Build and install the local packages
+
+macOS (Apple Silicon) requires Node 22.12+, pnpm, Rust, and Xcode Command Line Tools:
+
+```sh
+pnpm install --frozen-lockfile
+RUSTUP_TOOLCHAIN=stable CARGO_BUILD_JOBS=4 pnpm tauri build \
+  --config src-tauri/tauri.local-macos.conf.json --bundles app
+bash macos/package-local.sh
+```
+
+The macOS ZIP is ad-hoc signed and not notarized. On first launch, macOS may require opening it from Finder or approving it in Privacy & Security. It is intended to replace the local app installation only after quitting the existing DashBeam process.
+
+Android ARM64 is built with the explicit local configuration (see [android/README.md](android/README.md)):
+
+```sh
+pnpm tauri android build --apk --target aarch64 --split-per-abi --ci \
+  --config src-tauri/tauri.local-android.conf.json
+```
+
+The Android APK is locally signed, targets API 29+, and uses a separate package identity. It can coexist with the upstream app, but devices must be paired again. Snapdragon 8 Gen 2-class and newer ARM64 devices, including Dimensity 9400+, are the intended target. Android real-device transfer, notification, and background-resume validation are still pending.
+
+The published local release includes SHA256 checksums in its release notes. Do not reuse upstream signing identities or install the local APK as an update to the official package.
+
+The installation table below is the **upstream official release** for users who want an unmodified DashBeam build. For this fork's binaries, use the local release links above.
+
 A free and open-source file transfer tool that harnesses the power of [cutting-edge peer-to-peer networking](https://www.iroh.computer), letting you transfer files directly without storing them on cloud servers.
 
 Why rely on WeTransfer, Dropbox, or Google Drive when you can reliably and easily transfer files directly, end-to-end encrypted and without revealing any personal information?
@@ -331,5 +374,3 @@ Thank you for checking out this project! If you find it useful, consider giving 
 [badge-discord]: https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white
 [badge-platforms]: https://img.shields.io/badge/platforms-macOS%2C%20Windows%2C%20Linux%2C%20Android%2C%20CLI%2C%20-green
 [badge-sponsor]: https://img.shields.io/badge/sponsor-ff69b4
-
-
