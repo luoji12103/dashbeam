@@ -78,7 +78,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           $setup = Get-ChildItem "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis" -Filter "*-setup.exe" | Select-Object -First 1
-          $portable = Get-ChildItem "dist" -Filter "*-portable.zip" | Select-Object -First 1
+          $portable = Get-ChildItem "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/portable" -Filter "*-portable.zip" | Select-Object -First 1
           if ($null -eq $setup -or $null -eq $portable) {
             throw "Windows release assets were not produced"
           }
