@@ -62,6 +62,13 @@ bash macos/package-local.sh
 - 本轮不代表上一节的闪传拖放、菜单栏完整交互、Quick Action 或功耗 A/B 已完成；这些验收边界保持原样。
 - 收尾已恢复自动复制为关闭并隐藏重启，持久设置为 `false`、进程为 `UIElement`、签名和设备身份再次核验通过。两份自有接收测试文件移入 `rollback/`；锁屏后未继续 UI 操作，因此最终设置页的重启后视觉复核未完成。
 
+## 文件选择卡顿修复（2026-09-22）
+
+- 症状：点击发送页的文件选择时窗口出现彩色转圈。
+- 证据：对运行中的 build 70102 采样显示主线程停在 `configure_flash_drop -> tray::render`，同时后台 presence 刷新线程直接调用 AppKit tray/menu setter；主线程与后台线程形成 tray 状态锁和 AppKit 主线程的锁顺序反转。进程 CPU 约 0.2%，不是传输占满 CPU。
+- 修复：presence 刷新只在 Tokio 线程读取/更新状态，原生菜单重绘通过 `run_on_main_thread` 投递到 macOS 主线程。修复后的本机 UI 实测可打开完整 Finder 文件面板并取消返回；随后锁屏，未继续额外截图。
+- build 70102 已重新安装，旧应用保存在 `rollback/DashBeam-before-tray-fix-70102.app`；签名深度严格校验通过。新包 SHA256：`bd860d3c77b15a35ae26fad0cb7a18f57bc0d5c131a0a191ffa39b1c286f9122`。
+
 DEV 上构建 Mac 前端后同步 `frontend/dist/` 到 Mac，再执行：
 
 ```sh
