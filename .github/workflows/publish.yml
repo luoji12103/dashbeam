@@ -36,10 +36,18 @@ jobs:
         id: version
         shell: bash
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          pnpm pkg set version="$VERSION"
-          pnpm run sync-version
-          node scripts/validate-version.js
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          # Local fork tags carry a release suffix, while the package metadata
+          # remains the upstream-compatible 0.7.1 for installer naming.
+          if [[ "$TAG_VERSION" == *-local.* ]]; then
+            VERSION="${TAG_VERSION%%-local.*}"
+            echo "Local fork tag $TAG_VERSION; building package version $VERSION"
+          else
+            VERSION="$TAG_VERSION"
+            pnpm pkg set version="$VERSION"
+            pnpm run sync-version
+            node scripts/validate-version.js
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Generate release notes

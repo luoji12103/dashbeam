@@ -11,7 +11,7 @@ on:
       release_tag:
         description: Existing GitHub release tag to receive the Windows assets
         required: true
-        default: v0.7.1-local.2
+        default: v0.7.1-local.3
         type: string
 
 permissions:

@@ -32,12 +32,12 @@
 
 This repository is a community fork of [tonyantony300/dashbeam](https://github.com/tonyantony300/dashbeam). It keeps the upstream **AGPL-3.0** license and adds local desktop/mobile integrations maintained in [luoji12103/dashbeam](https://github.com/luoji12103/dashbeam).
 
-The prepared local release target is [v0.7.1-local.2](https://github.com/luoji12103/dashbeam/releases/tag/v0.7.1-local.2):
+The prepared local release target is [v0.7.1-local.3](https://github.com/luoji12103/dashbeam/releases/tag/v0.7.1-local.3):
 
-- macOS Apple Silicon: [DashBeam-0.7.1-local-macos-arm64.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.2/DashBeam-0.7.1-local-macos-arm64.zip)
-- Windows x64 installer: [DashBeam_0.7.1_x64-setup.exe](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.2/DashBeam_0.7.1_x64-setup.exe)
-- Windows x64 portable: [DashBeam_0.7.1_x64-portable.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.2/DashBeam_0.7.1_x64-portable.zip)
-- Android ARM64: [DashBeam-0.7.1-local-android-arm64.apk](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.2/DashBeam-0.7.1-local-android-arm64.apk)
+- macOS Apple Silicon: [DashBeam-0.7.1-local-macos-arm64.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.3/DashBeam-0.7.1-local-macos-arm64.zip)
+- Windows x64 installer: [DashBeam_0.7.1_x64-setup.exe](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.3/DashBeam_0.7.1_x64-setup.exe)
+- Windows x64 portable: [DashBeam_0.7.1_x64-portable.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.3/DashBeam_0.7.1_x64-portable.zip)
+- Android ARM64: [DashBeam-0.7.1-local-android-arm64.apk](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.3/DashBeam-0.7.1-local-android-arm64.apk)
 
 ### Local changes
 
