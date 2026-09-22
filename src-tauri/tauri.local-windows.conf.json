@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "beforeBuildCommand": "node scripts/build-local-windows.js"
+  },
+  "bundle": {
+    "createUpdaterArtifacts": false,
+    "targets": ["nsis"]
+  }
+}

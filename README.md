@@ -32,16 +32,19 @@
 
 This repository is a community fork of [tonyantony300/dashbeam](https://github.com/tonyantony300/dashbeam). It keeps the upstream **AGPL-3.0** license and adds local desktop/mobile integrations maintained in [luoji12103/dashbeam](https://github.com/luoji12103/dashbeam).
 
-The prepared local release target is [v0.7.1-local.1](https://github.com/luoji12103/dashbeam/releases/tag/v0.7.1-local.1):
+The prepared local release target is [v0.7.1-local.2](https://github.com/luoji12103/dashbeam/releases/tag/v0.7.1-local.2):
 
-- macOS Apple Silicon: [DashBeam-0.7.1-local-macos-arm64.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.1/DashBeam-0.7.1-local-macos-arm64.zip)
-- Android ARM64: [DashBeam-0.7.1-local-android-arm64.apk](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.1/DashBeam-0.7.1-local-android-arm64.apk)
+- macOS Apple Silicon: [DashBeam-0.7.1-local-macos-arm64.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.2/DashBeam-0.7.1-local-macos-arm64.zip)
+- Windows x64 installer: [DashBeam_0.7.1_x64-setup.exe](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.2/DashBeam_0.7.1_x64-setup.exe)
+- Windows x64 portable: [DashBeam_0.7.1_x64-portable.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.2/DashBeam_0.7.1_x64-portable.zip)
+- Android ARM64: [DashBeam-0.7.1-local-android-arm64.apk](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.2/DashBeam-0.7.1-local-android-arm64.apk)
 
 ### Local changes
 
 - macOS menu-bar controls, compact Dock behavior, Finder Share Extension, Quick Action, and an optional top-right Flash Drop window.
 - Editable text sharing, Markdown import/paste, encrypted text metadata, receiver-side selectable text, one-click copy, and optional automatic clipboard copy.
 - Android text/file sharing, Markdown Storage Access Framework import, background text notifications, ARM64 packaging, and a separate local application identity.
+- Windows x64 packaging with the same text-transfer and desktop clipboard-receive path; the build ships as an NSIS installer and a portable ZIP.
 - macOS tray redraws are marshalled onto the AppKit main thread to fix the file-picker deadlock that caused an endless spinning cursor.
 - The local desktop build disables the upstream in-app update entry point so it cannot overwrite this customized build.
 
@@ -66,6 +69,8 @@ pnpm tauri android build --apk --target aarch64 --split-per-abi --ci \
 ```
 
 The Android APK is locally signed, targets API 29+, and uses a separate package identity. It can coexist with the upstream app, but devices must be paired again. Snapdragon 8 Gen 2-class and newer ARM64 devices, including Dimensity 9400+, are the intended target. Android real-device transfer, notification, and background-resume validation are still pending.
+
+Windows x64 packages are built on a Windows runner. The installer and portable ZIP are unsigned local artifacts, so Windows SmartScreen may require an explicit approval. The portable package requires the WebView2 Runtime; both Windows variants use the existing desktop data directory and pairing identity.
 
 The published local release includes SHA256 checksums in its release notes. Do not reuse upstream signing identities or install the local APK as an update to the official package.
 
