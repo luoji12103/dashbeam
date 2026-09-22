@@ -564,7 +564,19 @@ pub fn refresh_presence(app: &AppHandle) {
             apply_if_newer(&mut presence, generation, online, total, online_names)
         };
         if wrote {
-            render(&app, &handles);
+            // Tauri menu/tray objects are AppKit-backed on macOS. Calling
+            // their setters from this Tokio worker can block waiting for the
+            // main thread while an IPC command on the main thread waits for
+            // the same tray state lock. Always perform the native redraw on
+            // the main thread to avoid that lock inversion.
+            let render_app = app.clone();
+            if let Err(error) = app.run_on_main_thread(move || {
+                if let Some(handles) = render_app.try_state::<TrayHandles>() {
+                    render(&render_app, &handles);
+                }
+            }) {
+                tracing::warn!(%error, "failed to schedule tray redraw on main thread");
+            }
         }
     });
 }
