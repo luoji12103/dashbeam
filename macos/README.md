@@ -25,6 +25,15 @@ bash macos/package-local.sh
 
 产物：`dist/DashBeam-0.7.1-local-macos-arm64.zip`。本地 ad-hoc 签名，不冒用原作者 Developer ID，不宣称已公证。共享扩展需以 Finder 实际展示、选择文件并送达发送面板为验收标准。
 
+`tauri.local-macos.conf.json` 的 `beforeBundleCommand` 自动编译并签名 Share Extension，随后通过 `bundle.macOS.files` 嵌入 `Contents/PlugIns/DashBeamShare.appex`。`package-local.sh` 校验扩展身份和签名后生成 ZIP；扩展缺失时直接失败。只重新打包现有 release 二进制可用 `pnpm tauri bundle --config src-tauri/tauri.local-macos.conf.json --bundles app`，不必重编译 Rust。
+
+### Share 扩展恢复（2026-10-13）
+
+- 上一轮传输恢复版安装时遗漏独立扩展打包步骤，应用包缺少 `Contents/PlugIns`，系统无法列出 DashBeam 共享扩展。
+- 已将扩展生成与嵌入接入 Tauri 原生打包阶段，重新打包、安装并注册 `com.dashbeam.desktop.share`；`pluginkit` 显示安装目录中的唯一匹配且已启用，深度严格签名验证通过。
+- 用户已确认 Finder 共享入口恢复可用。本轮没有继续发送测试文件。
+- 修复前应用 ZIP：`rollback/DashBeam-before-share-restore-20261013.zip`。设备身份校验保持一致；本次未修改配对或设置。
+
 ## 备份与回滚
 
 `rollback/` 被 Git 忽略，权限 0700。保存原官方应用 ZIP 和安装前应用数据；备份中含设备身份，只留本机，不上传。

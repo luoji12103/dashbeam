@@ -59,6 +59,8 @@ RUSTUP_TOOLCHAIN=stable CARGO_BUILD_JOBS=4 pnpm tauri build \
 bash macos/package-local.sh
 ```
 
+The local macOS configuration automatically builds and embeds the Finder Share extension during Tauri bundling. The ZIP packaging step checks that the extension is present and signed, and fails if it is missing. To repackage an existing release binary without compiling Rust, use `pnpm tauri bundle --config src-tauri/tauri.local-macos.conf.json --bundles app` before the ZIP step.
+
 The macOS ZIP is ad-hoc signed and not notarized. On first launch, macOS may require opening it from Finder or approving it in Privacy & Security. It is intended to replace the local app installation only after quitting the existing DashBeam process.
 
 Android ARM64 is built with the explicit local configuration (see [android/README.md](android/README.md)):

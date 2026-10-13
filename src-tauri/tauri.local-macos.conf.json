@@ -1,9 +1,15 @@
 {
-  "build": { "beforeBuildCommand": "VITE_LOCAL_MACOS_BUILD=true pnpm run build" },
+  "build": {
+    "beforeBuildCommand": "VITE_LOCAL_MACOS_BUILD=true pnpm run build",
+    "beforeBundleCommand": "bash macos/build-share-extension.sh"
+  },
   "plugins": { "deep-link": { "desktop": { "schemes": ["dashbeam-local"] } } },
   "bundle": {
     "createUpdaterArtifacts": false,
     "targets": ["app"],
-    "macOS": { "signingIdentity": "-", "providerShortName": null, "bundleVersion": "70102" }
+    "macOS": {
+      "signingIdentity": "-", "providerShortName": null, "bundleVersion": "70102",
+      "files": { "PlugIns/DashBeamShare.appex": "target/share-extension/DashBeamShare.appex" }
+    }
   }
 }
