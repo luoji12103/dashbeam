@@ -193,7 +193,10 @@ mod tests {
     use crate::send::start_share;
     use protocol::{AddrInfoOptions, FileMetadata, RelayModeOption, SendOptions};
     use std::io::Write;
-    use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
     use tempfile::NamedTempFile;
 
     #[tokio::test]
