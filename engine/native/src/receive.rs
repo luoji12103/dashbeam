@@ -13,6 +13,38 @@ use protocol::{
 use std::str::FromStr;
 use tokio::select;
 
+const DOWNLOAD_RETRY_ATTEMPTS: usize = 3;
+const DOWNLOAD_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(750);
+
+async fn download_with_retries<F, Fut, T>(mut operation: F) -> anyhow::Result<T>
+where
+    F: FnMut(usize) -> Fut,
+    Fut: std::future::Future<Output = anyhow::Result<T>>,
+{
+    let mut last_error = None;
+
+    for attempt in 1..=DOWNLOAD_RETRY_ATTEMPTS {
+        match operation(attempt).await {
+            Ok(value) => return Ok(value),
+            Err(error) => {
+                let will_retry = attempt < DOWNLOAD_RETRY_ATTEMPTS;
+                tracing::warn!(
+                    attempt,
+                    will_retry,
+                    error = %error,
+                    "receive: download attempt failed"
+                );
+                last_error = Some(error);
+                if will_retry {
+                    tokio::time::sleep(DOWNLOAD_RETRY_DELAY).await;
+                }
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| anyhow::anyhow!("download failed")))
+}
+
 fn emit_event_with_payload(app_handle: &AppHandle, event_name: &str, payload: &str) {
     if let Some(handle) = app_handle {
         if let Err(e) = handle.emit_event_with_payload(event_name, payload) {
@@ -71,8 +103,18 @@ pub async fn download(
     });
 
     let transfer = async {
-        let downloaded =
-            download_to_store(ticket, addr, &endpoint, db.as_ref(), &app_handle).await?;
+        let downloaded = download_with_retries(|attempt| {
+            let ticket = ticket.clone();
+            let addr = addr.clone();
+            let endpoint = &endpoint;
+            let db = db.as_ref();
+            let app_handle = app_handle.clone();
+            async move {
+                tracing::info!(attempt, "receive: starting download attempt");
+                download_to_store(ticket, addr, endpoint, db, &app_handle).await
+            }
+        })
+        .await?;
 
         let export_start = std::time::Instant::now();
         let export = export_to_directory(&db, downloaded.collection, &output_dir).await?;
@@ -151,7 +193,31 @@ mod tests {
     use crate::send::start_share;
     use protocol::{AddrInfoOptions, FileMetadata, RelayModeOption, SendOptions};
     use std::io::Write;
+    use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
     use tempfile::NamedTempFile;
+
+    #[tokio::test]
+    async fn transient_download_failure_retries_before_giving_up() {
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let result = download_with_retries({
+            let attempts = attempts.clone();
+            move |attempt| {
+                let attempts = attempts.clone();
+                async move {
+                    attempts.fetch_add(1, Ordering::SeqCst);
+                    if attempt < 3 {
+                        anyhow::bail!("transient network failure")
+                    }
+                    Ok::<_, anyhow::Error>(42u8)
+                }
+            }
+        })
+        .await
+        .expect("retry should recover on the third attempt");
+
+        assert_eq!(result, 42);
+        assert_eq!(attempts.load(Ordering::SeqCst), 3);
+    }
 
     #[tokio::test]
     async fn test_fetch_metadata_e2e() {

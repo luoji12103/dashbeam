@@ -23,6 +23,66 @@ use n0_future::StreamExt;
 use std::str::FromStr;
 use tokio::io::AsyncReadExt;
 
+/// A mobile sender may publish its ticket just before its QUIC listener and
+/// relay path are fully reachable.  A single `Endpoint::connect` attempt then
+/// waits for iroh's default timeout and leaves the user to press Receive again.
+/// Keep the retry window bounded, while making the first receive as resilient as
+/// the manual retry that used to follow it.
+const CONNECT_ATTEMPTS: usize = 3;
+const CONNECT_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(10);
+const CONNECT_RETRY_DELAY: Duration = Duration::from_millis(300);
+
+async fn connect_to_sender(
+    endpoint: &Endpoint,
+    addr: &iroh::EndpointAddr,
+) -> anyhow::Result<iroh::endpoint::Connection> {
+    let mut last_error: Option<anyhow::Error> = None;
+
+    for attempt in 1..=CONNECT_ATTEMPTS {
+        tracing::info!(
+            attempt,
+            total_attempts = CONNECT_ATTEMPTS,
+            "download: connecting to sender"
+        );
+
+        let result = match timeout(
+            CONNECT_ATTEMPT_TIMEOUT,
+            endpoint.connect(addr.clone(), iroh_blobs::protocol::ALPN),
+        )
+        .await
+        {
+            Ok(Ok(connection)) => Ok(connection),
+            Ok(Err(error)) => Err(anyhow::anyhow!("sender connection failed: {error}")),
+            Err(_) => Err(anyhow::anyhow!(
+                "sender connection timed out after {}s",
+                CONNECT_ATTEMPT_TIMEOUT.as_secs()
+            )),
+        };
+
+        match result {
+            Ok(connection) => {
+                tracing::info!(attempt, "download: sender connection established");
+                return Ok(connection);
+            }
+            Err(error) => {
+                let will_retry = attempt < CONNECT_ATTEMPTS;
+                tracing::warn!(
+                    attempt,
+                    will_retry,
+                    error = %error,
+                    "download: sender connection attempt failed"
+                );
+                last_error = Some(error);
+                if will_retry {
+                    sleep(CONNECT_RETRY_DELAY).await;
+                }
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| anyhow::anyhow!("sender connection failed")))
+}
+
 // Helper function to emit events through the app handle
 fn emit_event(app_handle: &AppHandle, event_name: &str) {
     if let Some(handle) = app_handle {
@@ -134,10 +194,7 @@ pub async fn download_to_store(
     let (stats, total_files, payload_size, download_duration_ms) = if !local.is_complete() {
         emit_event(app_handle, "receive-started");
 
-        let connection = match endpoint
-            .connect(addr.clone(), iroh_blobs::protocol::ALPN)
-            .await
-        {
+        let connection = match connect_to_sender(endpoint, &addr).await {
             Ok(conn) => conn,
             Err(e) => {
                 tracing::error!("Connection failed: {}", e);

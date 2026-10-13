@@ -560,9 +560,12 @@ async fn show_provide_progress_with_logging(
                                         }
                                     }
                                     iroh_blobs::provider::events::RequestUpdate::Aborted(_m) => {
-                                        tracing::warn!("Request aborted: conn {} req {}",
-                                            connection_id, request_id);
-                                        if transfer_started && !request_completed {
+                                        tracing::warn!(
+                                            "Request aborted: conn {} req {}",
+                                            connection_id,
+                                            request_id
+                                        );
+                                        if !request_completed {
                                             let active_count = {
                                                 let mut session = session_task.lock().await;
                                                 let bytes_sent = session.ledger.request_bytes(key);
@@ -578,11 +581,40 @@ async fn show_provide_progress_with_logging(
 
                                             request_completed = true;
 
-                                            let completed = completed_requests_task.fetch_add(1, Ordering::SeqCst) + 1;
-                                            let active = active_requests_task.load(Ordering::SeqCst);
+                                            let active_after = active_requests_task
+                                                .fetch_sub(1, Ordering::SeqCst)
+                                                .saturating_sub(1);
 
-                                            if completed >= active {
-                                                emit_event(&app_handle_task, "transfer-failed");
+                                            // A mobile receiver can lose a path while its
+                                            // resumable download is still alive. Give it a
+                                            // short window to reconnect before presenting a
+                                            // terminal stopped state to the sender.
+                                            if active_after == 0 {
+                                                sleep(Duration::from_secs(3)).await;
+
+                                                let last_request_recent = {
+                                                    let last_time = last_request_time_task.lock().await;
+                                                    if let Some(time) = *last_time {
+                                                        time.elapsed() < Duration::from_secs(3)
+                                                    } else {
+                                                        false
+                                                    }
+                                                };
+
+                                                if active_requests_task.load(Ordering::SeqCst) == 0
+                                                    && !last_request_recent
+                                                    && !has_emitted_completed_task
+                                                        .load(Ordering::SeqCst)
+                                                {
+                                                    tracing::warn!(
+                                                        connection_id,
+                                                        request_id,
+                                                        "receiver did not reconnect after request abort"
+                                                    );
+                                                    has_emitted_started_task
+                                                        .store(false, Ordering::SeqCst);
+                                                    emit_event(&app_handle_task, "transfer-failed");
+                                                }
                                             }
                                         }
                                     }
