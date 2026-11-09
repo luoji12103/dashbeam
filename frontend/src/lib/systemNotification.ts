@@ -1,16 +1,30 @@
+import { resolveResource } from '@tauri-apps/api/path'
 import {
 	isPermissionGranted,
+	type Options as NotificationOptions,
 	requestPermission,
 	sendNotification,
-	type Options as NotificationOptions,
 } from '@tauri-apps/plugin-notification'
-import { resolveResource } from '@tauri-apps/api/path'
-import { IS_TAURI, IS_WINDOWS, IS_ANDROID, IS_DESKTOP } from './platform'
-import { invoke } from './platform-api'
 import { useAppSettingStore } from '../store/app-setting'
 import { shouldNotify } from './notification-gate'
+import {
+	IS_ANDROID,
+	IS_DESKTOP,
+	IS_MACOS,
+	IS_TAURI,
+	IS_WINDOWS,
+} from './platform'
+import { invoke } from './platform-api'
 
-type SystemNotificationOptions = Pick<NotificationOptions, 'title' | 'body'>
+type SystemNotificationOptions = Pick<NotificationOptions, 'title' | 'body'> & {
+	receivedPaths?: string[]
+	clipboardLabels?: {
+		copyFiles: string
+		copyPaths: string
+		copyFailed: string
+		missingFiles: string
+	}
+}
 
 const NOTIFICATION_ICON_RESOURCE = 'icons/128x128.png'
 let cachedNotificationIconPath: string | null | undefined
@@ -87,6 +101,15 @@ export async function sendSystemNotification(
 	if (!IS_TAURI) {
 		return false
 	}
+	// A notification retains its own transfer even if the receive page resets
+	// while permission or foreground checks are in flight.
+	const receivedPaths =
+		IS_MACOS && options.receivedPaths?.length
+			? [...options.receivedPaths]
+			: undefined
+	const clipboardLabels = options.clipboardLabels
+		? { ...options.clipboardLabels }
+		: undefined
 
 	try {
 		// Fail open: a redundant notification beats a missed one.
@@ -126,9 +149,11 @@ export async function sendSystemNotification(
 				title: options.title,
 				body: options.body,
 				icon,
+				...(receivedPaths ? { receivedPaths, clipboardLabels } : {}),
 			})
 		} else {
-			sendNotification(icon ? { ...options, icon } : options)
+			const notification = { title: options.title, body: options.body }
+			sendNotification(icon ? { ...notification, icon } : notification)
 		}
 		return true
 	} catch (error) {

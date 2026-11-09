@@ -478,6 +478,22 @@ pub async fn write_clipboard_text(text: String) -> Result<(), String> {
 }
 
 #[cfg(desktop)]
+#[tauri::command]
+pub async fn copy_received_files(
+    app: tauri::AppHandle,
+    paths: Vec<String>,
+    as_paths: bool,
+) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    return crate::received_files::copy(&app, paths, as_paths).await;
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, paths, as_paths);
+        Err("Received-file clipboard actions are currently available on macOS".into())
+    }
+}
+
+#[cfg(desktop)]
 struct ClipboardRequest {
     text: String,
     reply: std::sync::mpsc::Sender<Result<(), String>>,
@@ -2277,12 +2293,29 @@ pub async fn respond_nearby_invite(
 /// seconds, so invite toasts go through notify-rust with `Timeout::Never`.
 #[cfg(desktop)]
 #[tauri::command]
-pub fn show_system_notification(
+pub async fn show_system_notification(
     app: tauri::AppHandle,
     title: String,
     body: Option<String>,
     icon: Option<String>,
+    received_paths: Option<Vec<String>>,
+    clipboard_labels: Option<crate::received_files::ClipboardLabels>,
 ) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    if let Some(paths) = received_paths.filter(|paths| {
+        !paths.is_empty() && crate::received_files::is_available()
+    }) {
+        return crate::received_files::show(
+            &app,
+            title,
+            body,
+            paths,
+            clipboard_labels.unwrap_or_default(),
+        )
+        .await;
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (received_paths, clipboard_labels);
     let mut notification = notify_rust::Notification::new();
     let app_name = app
         .config()

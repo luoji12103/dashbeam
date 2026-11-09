@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PairedInvitePayload } from '@/lib/pairing-api'
-import { IS_ANDROID, IS_DESKTOP, IS_WEB } from '@/lib/platform'
+import { IS_ANDROID, IS_DESKTOP, IS_MACOS, IS_WEB } from '@/lib/platform'
 import {
 	downloadDir,
 	invoke,
@@ -12,6 +12,7 @@ import {
 	supportsWebSaveLocationPicker,
 	type UnlistenFn,
 } from '@/lib/platform-api'
+import { isReceiveSessionBusy } from '@/lib/receive-session'
 import {
 	getWebPreviewErrorMessage,
 	isWebPreviewError,
@@ -22,35 +23,34 @@ import {
 	selectDownloadFolder,
 } from '@/plugins/nativeUtils'
 import { useAppSettingStore } from '@/store/app-setting'
-import { isReceiveSessionBusy } from '@/lib/receive-session'
 import {
-	useReceiverActionsStore,
 	type AcceptPairedInviteOptions,
+	useReceiverActionsStore,
 } from '@/store/receiver-actions-store'
 import { useTransferTabStore } from '@/store/transfer-tab-store'
 import { useTranslation } from '../i18n/react-i18next-compat'
-import { getRelayConfigArg } from '../lib/relay'
 import { getDiscoveryConfigArg } from '../lib/discovery'
 import { ticketFromReceiveLink } from '../lib/receive-link'
-import { sendSystemNotification } from '../lib/systemNotification'
-import { copyTextToClipboard } from '../lib/utils'
+import type { ReceivedTextReadyPayload } from '../lib/received-text'
 import {
 	isMarkedTextMetadata,
 	parsePendingReceivedText,
 	parseReceivedTextReady,
 } from '../lib/received-text'
-import type { ReceivedTextReadyPayload } from '../lib/received-text'
+import { getRelayConfigArg } from '../lib/relay'
+import { sendSystemNotification } from '../lib/systemNotification'
+import {
+	parseCompletionPayload,
+	parseProgressPayload,
+} from '../lib/transfer-events'
+import { copyTextToClipboard } from '../lib/utils'
+import type { ReceivedTextState } from '../types/receiver'
 import type {
 	TicketPreviewMetadata,
 	TransferMetadata,
 	TransferProgress,
 } from '../types/transfer'
 import type { AlertDialogState, AlertType } from '../types/ui'
-import type { ReceivedTextState } from '../types/receiver'
-import {
-	parseCompletionPayload,
-	parseProgressPayload,
-} from '../lib/transfer-events'
 
 interface BackendFileMetadata {
 	file_name: string
@@ -116,6 +116,7 @@ export interface UseReceiverReturn {
 	isExportPending: boolean
 	fileNames: string[]
 	receivedText: ReceivedTextState | null
+	canCopyReceivedFiles: boolean
 
 	handleTicketChange: (ticket: string) => void
 	handleBrowseFolder: () => Promise<void>
@@ -125,6 +126,7 @@ export interface UseReceiverReturn {
 	closeAlert: () => void
 	resetForNewTransfer: () => Promise<void>
 	copyReceivedText: () => Promise<void>
+	copyReceivedFiles: (asPaths: boolean) => Promise<boolean>
 }
 
 export function useReceiver(): UseReceiverReturn {
@@ -154,6 +156,7 @@ export function useReceiver(): UseReceiverReturn {
 		null
 	)
 	const [fileNames, setFileNames] = useState<string[]>([])
+	const [receivedPaths, setReceivedPaths] = useState<string[]>([])
 	const [receivedText, setReceivedText] = useState<ReceivedTextState | null>(
 		null
 	)
@@ -214,6 +217,36 @@ export function useReceiver(): UseReceiverReturn {
 			setAlertDialog({ isOpen: true, title, description, type })
 		},
 		[]
+	)
+
+	const copyReceivedFiles = useCallback(
+		async (asPaths: boolean): Promise<boolean> => {
+			if (!IS_MACOS) return false
+			const paths = [...receivedPaths]
+			const generation = textGenerationRef.current
+			if (paths.length === 0) {
+				showAlert(
+					t('common:receiver.clipboard.copyFailed'),
+					t('common:receiver.clipboard.missingFiles'),
+					'error'
+				)
+				return false
+			}
+			try {
+				await invoke('copy_received_files', { paths, asPaths })
+				return true
+			} catch (error) {
+				if (textGenerationRef.current === generation) {
+					showAlert(
+						t('common:receiver.clipboard.copyFailed'),
+						String(error),
+						'error'
+					)
+				}
+				return false
+			}
+		},
+		[receivedPaths, showAlert, t]
 	)
 
 	const writeClipboard = useCallback(async (text: string) => {
@@ -511,6 +544,7 @@ export function useReceiver(): UseReceiverReturn {
 				if (transferSeqRef.current === 0) return
 				setIsTransporting(true)
 				setIsCompleted(false)
+				setReceivedPaths([])
 				setTransferStartTime(Date.now())
 				setTransferProgress(null)
 			})
@@ -679,6 +713,10 @@ export function useReceiver(): UseReceiverReturn {
 				// connection setup and the disk write.
 				const completion = parseCompletionPayload(event?.payload)
 				completedOutputDirRef.current = completion?.outputDir ?? ''
+				const receivedPaths = IS_MACOS
+					? [...(completion?.exportedPaths ?? [])]
+					: []
+				setReceivedPaths(receivedPaths)
 				const duration =
 					completion?.durationMs ??
 					(transferStartTimeRef.current
@@ -747,6 +785,13 @@ export function useReceiver(): UseReceiverReturn {
 				void sendSystemNotification({
 					title: t('common:receiver.downloadCompleted'),
 					body: displayName,
+					receivedPaths,
+					clipboardLabels: {
+						copyFiles: t('common:receiver.clipboard.copyFiles'),
+						copyPaths: t('common:receiver.clipboard.copyPaths'),
+						copyFailed: t('common:receiver.clipboard.copyFailed'),
+						missingFiles: t('common:receiver.clipboard.missingFiles'),
+					},
 				})
 			})
 		}
@@ -901,6 +946,7 @@ export function useReceiver(): UseReceiverReturn {
 				activeTicketRef.current = normalizedTicket
 				handledTextKeysRef.current.clear()
 				setReceivedText(null)
+				setReceivedPaths([])
 				setIsReceiving(true)
 				setIsTransporting(false)
 				setIsCompleted(false)
@@ -951,6 +997,7 @@ export function useReceiver(): UseReceiverReturn {
 				activeTicketRef.current = ''
 				handledTextKeysRef.current.clear()
 				setReceivedText(null)
+				setReceivedPaths([])
 
 				if (
 					String(error) === 'cancelled' ||
@@ -1076,6 +1123,8 @@ export function useReceiver(): UseReceiverReturn {
 		setTransferStartTime(null)
 		setFileNames([])
 		setReceivedText(null)
+		setReceivedPaths([])
+		completedOutputDirRef.current = ''
 		handledTextKeysRef.current.clear()
 		setPreviewMetadata(null)
 		setIsPreviewLoading(false)
@@ -1164,6 +1213,7 @@ export function useReceiver(): UseReceiverReturn {
 		isExportPending,
 		fileNames,
 		receivedText,
+		canCopyReceivedFiles: IS_MACOS && receivedPaths.length > 0,
 
 		handleTicketChange,
 		handleBrowseFolder,
@@ -1173,5 +1223,6 @@ export function useReceiver(): UseReceiverReturn {
 		closeAlert,
 		resetForNewTransfer,
 		copyReceivedText,
+		copyReceivedFiles,
 	}
 }

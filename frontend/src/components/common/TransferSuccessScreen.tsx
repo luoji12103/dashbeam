@@ -1,9 +1,16 @@
-import { CheckCircle, ExternalLinkIcon, XCircle } from 'lucide-react'
+import {
+	Check,
+	CheckCircle,
+	Copy,
+	ExternalLinkIcon,
+	XCircle,
+} from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from '../../i18n/react-i18next-compat'
 import { handleExternalLinkClick } from '../../lib/openExternalUrl'
 import { IS_WEB } from '../../lib/platform'
-import { DONATE_LINK } from '../../lib/version'
 import { formatFileSize } from '../../lib/utils'
+import { DONATE_LINK } from '../../lib/version'
 import type { SuccessScreenProps } from '../../types/transfer'
 import { Button } from '../ui/button'
 import { Spinner } from '../ui/spinner'
@@ -48,8 +55,12 @@ export function TransferSuccessScreen({
 	metadata,
 	onDone,
 	onOpenFolder,
+	onCopyFiles,
+	onCopyPaths,
 	isOpenPending = false,
 }: SuccessScreenProps) {
+	const [copying, setCopying] = useState<'files' | 'paths' | null>(null)
+	const [copied, setCopied] = useState<'files' | 'paths' | null>(null)
 	const wasStopped = metadata.wasStopped || false
 	const isDirectory = metadata.pathType === 'directory'
 	const { t } = useTranslation()
@@ -57,6 +68,24 @@ export function TransferSuccessScreen({
 	const [donatePromptBefore, donatePromptAfter = ''] = t(
 		'common:transfer.donatePrompt'
 	).split('{{link}}')
+
+	useEffect(() => {
+		if (!copied) return
+		const timer = window.setTimeout(() => setCopied(null), 2200)
+		return () => window.clearTimeout(timer)
+	}, [copied])
+
+	const handleCopy = async (mode: 'files' | 'paths') => {
+		const action = mode === 'files' ? onCopyFiles : onCopyPaths
+		if (!action || copying) return
+		setCopied(null)
+		setCopying(mode)
+		try {
+			if (await action()) setCopied(mode)
+		} finally {
+			setCopying(null)
+		}
+	}
 
 	return (
 		<div className="flex flex-col items-center justify-center space-y-6 ">
@@ -159,6 +188,58 @@ export function TransferSuccessScreen({
 					</div>
 				</div>
 			</div>
+
+			{!wasStopped && (onCopyFiles || onCopyPaths) ? (
+				<div
+					className="flex flex-wrap gap-3 w-full max-w-sm"
+					aria-live="polite"
+				>
+					{onCopyFiles ? (
+						<Button
+							type="button"
+							variant="secondary"
+							className="flex-1"
+							disabled={isOpenPending || copying !== null}
+							onClick={() => void handleCopy('files')}
+						>
+							{copying === 'files' ? (
+								<Spinner className="size-3" />
+							) : copied === 'files' ? (
+								<Check size={12} />
+							) : (
+								<Copy size={12} />
+							)}
+							{t(
+								copied === 'files'
+									? 'common:receiver.clipboard.copied'
+									: 'common:receiver.clipboard.copyFiles'
+							)}
+						</Button>
+					) : null}
+					{onCopyPaths ? (
+						<Button
+							type="button"
+							variant="secondary"
+							className="flex-1"
+							disabled={isOpenPending || copying !== null}
+							onClick={() => void handleCopy('paths')}
+						>
+							{copying === 'paths' ? (
+								<Spinner className="size-3" />
+							) : copied === 'paths' ? (
+								<Check size={12} />
+							) : (
+								<Copy size={12} />
+							)}
+							{t(
+								copied === 'paths'
+									? 'common:receiver.clipboard.copied'
+									: 'common:receiver.clipboard.copyPaths'
+							)}
+						</Button>
+					) : null}
+				</div>
+			) : null}
 
 			{onOpenFolder && !IS_WEB ? (
 				<div className="flex gap-3 w-full max-w-sm">

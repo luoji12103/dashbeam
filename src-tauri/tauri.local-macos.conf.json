@@ -8,7 +8,7 @@
     "createUpdaterArtifacts": false,
     "targets": ["app"],
     "macOS": {
-      "signingIdentity": "-", "providerShortName": null, "bundleVersion": "70102",
+      "signingIdentity": "-", "providerShortName": null, "bundleVersion": "70104",
       "files": { "PlugIns/DashBeamShare.appex": "target/share-extension/DashBeamShare.appex" }
     }
   }

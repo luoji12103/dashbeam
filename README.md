@@ -42,6 +42,7 @@ The prepared local release target is [v0.7.1-local.3](https://github.com/luoji12
 ### Local changes
 
 - macOS menu-bar controls, compact Dock behavior, Finder Share Extension, Quick Action, and an optional top-right Flash Drop window.
+- macOS build 70104 adds receive-completion notification actions and in-app buttons to copy the actual received files or their paths. This local build is newer than the release assets linked above; see [validation notes](macos/RECEIVE_COPY.md).
 - Editable text sharing, Markdown import/paste, encrypted text metadata, receiver-side selectable text, one-click copy, and optional automatic clipboard copy.
 - Android text/file sharing, Markdown Storage Access Framework import, background text notifications, ARM64 packaging, and a separate local application identity.
 - Windows x64 packaging with the same text-transfer and desktop clipboard-receive path; the build ships as an NSIS installer and a portable ZIP.

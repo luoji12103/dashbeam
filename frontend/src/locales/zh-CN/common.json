@@ -211,6 +211,13 @@
 		"downloadCompleted": "下载完成",
 		"downloadCompletedWithConflicts": "下载完成，已处理重名冲突",
 		"downloadedFile": "已下载文件",
+		"clipboard": {
+			"copyFiles": "复制文件",
+			"copyPaths": "复制路径",
+			"copied": "已复制",
+			"copyFailed": "无法复制收到的文件",
+			"missingFiles": "部分接收的文件已被移动或删除，请重新接收后再复制。"
+		},
 		"receivedText": {
 			"dialogTitle": "收到文本",
 			"dialogDescription": "可以自由选择部分文本，也可以一键复制全部内容。",

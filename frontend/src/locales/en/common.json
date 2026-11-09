@@ -211,6 +211,13 @@
 		"downloadCompleted": "Download completed",
 		"downloadCompletedWithConflicts": "Download completed with name conflicts resolved",
 		"downloadedFile": "Downloaded File",
+		"clipboard": {
+			"copyFiles": "Copy files",
+			"copyPaths": "Copy paths",
+			"copied": "Copied",
+			"copyFailed": "Could not copy received files",
+			"missingFiles": "Some received files were moved or deleted. Receive them again before copying."
+		},
 		"receivedText": {
 			"dialogTitle": "Text received",
 			"dialogDescription": "Select any part of the text, or copy it all with one click.",

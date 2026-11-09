@@ -23,6 +23,8 @@ export type TransferCompletion = {
 	 * subfolder, so "Open" must prefer this over the base path.
 	 */
 	outputDir?: string
+	/** Actual exported leaf files, including conflict-resolved filenames. */
+	exportedPaths?: string[]
 }
 
 export function parseProgressPayload(
@@ -81,6 +83,20 @@ export function parseCompletionPayload(
 		const outputDir = parsed.outputDir
 		if (typeof outputDir === 'string' && outputDir) {
 			completion.outputDir = outputDir
+		}
+		const exportedPaths = parsed.exportedPaths
+		if (
+			Array.isArray(exportedPaths) &&
+			exportedPaths.every(
+				(path): path is string =>
+					typeof path === 'string' &&
+					!path.includes('\0') &&
+					(path.startsWith('/') ||
+						/^[A-Za-z]:[\\/]/.test(path) ||
+						path.startsWith('\\\\'))
+			)
+		) {
+			completion.exportedPaths = exportedPaths
 		}
 		return completion
 	} catch {

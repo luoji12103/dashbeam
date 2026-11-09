@@ -47,6 +47,9 @@ export interface SuccessScreenProps {
 	onDone: () => void
 	wasStopped?: boolean
 	onOpenFolder?: () => Promise<void>
+	/** Native file clipboard actions for completed receives on macOS. */
+	onCopyFiles?: () => Promise<boolean>
+	onCopyPaths?: () => Promise<boolean>
 	/**
 	 * Hold "Open" disabled — the files are still being written to their final
 	 * destination, so there is nothing to open yet.

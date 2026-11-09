@@ -8,10 +8,13 @@ fn main() {
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
         cc::Build::new()
             .file("native/flash_drop.m")
+            .file("native/received_files.m")
             .flag_if_supported("-fobjc-arc")
             .compile("dashbeam_flash_drop");
         println!("cargo:rustc-link-lib=framework=AppKit");
+        println!("cargo:rustc-link-arg=-Wl,-weak_framework,UserNotifications");
         println!("cargo:rerun-if-changed=native/flash_drop.m");
+        println!("cargo:rerun-if-changed=native/received_files.m");
     }
 
     // Read version from package.json (single source of truth)

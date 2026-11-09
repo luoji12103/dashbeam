@@ -75,3 +75,41 @@ test('omits the output directory when absent or not a string', () => {
 		durationMs: 10,
 	})
 })
+
+test('keeps the actual renamed paths of every exported file in a string payload', () => {
+	const exportedPaths = [
+		'/Users/t/Downloads/Studio Mac/report (1).pdf',
+		'/Users/t/Downloads/Studio Mac/资料/hello "你好".txt',
+		'/Users/t/Downloads/Studio Mac/a file with trailing space ',
+	]
+	assert.deepEqual(
+		parseCompletionPayload(
+			JSON.stringify({
+				durationMs: 4200,
+				outputDir: '/Users/t/Downloads/Studio Mac',
+				exportedPaths,
+			})
+		),
+		{
+			durationMs: 4200,
+			outputDir: '/Users/t/Downloads/Studio Mac',
+			exportedPaths,
+		}
+	)
+})
+
+test('ignores a malformed exported path list without losing completion telemetry', () => {
+	for (const exportedPaths of [
+		null,
+		'/Users/t/Downloads/report.pdf',
+		['/Users/t/Downloads/report.pdf', 7],
+		['report.pdf'],
+		[''],
+		['/Users/t/Downloads/bad\0name'],
+	]) {
+		assert.deepEqual(
+			parseCompletionPayload(JSON.stringify({ durationMs: 10, exportedPaths })),
+			{ durationMs: 10 }
+		)
+	}
+})

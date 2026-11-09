@@ -1,9 +1,9 @@
 import { Info } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useReceiverContext } from './ReceiverProvider'
 import { useTranslation } from '../../i18n/react-i18next-compat'
 import { PulseAnimation } from '../common/PulseAnimation'
 import { TransferSuccessScreen } from '../common/TransferSuccessScreen'
+import { Button } from '../ui/button'
 import {
 	Dialog,
 	DialogClose,
@@ -13,11 +13,11 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '../ui/dialog'
+import { ReceivedTextCard } from './ReceivedTextCard'
+import { useReceiverContext } from './ReceiverProvider'
+import { ReceiveSaveLocationPicker } from './ReceiveSaveLocationPicker'
 import { ReceivingActiveCard } from './ReceivingActiveCard'
 import { TicketInput } from './TicketInput'
-import { ReceiveSaveLocationPicker } from './ReceiveSaveLocationPicker'
-import { Button } from '../ui/button'
-import { ReceivedTextCard } from './ReceivedTextCard'
 
 interface ReceiverProps {
 	onTransferStateChange: (isReceiving: boolean) => void
@@ -41,6 +41,7 @@ export function Receiver({ onTransferStateChange }: ReceiverProps) {
 		isExportPending,
 		fileNames,
 		receivedText,
+		canCopyReceivedFiles,
 		handleTicketChange,
 		handleBrowseFolder,
 		handleReceive,
@@ -48,6 +49,7 @@ export function Receiver({ onTransferStateChange }: ReceiverProps) {
 		closeAlert,
 		resetForNewTransfer,
 		copyReceivedText,
+		copyReceivedFiles,
 	} = useReceiverContext()
 
 	useEffect(() => {
@@ -104,6 +106,12 @@ export function Receiver({ onTransferStateChange }: ReceiverProps) {
 						onDone={resetForNewTransfer}
 						onOpenFolder={handleOpenFolder}
 						isOpenPending={isExportPending}
+						onCopyFiles={
+							canCopyReceivedFiles ? () => copyReceivedFiles(false) : undefined
+						}
+						onCopyPaths={
+							canCopyReceivedFiles ? () => copyReceivedFiles(true) : undefined
+						}
 					/>
 				</div>
 			) : (

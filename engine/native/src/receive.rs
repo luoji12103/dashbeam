@@ -131,11 +131,22 @@ pub async fn download(
         // `outputDir` is where the bytes actually landed. The UI cannot re-derive
         // it once an auto-accepted transfer files itself under a per-device
         // subfolder, so "Open" would otherwise reveal the wrong directory.
+        // Export paths also include the final conflict-resolved filenames. Keep
+        // the leaf files: their parent directories may contain older files.
+        let exported_paths = export
+            .files
+            .iter()
+            .map(|file| {
+                std::path::absolute(&file.path)
+                    .map(|path| path.to_string_lossy().into_owned())
+            })
+            .collect::<std::io::Result<Vec<_>>>()?;
         let completion = serde_json::json!({
             "durationMs": downloaded.download_duration_ms,
             "exportMs": export_duration_ms,
             "bytes": downloaded.payload_size,
             "outputDir": output_dir.to_string_lossy(),
+            "exportedPaths": exported_paths,
         });
         emit_event_with_payload(&app_handle, "receive-completed", &completion.to_string());
 

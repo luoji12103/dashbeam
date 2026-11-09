@@ -17,6 +17,8 @@ mod flash_drop_native;
 mod history;
 mod logging;
 mod platform;
+#[cfg(desktop)]
+mod received_files;
 #[cfg(target_os = "android")]
 mod presence_service;
 mod state;
@@ -143,6 +145,8 @@ pub fn run() {
             acknowledge_received_text,
             #[cfg(desktop)]
             write_clipboard_text,
+            #[cfg(desktop)]
+            copy_received_files,
             cancel_receive,
             list_transfer_history,
             delete_transfer_record,
@@ -229,6 +233,8 @@ pub fn run() {
         ])
         .setup(|app| {
             init_logging(app.handle());
+            #[cfg(target_os = "macos")]
+            received_files::init(app.handle());
             // Before Android 13 `std::env::temp_dir()` is `/data/local/tmp`,
             // which the app cannot write, so blob stores go in the app cache
             // dir instead. That is also where `TMPDIR` points on 13+, so
