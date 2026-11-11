@@ -50,7 +50,7 @@ installed applications are not replaced by these tests.
 
 ## Packaging and remaining work
 
-Candidate `v0.7.1-local.4`: macOS ARM64 ZIP, Windows x64 NSIS + portable ZIP,
+Published pre-release `v0.7.1-local.4`: macOS ARM64 ZIP, Windows x64 NSIS + portable ZIP,
 Android ARM64 APK, all from one frozen source revision. macOS bundleVersion and
 Android versionCode are 70105. Product version remains 0.7.1. Android preserves
 `com.dashbeam.android.local` and the existing private local signing key; it can
@@ -59,6 +59,55 @@ update this local app, not the differently signed/identified official app.
 Build/signature/asset verification and real-device results must be recorded
 separately after packaging. Passing unit tests is not a phone-to-Mac, cross-home-
 relay, GUI cancellation, notification, or sustained-throughput acceptance.
+
+macOS package completed: ARM64 Mach-O, bundleVersion 70105, identifier
+`com.dashbeam.desktop`; embedded Finder Share extension and deep strict ad-hoc
+signature verification passed, ZIP integrity passed. SHA256:
+`ca56e5baa44f993279e962de5d1e6bbc1c81001281b4b0a457dec32af85a4f1d`.
+The optional debug-info stripping helper warned about missing libLLVM; Cargo
+and Tauri completed successfully. No toolchain/system changes were made for
+that warning. This package has not replaced `/Applications/DashBeam.app`.
+
+Windows x64 CI run `42997084778` completed successfully from the frozen source.
+It uploaded NSIS installer and portable ZIP to the same release draft. Asset
+digests reported by GitHub (local download/integrity check recorded separately):
+
+- Installer: `68fc88176d6b6726b29aaffe631e59400765860bbbaf524412d381e274367521`.
+- Portable: `db0bc9714b45aa50ac1dab0aefb72946c3d68ee89606d91dcf5c7345e766e0d8`.
+
+Both Windows assets were downloaded and their SHA256 matched. Portable ZIP
+integrity passed; its `DashBeam.exe` is PE32+ x86-64 and `.portable` is present.
+The NSIS bootstrap is a PE32 self-extracting installer (its wrapper architecture
+does not identify the packaged application's architecture). Windows GUI and
+clipboard transfer have not been run on a Windows machine in this update.
+
+Android ARM64 release APK completed on Debian DEV. Package is
+`com.dashbeam.android.local`, versionCode 70105, minSdk 29, targetSdk 36;
+only `arm64-v8a` is included. APK v3 signature validation, 16 KiB ZIP alignment,
+ZIP integrity and native ELF LOAD alignment (`0x4000`) passed. Its certificate
+SHA256 matches the previous local APK:
+`fa481ae7c59700dfd66e558c6e7ac528359cbd4b7dfb7f5b35c90d4b491253dc`.
+SEND/SEND_MULTIPLE and the local FileProvider authority remain in the packaged
+manifest. APK SHA256:
+`89944ab430dad1cae60e9f99c0f9389a56785525da6ef0bad44ea0a1a645a28b`.
+The cross-worktree Tauri cache omitted generated TauriActivity; the reused
+generated file was verified byte-for-byte against the locked Tauri 2.10.1
+template after package substitution. No product logic or dependency was changed
+for this build repair. No phone installation or real-device transfer was done.
+
+All four assets use product commit `2ef67abf2e100f32db9aca7834397e705250053e`.
+The release includes a `SHA256SUMS` asset. Release documentation is committed
+separately and does not require rebuilding these frozen-source packages.
+
+Release published at `2026-11-11T10:27:01Z`, non-draft and pre-release, not the
+stable/latest release. The tag resolves to the frozen product commit. Publishing
+via the release API also generated tag-push events for the inherited generic
+`publish` and `android-aab` workflows; both extra runs were cancelled rather
+than allowing a second generic build/deployment pipeline to alter these assets.
+Run `43003708188` and `43003708688` ended cancelled; both Vercel installation
+and deployment steps were skipped. The inherited workflows now skip local-tag
+automatic jobs for subsequent releases; explicit Windows local dispatch remains
+unchanged. This CI-only follow-up does not change the frozen binaries.
 
 The next architectural stage still needs endpoint/ALPN authorization, streaming
 integrity and resumability, source-version semantics, Android SAF changes,
