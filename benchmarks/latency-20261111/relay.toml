@@ -1,0 +1,10 @@
+http_bind_addr = "0.0.0.0:3340"
+enable_metrics = false
+enable_quic_addr_discovery = true
+
+[tls]
+https_bind_addr = "0.0.0.0:3341"
+quic_bind_addr = "0.0.0.0:7842"
+cert_mode = "Manual"
+manual_cert_path = "/bench/tools/tls/relay.pem"
+manual_key_path = "/bench/tools/tls/relay.key"

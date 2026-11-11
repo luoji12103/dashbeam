@@ -1,0 +1,100 @@
+diff --git a/engine/native/src/export.rs b/engine/native/src/export.rs
+--- a/engine/native/src/export.rs
++++ b/engine/native/src/export.rs
+@@ -9,6 +9,7 @@ use iroh_blobs::{
+     format::collection::Collection,
+ };
+ use n0_future::StreamExt;
++use std::collections::HashSet;
+ use std::path::{Path, PathBuf};
+ 
+ #[derive(Debug, Clone, serde::Serialize)]
+@@ -37,6 +38,7 @@ pub async fn export_to_directory(
+ ) -> anyhow::Result<ExportResult> {
+     let mut conflicts = Vec::new();
+     let mut files = Vec::new();
++    let mut created_parents = HashSet::new();
+ 
+     for (_i, (name, hash)) in collection.iter().enumerate() {
+         let desired_target = get_export_path(output_dir, name)?;
+@@ -52,9 +54,7 @@ pub async fn export_to_directory(
+         };
+ 
+         if let Some(parent) = target.parent() {
+-            tokio::fs::create_dir_all(parent).await.map_err(|e| {
+-                anyhow::anyhow!("failed creating export parent {}: {}", parent.display(), e)
+-            })?;
++            ensure_export_parent(parent, &mut created_parents).await?;
+         }
+ 
+         let mut stream = db
+@@ -85,6 +85,19 @@ pub async fn export_to_directory(
+     Ok(ExportResult { conflicts, files })
+ }
+ 
++async fn ensure_export_parent(
++    parent: &Path,
++    created_parents: &mut HashSet<PathBuf>,
++) -> anyhow::Result<()> {
++    if !created_parents.contains(parent) {
++        tokio::fs::create_dir_all(parent).await.map_err(|e| {
++            anyhow::anyhow!("failed creating export parent {}: {}", parent.display(), e)
++        })?;
++        created_parents.insert(parent.to_path_buf());
++    }
++    Ok(())
++}
++
+ fn resolve_conflict_path(path: &Path) -> anyhow::Result<PathBuf> {
+     let parent = path
+         .parent()
+@@ -143,6 +156,49 @@ fn validate_path_component(component: &str) -> anyhow::Result<()> {
+ mod tests {
+     use super::*;
+ 
++    #[tokio::test]
++    async fn repeated_parent_exports_preserve_bytes_and_conflicts() {
++        let root = tempfile::tempdir().unwrap();
++        let input = root.path().join("input");
++        let output = root.path().join("output");
++        std::fs::create_dir_all(&input).unwrap();
++        std::fs::create_dir_all(output.join("input")).unwrap();
++        std::fs::write(input.join("a.bin"), b"alpha").unwrap();
++        std::fs::write(input.join("b.bin"), b"bravo").unwrap();
++        std::fs::write(output.join("input/a.bin"), b"existing").unwrap();
++
++        let store = crate::storage::create_send_store(&root.path().join("store"))
++            .await
++            .unwrap();
++        let (_tag, _size, collection) =
++            crate::import::import_paths(vec![input], store.as_ref()).await.unwrap();
++        let result = export_to_directory(store.as_ref(), collection, &output)
++            .await
++            .unwrap();
++        assert_eq!(result.files.len(), 2);
++        assert_eq!(result.conflicts.len(), 1);
++        assert_eq!(std::fs::read(output.join("input/a.bin")).unwrap(), b"existing");
++        assert_eq!(std::fs::read(output.join("input/a (1).bin")).unwrap(), b"alpha");
++        assert_eq!(std::fs::read(output.join("input/b.bin")).unwrap(), b"bravo");
++        store.shutdown().await.unwrap();
++    }
++
++    #[tokio::test]
++    async fn parent_creation_failure_is_not_cached() {
++        let root = tempfile::tempdir().unwrap();
++        let blocker = root.path().join("blocker");
++        std::fs::write(&blocker, b"file").unwrap();
++        let parent = blocker.join("child");
++        let mut created_parents = HashSet::new();
++
++        assert!(ensure_export_parent(&parent, &mut created_parents).await.is_err());
++        assert!(!created_parents.contains(&parent));
++        std::fs::remove_file(&blocker).unwrap();
++        ensure_export_parent(&parent, &mut created_parents).await.unwrap();
++        assert!(parent.is_dir());
++        assert!(created_parents.contains(&parent));
++    }
++
+     #[test]
+     fn validate_rejects_empty() {
+         assert!(validate_path_component("").is_err());
