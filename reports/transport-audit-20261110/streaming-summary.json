@@ -1,0 +1,728 @@
+{
+  "kind": "derived_summary",
+  "scope": "final_source_only_same_DEV_autoaccept_no_application_aead",
+  "planned_transfers": 32,
+  "successful_transfers": 32,
+  "pair_failures": 0,
+  "file_payload_bytes": 1090519040,
+  "runs": [
+    {
+      "file": "streaming-direct-8k.jsonl",
+      "mode": "direct",
+      "first_frame_bytes": 8192,
+      "planned_transfers": 12,
+      "successful_transfers": 12,
+      "failures": [],
+      "cleanup_pairs": 6,
+      "cleanup_ok": true,
+      "all_transfer_verifications_passed": true
+    },
+    {
+      "file": "streaming-direct-64k.jsonl",
+      "mode": "direct",
+      "first_frame_bytes": 65536,
+      "planned_transfers": 12,
+      "successful_transfers": 12,
+      "failures": [],
+      "cleanup_pairs": 6,
+      "cleanup_ok": true,
+      "all_transfer_verifications_passed": true
+    },
+    {
+      "file": "streaming-relay-first-65536.jsonl",
+      "mode": "relay",
+      "first_frame_bytes": 65536,
+      "planned_transfers": 4,
+      "successful_transfers": 4,
+      "failures": [],
+      "cleanup_pairs": 2,
+      "cleanup_ok": true,
+      "all_transfer_verifications_passed": true
+    },
+    {
+      "file": "streaming-relay-first-8192.jsonl",
+      "mode": "relay",
+      "first_frame_bytes": 8192,
+      "planned_transfers": 4,
+      "successful_transfers": 4,
+      "failures": [],
+      "cleanup_pairs": 2,
+      "cleanup_ok": true,
+      "all_transfer_verifications_passed": true
+    }
+  ],
+  "groups": [
+    {
+      "file": "streaming-direct-8k.jsonl",
+      "mode": "direct",
+      "bytes": 1048576,
+      "condition": "cold_new_endpoint_pair",
+      "first_frame_bytes": 8192,
+      "first_actual_byte_ms": {
+        "n": 3,
+        "min": 51.542624,
+        "median": 58.094394,
+        "max": 100.358504,
+        "interpretation": "three_samples_not_p95"
+      },
+      "first_frame_ack_ms": {
+        "n": 3,
+        "min": 52.036027999999995,
+        "median": 58.835811,
+        "max": 100.78561699999999,
+        "interpretation": "three_samples_not_p95"
+      },
+      "complete_ack_ms": {
+        "n": 3,
+        "min": 66.424927,
+        "median": 74.40785699999999,
+        "max": 115.79275799999999,
+        "interpretation": "three_samples_not_p95"
+      },
+      "source_first_read_ms": {
+        "n": 3,
+        "min": 0.06203299999999999,
+        "median": 0.077543,
+        "max": 0.085506,
+        "interpretation": "three_samples_not_p95"
+      },
+      "file_open_stat_ms": {
+        "n": 3,
+        "min": 0.164743,
+        "median": 0.238567,
+        "max": 0.574933,
+        "interpretation": "three_samples_not_p95"
+      }
+    },
+    {
+      "file": "streaming-direct-8k.jsonl",
+      "mode": "direct",
+      "bytes": 1048576,
+      "condition": "warm_same_connection",
+      "first_frame_bytes": 8192,
+      "first_actual_byte_ms": {
+        "n": 3,
+        "min": 1.977711,
+        "median": 2.185772,
+        "max": 3.0536719999999997,
+        "interpretation": "three_samples_not_p95"
+      },
+      "first_frame_ack_ms": {
+        "n": 3,
+        "min": 3.119963,
+        "median": 3.388846,
+        "max": 3.611132,
+        "interpretation": "three_samples_not_p95"
+      },
+      "complete_ack_ms": {
+        "n": 3,
+        "min": 16.828375,
+        "median": 19.127907,
+        "max": 20.608098,
+        "interpretation": "three_samples_not_p95"
+      },
+      "source_first_read_ms": {
+        "n": 3,
+        "min": 0.044,
+        "median": 0.05475,
+        "max": 0.063638,
+        "interpretation": "three_samples_not_p95"
+      },
+      "file_open_stat_ms": {
+        "n": 3,
+        "min": 0.063717,
+        "median": 0.148842,
+        "max": 0.153621,
+        "interpretation": "three_samples_not_p95"
+      }
+    },
+    {
+      "file": "streaming-direct-8k.jsonl",
+      "mode": "direct",
+      "bytes": 67108864,
+      "condition": "cold_new_endpoint_pair",
+      "first_frame_bytes": 8192,
+      "first_actual_byte_ms": {
+        "n": 3,
+        "min": 51.830713,
+        "median": 53.00958,
+        "max": 53.837744,
+        "interpretation": "three_samples_not_p95"
+      },
+      "first_frame_ack_ms": {
+        "n": 3,
+        "min": 52.603418,
+        "median": 54.597034,
+        "max": 54.712779000000005,
+        "interpretation": "three_samples_not_p95"
+      },
+      "complete_ack_ms": {
+        "n": 3,
+        "min": 1179.2127670000002,
+        "median": 1183.750236,
+        "max": 1503.661394,
+        "interpretation": "three_samples_not_p95"
+      },
+      "source_first_read_ms": {
+        "n": 3,
+        "min": 0.075899,
+        "median": 0.08061800000000001,
+        "max": 0.088351,
+        "interpretation": "three_samples_not_p95"
+      },
+      "file_open_stat_ms": {
+        "n": 3,
+        "min": 0.180581,
+        "median": 0.198996,
+        "max": 0.228789,
+        "interpretation": "three_samples_not_p95"
+      }
+    },
+    {
+      "file": "streaming-direct-8k.jsonl",
+      "mode": "direct",
+      "bytes": 67108864,
+      "condition": "warm_same_connection",
+      "first_frame_bytes": 8192,
+      "first_actual_byte_ms": {
+        "n": 3,
+        "min": 15.034932000000001,
+        "median": 17.256963,
+        "max": 20.779145999999997,
+        "interpretation": "three_samples_not_p95"
+      },
+      "first_frame_ack_ms": {
+        "n": 3,
+        "min": 15.457526,
+        "median": 17.723397,
+        "max": 21.634422,
+        "interpretation": "three_samples_not_p95"
+      },
+      "complete_ack_ms": {
+        "n": 3,
+        "min": 1078.802421,
+        "median": 1175.654245,
+        "max": 1225.212593,
+        "interpretation": "three_samples_not_p95"
+      },
+      "source_first_read_ms": {
+        "n": 3,
+        "min": 0.08292200000000001,
+        "median": 0.083093,
+        "max": 0.084644,
+        "interpretation": "three_samples_not_p95"
+      },
+      "file_open_stat_ms": {
+        "n": 3,
+        "min": 0.107587,
+        "median": 0.118076,
+        "max": 0.148563,
+        "interpretation": "three_samples_not_p95"
+      }
+    },
+    {
+      "file": "streaming-direct-64k.jsonl",
+      "mode": "direct",
+      "bytes": 1048576,
+      "condition": "cold_new_endpoint_pair",
+      "first_frame_bytes": 65536,
+      "first_actual_byte_ms": {
+        "n": 3,
+        "min": 47.072132,
+        "median": 55.911309,
+        "max": 86.16046,
+        "interpretation": "three_samples_not_p95"
+      },
+      "first_frame_ack_ms": {
+        "n": 3,
+        "min": 50.955443,
+        "median": 64.637481,
+        "max": 89.990323,
+        "interpretation": "three_samples_not_p95"
+      },
+      "complete_ack_ms": {
+        "n": 3,
+        "min": 63.77094399999999,
+        "median": 76.36957799999999,
+        "max": 103.719588,
+        "interpretation": "three_samples_not_p95"
+      },
+      "source_first_read_ms": {
+        "n": 3,
+        "min": 0.088241,
+        "median": 0.125761,
+        "max": 0.141099,
+        "interpretation": "three_samples_not_p95"
+      },
+      "file_open_stat_ms": {
+        "n": 3,
+        "min": 0.19333499999999998,
+        "median": 0.205387,
+        "max": 0.535762,
+        "interpretation": "three_samples_not_p95"
+      }
+    },
+    {
+      "file": "streaming-direct-64k.jsonl",
+      "mode": "direct",
+      "bytes": 1048576,
+      "condition": "warm_same_connection",
+      "first_frame_bytes": 65536,
+      "first_actual_byte_ms": {
+        "n": 3,
+        "min": 2.4547060000000003,
+        "median": 3.004232,
+        "max": 3.741593,
+        "interpretation": "three_samples_not_p95"
+      },
+      "first_frame_ack_ms": {
+        "n": 3,
+        "min": 3.502936,
+        "median": 4.057171,
+        "max": 5.189945,
+        "interpretation": "three_samples_not_p95"
+      },
+      "complete_ack_ms": {
+        "n": 3,
+        "min": 20.998639,
+        "median": 24.562916,
+        "max": 37.440401,
+        "interpretation": "three_samples_not_p95"
+      },
+      "source_first_read_ms": {
+        "n": 3,
+        "min": 0.052376,
+        "median": 0.06428800000000001,
+        "max": 0.087089,
+        "interpretation": "three_samples_not_p95"
+      },
+      "file_open_stat_ms": {
+        "n": 3,
+        "min": 0.05441,
+        "median": 0.07093,
+        "max": 0.103279,
+        "interpretation": "three_samples_not_p95"
+      }
+    },
+    {
+      "file": "streaming-direct-64k.jsonl",
+      "mode": "direct",
+      "bytes": 67108864,
+      "condition": "cold_new_endpoint_pair",
+      "first_frame_bytes": 65536,
+      "first_actual_byte_ms": {
+        "n": 3,
+        "min": 46.520072000000006,
+        "median": 56.582975,
+        "max": 65.522133,
+        "interpretation": "three_samples_not_p95"
+      },
+      "first_frame_ack_ms": {
+        "n": 3,
+        "min": 50.831838999999995,
+        "median": 61.729872,
+        "max": 70.36490300000001,
+        "interpretation": "three_samples_not_p95"
+      },
+      "complete_ack_ms": {
+        "n": 3,
+        "min": 1107.095228,
+        "median": 1195.843883,
+        "max": 1252.0958,
+        "interpretation": "three_samples_not_p95"
+      },
+      "source_first_read_ms": {
+        "n": 3,
+        "min": 0.091087,
+        "median": 0.106325,
+        "max": 0.108889,
+        "interpretation": "three_samples_not_p95"
+      },
+      "file_open_stat_ms": {
+        "n": 3,
+        "min": 0.175522,
+        "median": 0.20311200000000001,
+        "max": 0.800237,
+        "interpretation": "three_samples_not_p95"
+      }
+    },
+    {
+      "file": "streaming-direct-64k.jsonl",
+      "mode": "direct",
+      "bytes": 67108864,
+      "condition": "warm_same_connection",
+      "first_frame_bytes": 65536,
+      "first_actual_byte_ms": {
+        "n": 3,
+        "min": 14.64348,
+        "median": 14.989684,
+        "max": 16.636643,
+        "interpretation": "three_samples_not_p95"
+      },
+      "first_frame_ack_ms": {
+        "n": 3,
+        "min": 15.294803,
+        "median": 17.011779,
+        "max": 17.603785000000002,
+        "interpretation": "three_samples_not_p95"
+      },
+      "complete_ack_ms": {
+        "n": 3,
+        "min": 1015.8674679999999,
+        "median": 1368.528377,
+        "max": 1405.8303059999998,
+        "interpretation": "three_samples_not_p95"
+      },
+      "source_first_read_ms": {
+        "n": 3,
+        "min": 0.093501,
+        "median": 0.095685,
+        "max": 0.09986300000000001,
+        "interpretation": "three_samples_not_p95"
+      },
+      "file_open_stat_ms": {
+        "n": 3,
+        "min": 0.117305,
+        "median": 0.12290399999999999,
+        "max": 0.129247,
+        "interpretation": "three_samples_not_p95"
+      }
+    },
+    {
+      "file": "streaming-relay-first-65536.jsonl",
+      "mode": "relay",
+      "bytes": 1048576,
+      "condition": "cold_new_endpoint_pair",
+      "first_frame_bytes": 65536,
+      "first_actual_byte_ms": {
+        "n": 1,
+        "min": 1028.280548,
+        "median": 1028.280548,
+        "max": 1028.280548,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "first_frame_ack_ms": {
+        "n": 1,
+        "min": 1334.845818,
+        "median": 1334.845818,
+        "max": 1334.845818,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "complete_ack_ms": {
+        "n": 1,
+        "min": 1808.2074129999999,
+        "median": 1808.2074129999999,
+        "max": 1808.2074129999999,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "source_first_read_ms": {
+        "n": 1,
+        "min": 0.16337000000000002,
+        "median": 0.16337000000000002,
+        "max": 0.16337000000000002,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "file_open_stat_ms": {
+        "n": 1,
+        "min": 0.197032,
+        "median": 0.197032,
+        "max": 0.197032,
+        "interpretation": "single_observation_not_percentile"
+      }
+    },
+    {
+      "file": "streaming-relay-first-65536.jsonl",
+      "mode": "relay",
+      "bytes": 1048576,
+      "condition": "warm_same_connection",
+      "first_frame_bytes": 65536,
+      "first_actual_byte_ms": {
+        "n": 1,
+        "min": 147.771871,
+        "median": 147.771871,
+        "max": 147.771871,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "first_frame_ack_ms": {
+        "n": 1,
+        "min": 227.67221,
+        "median": 227.67221,
+        "max": 227.67221,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "complete_ack_ms": {
+        "n": 1,
+        "min": 422.549233,
+        "median": 422.549233,
+        "max": 422.549233,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "source_first_read_ms": {
+        "n": 1,
+        "min": 0.13861400000000001,
+        "median": 0.13861400000000001,
+        "max": 0.13861400000000001,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "file_open_stat_ms": {
+        "n": 1,
+        "min": 0.275465,
+        "median": 0.275465,
+        "max": 0.275465,
+        "interpretation": "single_observation_not_percentile"
+      }
+    },
+    {
+      "file": "streaming-relay-first-65536.jsonl",
+      "mode": "relay",
+      "bytes": 67108864,
+      "condition": "cold_new_endpoint_pair",
+      "first_frame_bytes": 65536,
+      "first_actual_byte_ms": {
+        "n": 1,
+        "min": 896.9492799999999,
+        "median": 896.9492799999999,
+        "max": 896.9492799999999,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "first_frame_ack_ms": {
+        "n": 1,
+        "min": 1205.644513,
+        "median": 1205.644513,
+        "max": 1205.644513,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "complete_ack_ms": {
+        "n": 1,
+        "min": 15451.120956,
+        "median": 15451.120956,
+        "max": 15451.120956,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "source_first_read_ms": {
+        "n": 1,
+        "min": 0.138744,
+        "median": 0.138744,
+        "max": 0.138744,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "file_open_stat_ms": {
+        "n": 1,
+        "min": 0.196399,
+        "median": 0.196399,
+        "max": 0.196399,
+        "interpretation": "single_observation_not_percentile"
+      }
+    },
+    {
+      "file": "streaming-relay-first-65536.jsonl",
+      "mode": "relay",
+      "bytes": 67108864,
+      "condition": "warm_same_connection",
+      "first_frame_bytes": 65536,
+      "first_actual_byte_ms": {
+        "n": 1,
+        "min": 161.700762,
+        "median": 161.700762,
+        "max": 161.700762,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "first_frame_ack_ms": {
+        "n": 1,
+        "min": 283.853305,
+        "median": 283.853305,
+        "max": 283.853305,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "complete_ack_ms": {
+        "n": 1,
+        "min": 14476.863672,
+        "median": 14476.863672,
+        "max": 14476.863672,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "source_first_read_ms": {
+        "n": 1,
+        "min": 0.102218,
+        "median": 0.102218,
+        "max": 0.102218,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "file_open_stat_ms": {
+        "n": 1,
+        "min": 0.13477699999999998,
+        "median": 0.13477699999999998,
+        "max": 0.13477699999999998,
+        "interpretation": "single_observation_not_percentile"
+      }
+    },
+    {
+      "file": "streaming-relay-first-8192.jsonl",
+      "mode": "relay",
+      "bytes": 1048576,
+      "condition": "cold_new_endpoint_pair",
+      "first_frame_bytes": 8192,
+      "first_actual_byte_ms": {
+        "n": 1,
+        "min": 934.112713,
+        "median": 934.112713,
+        "max": 934.112713,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "first_frame_ack_ms": {
+        "n": 1,
+        "min": 1028.779757,
+        "median": 1028.779757,
+        "max": 1028.779757,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "complete_ack_ms": {
+        "n": 1,
+        "min": 1887.379533,
+        "median": 1887.379533,
+        "max": 1887.379533,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "source_first_read_ms": {
+        "n": 1,
+        "min": 0.12884600000000002,
+        "median": 0.12884600000000002,
+        "max": 0.12884600000000002,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "file_open_stat_ms": {
+        "n": 1,
+        "min": 0.17347900000000002,
+        "median": 0.17347900000000002,
+        "max": 0.17347900000000002,
+        "interpretation": "single_observation_not_percentile"
+      }
+    },
+    {
+      "file": "streaming-relay-first-8192.jsonl",
+      "mode": "relay",
+      "bytes": 1048576,
+      "condition": "warm_same_connection",
+      "first_frame_bytes": 8192,
+      "first_actual_byte_ms": {
+        "n": 1,
+        "min": 157.589662,
+        "median": 157.589662,
+        "max": 157.589662,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "first_frame_ack_ms": {
+        "n": 1,
+        "min": 263.299515,
+        "median": 263.299515,
+        "max": 263.299515,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "complete_ack_ms": {
+        "n": 1,
+        "min": 683.232649,
+        "median": 683.232649,
+        "max": 683.232649,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "source_first_read_ms": {
+        "n": 1,
+        "min": 0.075378,
+        "median": 0.075378,
+        "max": 0.075378,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "file_open_stat_ms": {
+        "n": 1,
+        "min": 0.155576,
+        "median": 0.155576,
+        "max": 0.155576,
+        "interpretation": "single_observation_not_percentile"
+      }
+    },
+    {
+      "file": "streaming-relay-first-8192.jsonl",
+      "mode": "relay",
+      "bytes": 67108864,
+      "condition": "cold_new_endpoint_pair",
+      "first_frame_bytes": 8192,
+      "first_actual_byte_ms": {
+        "n": 1,
+        "min": 895.073804,
+        "median": 895.073804,
+        "max": 895.073804,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "first_frame_ack_ms": {
+        "n": 1,
+        "min": 994.865476,
+        "median": 994.865476,
+        "max": 994.865476,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "complete_ack_ms": {
+        "n": 1,
+        "min": 15485.006745,
+        "median": 15485.006745,
+        "max": 15485.006745,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "source_first_read_ms": {
+        "n": 1,
+        "min": 0.120301,
+        "median": 0.120301,
+        "max": 0.120301,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "file_open_stat_ms": {
+        "n": 1,
+        "min": 0.199795,
+        "median": 0.199795,
+        "max": 0.199795,
+        "interpretation": "single_observation_not_percentile"
+      }
+    },
+    {
+      "file": "streaming-relay-first-8192.jsonl",
+      "mode": "relay",
+      "bytes": 67108864,
+      "condition": "warm_same_connection",
+      "first_frame_bytes": 8192,
+      "first_actual_byte_ms": {
+        "n": 1,
+        "min": 150.794188,
+        "median": 150.794188,
+        "max": 150.794188,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "first_frame_ack_ms": {
+        "n": 1,
+        "min": 258.861311,
+        "median": 258.861311,
+        "max": 258.861311,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "complete_ack_ms": {
+        "n": 1,
+        "min": 13855.080133,
+        "median": 13855.080133,
+        "max": 13855.080133,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "source_first_read_ms": {
+        "n": 1,
+        "min": 0.12027,
+        "median": 0.12027,
+        "max": 0.12027,
+        "interpretation": "single_observation_not_percentile"
+      },
+      "file_open_stat_ms": {
+        "n": 1,
+        "min": 0.14110899999999998,
+        "median": 0.14110899999999998,
+        "max": 0.14110899999999998,
+        "interpretation": "single_observation_not_percentile"
+      }
+    }
+  ]
+}

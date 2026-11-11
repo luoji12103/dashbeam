@@ -1,0 +1,47 @@
+{
+  "kind": "Mac_raw_relay_auth_ping",
+  "observedUtc": "2026-11-10T08:52:45.071Z",
+  "scope": "Node direct TLS API; no file payload, no QUIC, not a DashBeam path proof",
+  "cases": [
+    {
+      "host": "iroh.gz.keroweir.com",
+      "pingPongRttMs": [
+        356.3175000000001,
+        334.51754200000005,
+        407.6411250000001,
+        1325.7832910000002,
+        1263.9204170000003,
+        348.5662919999995,
+        343.65379200000007,
+        398.8478750000004
+      ],
+      "tlsAuthorized": true,
+      "tlsReadyMs": 1144.804083,
+      "httpStatus": 101,
+      "protocol": "iroh-relay-v2",
+      "authenticated": true,
+      "authReadyMs": 1559.3852499999998,
+      "totalMs": 6339.324291999999
+    },
+    {
+      "host": "iroh.sh.keroweir.com",
+      "pingPongRttMs": [
+        395.8672499999999,
+        277.6313329999999,
+        91.8672919999999,
+        59.63062500000001,
+        57.17387499999995,
+        49.90274999999997,
+        114.7361249999999,
+        204.62766599999986
+      ],
+      "tlsAuthorized": true,
+      "tlsReadyMs": 268.846417,
+      "httpStatus": 101,
+      "protocol": "iroh-relay-v2",
+      "authenticated": true,
+      "authReadyMs": 366.90725,
+      "totalMs": 1619.527125
+    }
+  ]
+}
