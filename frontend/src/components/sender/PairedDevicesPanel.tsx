@@ -23,14 +23,14 @@ import { DevicePairingStatus } from '../pairing/DevicePairingStatus'
 import { PairedDevicesSearchField } from '../pairing/PairedDevicesSearchField'
 import { Badge } from '../ui/badge'
 
-type InviteStatus = 'sending' | 'sent' | 'failed'
+type InviteStatus = 'preparing' | 'sending' | 'sent' | 'failed'
 
 interface PairedDevicesPanelProps {
 	pairedDevices: PairedDevice[]
 	pairedInviteStatus: Record<string, InviteStatus>
 	isNodeReady: boolean
 	isNodeStatusPending?: boolean
-	hasTicket: boolean
+	canSelectTarget: boolean
 	onInvitePairedDevice?: (endpointId: string) => Promise<boolean>
 	onInviteNearbyDevice?: (endpointId: string) => Promise<boolean>
 	onInviteSuccess?: () => void
@@ -55,7 +55,7 @@ export function PairedDevicesPanel({
 	pairedInviteStatus,
 	isNodeReady,
 	isNodeStatusPending = false,
-	hasTicket,
+	canSelectTarget,
 	onInvitePairedDevice,
 	onInviteNearbyDevice,
 	onInviteSuccess,
@@ -134,7 +134,8 @@ export function PairedDevicesPanel({
 	const anotherInviteInFlight = (endpointId: string) =>
 		Object.entries(pairedInviteStatus).some(
 			([id, status]) =>
-				id !== endpointId && (status === 'sending' || status === 'sent')
+				id !== endpointId &&
+				(status === 'preparing' || status === 'sending' || status === 'sent')
 		)
 
 	const pairedListContent =
@@ -162,10 +163,11 @@ export function PairedDevicesPanel({
 					const inviteStatus = pairedInviteStatus[device.endpoint_id]
 					const isActive = isPairedDeviceActive(device)
 					const isOnline = device.online
-					const isSending = inviteStatus === 'sending'
+					const isSending =
+						inviteStatus === 'preparing' || inviteStatus === 'sending'
 					const disabled =
 						!isNodeReady ||
-						!hasTicket ||
+						!canSelectTarget ||
 						isSending ||
 						!isActive ||
 						!isOnline ||
@@ -197,9 +199,11 @@ export function PairedDevicesPanel({
 											{device.display_name}
 										</span>
 										<span className="block truncate text-xs text-muted-foreground">
-											{isSending
-												? t('common:sender.pairedDevices.sending')
-												: deviceSubtitle(device)}
+											{inviteStatus === 'preparing'
+												? t('common:sender.startingShare')
+												: isSending
+													? t('common:sender.pairedDevices.sending')
+													: deviceSubtitle(device)}
 										</span>
 									</div>
 								</div>
@@ -242,8 +246,9 @@ export function PairedDevicesPanel({
 					inviteStatus={pairedInviteStatus[device.endpointId]}
 					disabled={
 						!isNodeReady ||
-						!hasTicket ||
+						!canSelectTarget ||
 						!onInviteNearbyDevice ||
+						pairedInviteStatus[device.endpointId] === 'preparing' ||
 						pairedInviteStatus[device.endpointId] === 'sending' ||
 						pairedInviteStatus[device.endpointId] === 'sent' ||
 						anotherInviteInFlight(device.endpointId)
@@ -340,7 +345,7 @@ function NearbySheetRow({
 }) {
 	const { t } = useTranslation()
 	const Icon = deviceTypeIcon(device.deviceType)
-	const isSending = inviteStatus === 'sending'
+	const isSending = inviteStatus === 'preparing' || inviteStatus === 'sending'
 	const label =
 		device.identified && device.displayName
 			? device.displayName
@@ -367,12 +372,21 @@ function NearbySheetRow({
 							<Icon className="h-4 w-4" />
 						)}
 					</div>
-					<div className="flex min-w-0 items-center gap-1.5">
-						<span className="truncate">{label}</span>
-						{!isSending ? (
-							<Badge variant="warning" size="sm" className="shrink-0">
-								{t('common:settings.devices.nearby.unverified')}
-							</Badge>
+					<div className="min-w-0">
+						<div className="flex min-w-0 items-center gap-1.5">
+							<span className="truncate">{label}</span>
+							{!isSending ? (
+								<Badge variant="warning" size="sm" className="shrink-0">
+									{t('common:settings.devices.nearby.unverified')}
+								</Badge>
+							) : null}
+						</div>
+						{isSending ? (
+							<span className="block text-xs text-muted-foreground">
+								{inviteStatus === 'preparing'
+									? t('common:sender.startingShare')
+									: t('common:sender.pairedDevices.sending')}
+							</span>
 						) : null}
 					</div>
 				</div>

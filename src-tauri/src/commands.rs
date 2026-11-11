@@ -274,17 +274,14 @@ async fn send_items_impl(
     let path_bufs: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
 
     // Reserve slot before expensive setup to avoid concurrent start_sharing races.
-    {
-        let mut app_state = state.lock().await;
-        if app_state.current_share.is_some() || app_state.is_share_starting {
-            return Err("Already sharing a file. Please stop current share first.".to_string());
-        }
-        app_state.is_share_starting = true;
-    }
+    let generation = state.lock().await.reserve_share_start()?;
 
     let start_result = async {
         // Prepare metadata outside the state mutex.
         let mut metadata = build_send_metadata(&path_bufs).await?;
+        if !state.lock().await.share_start_is_current(generation) {
+            return Err("cancelled".to_string());
+        }
         metadata.content_kind = content_kind.map(str::to_string);
         tracing::info!(
             first_path_stem = ?path_bufs[0].file_stem(),
@@ -296,6 +293,9 @@ async fn send_items_impl(
         // Create send options from relay settings.
         let (relay_mode, fell_back_to_public) = resolve_relay_mode_with_fallback(relay).await?;
         let discovery_mode = build_discovery_mode(discovery)?;
+        if !state.lock().await.share_start_is_current(generation) {
+            return Err("cancelled".to_string());
+        }
         let options = SendOptions {
             relay_mode,
             discovery_mode,
@@ -346,18 +346,24 @@ async fn send_items_impl(
     match start_result {
         Ok((ticket, paths, result, recorder)) => {
             let mut app_state = state.lock().await;
-            app_state.is_share_starting = false;
-
-            if app_state.current_share.is_some() {
-                return Err("Already sharing a file. Please stop current share first.".to_string());
-            }
-
             // Keep full send result alive to preserve router/temp_tag lifecycle.
             let primary = paths.first().cloned().unwrap_or_else(|| PathBuf::from("."));
             let mut handle = ShareHandle::new(ticket.clone(), primary, result, recorder);
             if let Some(dir) = owned_source_dir {
                 handle = handle.with_owned_source_dir(dir);
             }
+            if !app_state.share_start_is_current(generation) {
+                // Do not publish a ticket produced after cancellation. Keep the
+                // reservation until its router/store have been shut down so a
+                // late cleanup cannot stop a newer preparation.
+                drop(app_state);
+                let cleanup = handle.stop().await;
+                drop(handle);
+                state.lock().await.is_share_starting = false;
+                cleanup?;
+                return Err("cancelled".to_string());
+            }
+            app_state.is_share_starting = false;
             app_state.current_share = Some(handle);
             Ok(ticket)
         }
@@ -671,8 +677,16 @@ pub async fn fetch_ticket_metadata(
 
 /// Stop the current sharing session
 #[tauri::command]
-pub async fn stop_sharing(state: State<'_, AppStateMutex>) -> Result<(), String> {
+pub async fn stop_sharing(expected_ticket: Option<String>, state: State<'_, AppStateMutex>) -> Result<(), String> {
     let mut app_state = state.lock().await;
+    // A delayed preparation callback may only clean up its own ticket, never a
+    // newer share started by a different UI entry point (e.g. Flash Drop).
+    if let Some(expected) = expected_ticket {
+        if app_state.current_share.as_ref().map(|share| share.ticket.as_str()) != Some(expected.as_str()) {
+            return Ok(());
+        }
+    }
+    app_state.cancel_share_start();
 
     if let Some(mut share) = app_state.current_share.take() {
         if let Some(recorder) = share.recorder.as_ref() {
@@ -810,75 +824,31 @@ pub async fn receive_file(
     }
 
     // Create a cancel channel and store the sender so cancel_receive can fire it.
-    let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel::<()>();
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel::<()>();
     {
         let mut app_state = state.lock().await;
-        if app_state.current_receive_cancel.is_some() {
-            return Err(
-                "Already receiving a file. Wait for the current download to finish.".to_string(),
-            );
-        }
-        app_state.current_receive_cancel = Some(cancel_tx);
+        app_state.reserve_receive(cancel_tx)?;
         app_state.current_receive_hash = incoming_hash.clone();
         app_state.completed_text.clear();
         app_state.pending_received_text = None;
     }
 
-    // Metadata is advisory for ordinary files. Bound this second, independent
-    // verification so old/unavailable metadata servers do not delay a normal
-    // download, while keeping cancellation live during the lookup.
-    let incoming_metadata = tokio::select! {
-        _ = &mut cancel_rx => {
-            let mut app_state = state.lock().await;
-            app_state.current_receive_cancel = None;
-            app_state.current_receive_hash = None;
-            return Err("cancelled".to_string());
-        }
-        result = tokio::time::timeout(
+    // Metadata authenticates the explicit text marker, but must never gate
+    // connecting and downloading the payload. Its timeout starts concurrently.
+    let completion_gate = Arc::new(crate::advisory::CompletionGate::new(boxed_handle));
+    let metadata_lookup = async {
+        tokio::time::timeout(
             std::time::Duration::from_secs(3),
             fetch_metadata(ticket.clone(), metadata_options),
-        ) => result.ok().and_then(Result::ok),
+        ).await.ok().and_then(Result::ok)
     };
+    let (result, incoming_metadata) = crate::advisory::cancellable_advisory(
+        |cancel| download(ticket.clone(), options, Some(completion_gate.clone()), cancel),
+        metadata_lookup, cancel_rx,
+    ).await;
 
-    let result = download(ticket.clone(), options, boxed_handle, cancel_rx).await;
-
-    // Update state based on outcome.
-    {
-        let mut app_state = state.lock().await;
-        app_state.current_receive_cancel = None;
-        app_state.current_receive_hash = None;
-        match &result {
-            Err(e) if e.to_string() == "cancelled" => {
-                // Record the hash so the next receive can decide whether to delete this partial.
-                app_state.last_cancelled_recv_hash = incoming_hash;
-            }
-            Ok(_) | Err(_) => {
-                // Success deletes the store automatically (armed guard).
-                // Network errors keep the partial for same-session retry — treated the
-                // same as cancel from the user's perspective re: cleanup.
-                if result.is_err() {
-                    app_state.last_cancelled_recv_hash = incoming_hash;
-                }
-            }
-        }
-    }
-
-    if let Some(recorder) = recorder.as_ref() {
-        match &result {
-            // Success already closed the row from `receive-completed`.
-            Ok(_) => {}
-            Err(e) if e.to_string() == "cancelled" => {
-                recorder.finalize(TransferStatus::Cancelled, CompletionFacts::default(), None)
-            }
-            Err(e) => recorder.finalize(
-                TransferStatus::Failed,
-                CompletionFacts::default(),
-                Some(e.to_string()),
-            ),
-        }
-    }
-
-    match result {
+    let mut text_to_publish = None;
+    let mut response = async { match result {
         Ok(r) => {
             // Read and cache before Android moves staging into its final public
             // destination. The value is emitted only after that export succeeds.
@@ -922,19 +892,33 @@ pub async fn receive_file(
                 let _ = (tree_uri, tree_display_path);
             }
 
-            if let Some((path, text)) = validated_text {
+            text_to_publish = validated_text;
+            Ok(r.message)
+        }
+        Err(e) if e.to_string() == "cancelled" => {
+            Err("cancelled".to_string())
+        }
+        Err(e) => {
+            tracing::error!("Failed to receive file: {}", e);
+            Err(format!("Failed to receive file: {}", e))
+        }
+    } }.await;
+    {
+        // Commit all terminal state/events under the same reservation. A
+        // cancellation during non-interruptible final export suppresses text
+        // publication and success; it does not delete already exported files.
+        let mut app_state = state.lock().await;
+        if app_state.current_receive_cancelled && response.is_ok() {
+            response = Err("cancelled".to_string());
+        }
+        if response.is_ok() {
+            if let Some((path, text)) = text_to_publish {
                 let size = text.len();
-                let ready = ReceivedTextReady {
-                    ticket: ticket.clone(),
-                    path: path.clone(),
-                    size,
-                };
-                {
-                    let mut app_state = state.lock().await;
-                    app_state.completed_text.clear();
-                    app_state.completed_text.insert(path.clone(), text);
-                    app_state.pending_received_text = Some(ready);
-                }
+                app_state.completed_text.clear();
+                app_state.completed_text.insert(path.clone(), text);
+                app_state.pending_received_text = Some(ReceivedTextReady {
+                    ticket: ticket.clone(), path: path.clone(), size,
+                });
                 let payload = serde_json::json!({
                     "ticket": ticket,
                     "path": path,
@@ -951,17 +935,22 @@ pub async fn receive_file(
                     }
                 }
             }
-            Ok(r.message)
+            completion_gate.flush();
+        } else if let Some(recorder) = recorder.as_ref() {
+            let error = response.as_ref().unwrap_err();
+            recorder.finalize(
+                if error == "cancelled" { TransferStatus::Cancelled } else { TransferStatus::Failed },
+                CompletionFacts::default(), Some(error.clone()),
+            );
         }
-        Err(e) if e.to_string() == "cancelled" => {
-            // User-initiated cancellation — not an error from the UI's perspective.
-            Err("cancelled".to_string())
-        }
-        Err(e) => {
-            tracing::error!("Failed to receive file: {}", e);
-            Err(format!("Failed to receive file: {}", e))
+        app_state.current_receive_cancel = None;
+        app_state.current_receive_hash = None;
+        app_state.current_receive_active = false;
+        if response.is_err() {
+            app_state.last_cancelled_recv_hash = incoming_hash;
         }
     }
+    response
 }
 
 fn validate_received_text(
@@ -1266,11 +1255,7 @@ fn ensure_dir_writable(dir: &Path) -> std::io::Result<()> {
 #[tauri::command]
 pub async fn cancel_receive(state: State<'_, AppStateMutex>) -> Result<(), String> {
     let mut app_state = state.lock().await;
-    if let Some(tx) = app_state.current_receive_cancel.take() {
-        // Sending () signals the download future to stop. If the receiver is
-        // already gone (download finished first) this is a harmless no-op.
-        let _ = tx.send(());
-    }
+    app_state.request_receive_cancel();
     Ok(())
 }
 
@@ -1719,6 +1704,55 @@ fn parse_persisted_discoverability(raw: &str) -> Option<Discoverability> {
     serde_json::from_value(envelope.get("state")?.get("discoverability")?.clone()).ok()
 }
 
+/// Match the native IPC arguments built by relay-config/discovery-config.
+/// Never print this structure or serde's input: it contains a credential.
+#[cfg(any(desktop, target_os = "android", test))]
+fn parse_persisted_network_args(
+    raw: &str,
+) -> Result<(Option<RelayConfigArg>, Option<DiscoveryConfigArg>), String> {
+    #[derive(Default, serde::Deserialize)]
+    #[serde(default, rename_all = "camelCase")]
+    struct NetworkSettings {
+        relay_mode: Option<String>,
+        relay_urls: Vec<String>,
+        relay_auth_token: Option<String>,
+        relay_fallback: Option<String>,
+        discovery_mode: Option<String>,
+        pkarr_relay_url: Option<String>,
+        dns_origin: Option<String>,
+    }
+    let invalid = || "Could not read saved network settings; repair them in Settings, then restart DashBeam".to_string();
+    let file: serde_json::Value = serde_json::from_str(raw).map_err(|_| invalid())?;
+    let Some(saved) = file.get("app_settings") else {
+        return Ok((None, None));
+    };
+    let envelope: serde_json::Value =
+        serde_json::from_str(saved.as_str().ok_or_else(invalid)?).map_err(|_| invalid())?;
+    let settings: NetworkSettings = serde_json::from_value(
+        envelope.get("state").cloned().ok_or_else(invalid)?,
+    ).map_err(|_| invalid())?;
+    let relay = settings.relay_mode.map(|mode| {
+        let custom = mode == "custom";
+        RelayConfigArg {
+            mode,
+            urls: if custom { settings.relay_urls.into_iter()
+                .map(|url| url.trim().to_string()).filter(|url| !url.is_empty()).collect()
+            } else { Vec::new() },
+            auth_token: if custom { settings.relay_auth_token.filter(|s| !s.is_empty()) } else { None },
+            fallback: settings.relay_fallback,
+        }
+    });
+    let discovery = settings.discovery_mode.map(|mode| {
+        let custom = mode == "custom";
+        DiscoveryConfigArg {
+            mode,
+            pkarr_relay_url: if custom { settings.pkarr_relay_url.map(|s| s.trim().to_string()) } else { None },
+            dns_origin: if custom { settings.dns_origin.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) } else { None },
+        }
+    });
+    Ok((relay, discovery))
+}
+
 /// Reads the persisted discoverability choice before `NodeService::start`, so
 /// an `Off` install never registers mDNS even briefly (`DeviceNodeSync`
 /// re-applies it once the webview loads).
@@ -1767,9 +1801,17 @@ pub async fn init_node_service(app_handle: tauri::AppHandle) -> Result<(), Strin
         .app_data_dir()
         .map_err(|e| e.to_string())?;
 
-    let (relay_mode, _) = resolve_relay_mode_with_fallback(None).await?;
+    // Honor the saved routing policy on the very first endpoint. Waiting for
+    // WebView hydration to reconfigure a public default adds an unnecessary
+    // connection/rebuild and briefly publishes the wrong relay address.
+    let (relay_arg, discovery_arg) = match std::fs::read_to_string(data_dir.join("settings.json")) {
+        Ok(raw) => parse_persisted_network_args(&raw)?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => (None, None),
+        Err(_) => return Err("Could not read saved network settings".to_string()),
+    };
+    let (relay_mode, _) = resolve_relay_mode_with_fallback(relay_arg).await?;
     let relay_mode: iroh::endpoint::RelayMode = relay_mode.into();
-    let discovery_mode = build_discovery_mode(None)?;
+    let discovery_mode = build_discovery_mode(discovery_arg)?;
     let discoverability = load_persisted_discoverability(&app_handle);
 
     let emitter = Arc::new(TauriEventEmitter {
@@ -2586,6 +2628,38 @@ mod tests {
             parse_persisted_discoverability(&file),
             Some(Discoverability::PairedOnly)
         );
+    }
+
+    #[test]
+    fn saved_network_settings_are_available_before_webview_hydration() {
+        let envelope = serde_json::json!({"state": {
+            "relayMode": "custom", "relayUrls": [" https://relay.example/ ", ""],
+            "relayAuthToken": "synthetic-test-only", "relayFallback": "strict",
+            "discoveryMode": "custom", "pkarrRelayUrl": " https://discovery.example/pkarr ",
+            "dnsOrigin": "  "
+        }});
+        let raw = serde_json::json!({"app_settings": envelope.to_string()}).to_string();
+        let (relay, discovery) = parse_persisted_network_args(&raw).unwrap();
+        let relay = relay.unwrap();
+        assert_eq!(relay.mode, "custom");
+        assert_eq!(relay.urls, vec!["https://relay.example/"]);
+        assert!(relay.auth_token.as_deref() == Some("synthetic-test-only"));
+        assert!(build_relay_mode(Some(relay)).is_ok());
+        let discovery = discovery.unwrap();
+        assert_eq!(discovery.pkarr_relay_url.as_deref(), Some("https://discovery.example/pkarr"));
+        assert!(discovery.dns_origin.is_none());
+        assert!(build_discovery_mode(Some(discovery)).is_ok());
+    }
+
+    #[test]
+    fn malformed_saved_network_settings_do_not_silently_select_public() {
+        assert!(parse_persisted_network_args("not json").is_err());
+        assert!(parse_persisted_network_args(r#"{"app_settings":42}"#).is_err());
+        let envelope = serde_json::json!({"state": {"relayMode": "custom", "relayUrls": [42]}});
+        let raw = serde_json::json!({"app_settings": envelope.to_string()}).to_string();
+        assert!(parse_persisted_network_args(&raw).is_err());
+        let (relay, discovery) = parse_persisted_network_args("{}").unwrap();
+        assert!(relay.is_none() && discovery.is_none());
     }
 
     #[test]

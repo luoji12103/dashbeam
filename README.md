@@ -32,7 +32,7 @@
 
 This repository is a community fork of [tonyantony300/dashbeam](https://github.com/tonyantony300/dashbeam). It keeps the upstream **AGPL-3.0** license and adds local desktop/mobile integrations maintained in [luoji12103/dashbeam](https://github.com/luoji12103/dashbeam).
 
-The prepared local release target is [v0.7.1-local.3](https://github.com/luoji12103/dashbeam/releases/tag/v0.7.1-local.3):
+The previous published local release is [v0.7.1-local.3](https://github.com/luoji12103/dashbeam/releases/tag/v0.7.1-local.3). The latency fixes below are being packaged together as `v0.7.1-local.4` (macOS/Android build 70105):
 
 - macOS Apple Silicon: [DashBeam-0.7.1-local-macos-arm64.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.3/DashBeam-0.7.1-local-macos-arm64.zip)
 - Windows x64 installer: [DashBeam_0.7.1_x64-setup.exe](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.3/DashBeam_0.7.1_x64-setup.exe)
@@ -48,6 +48,10 @@ The prepared local release target is [v0.7.1-local.3](https://github.com/luoji12
 - Windows x64 packaging with the same text-transfer and desktop clipboard-receive path; the build ships as an NSIS installer and a portable ZIP.
 - macOS tray redraws are marshalled onto the AppKit main thread to fix the file-picker deadlock that caused an endless spinning cursor.
 - The local desktop build disables the upstream in-app update entry point so it cannot overwrite this customized build.
+- The latency update removes per-transfer relay preflight in Strict mode, overlaps sending endpoint warm-up with import/hash, and enables configured discovery for stale ticket addresses. Startup reads saved network settings before creating the first control endpoint, rather than briefly connecting with public defaults.
+- Payload downloads start alongside the bounded metadata lookup. Completion is held until metadata/final export settles; cancellation retains the receive reservation until cleanup, so old tasks cannot clear a newer transfer's state. Text markers still require strict validation; ordinary text files never auto-copy.
+- The device picker and cancel action are available while preparing a share. A legacy invitation is sent only once its ticket is ready; preparation/cancellation survives page navigation, and stale cleanup is restricted to its own ticket.
+- These changes preserve the existing BlobTicket wire format. Full-file hashing, Android SAF staging, a shared data endpoint, the new streaming protocol, and the optional encrypted **disk** spool are not eliminated/implemented by this update. No universal three-second or throughput claim is made. See [transport audit and experiments](reports/transport-audit-20261110/README.md) and [release validation](reports/transport-audit-20261110/PRODUCT_UPDATE.md).
 
 ### Build and install the local packages
 

@@ -25,6 +25,7 @@ import { useTranslation } from '../i18n/react-i18next-compat'
 import { getDiscoveryConfigArg } from '../lib/discovery'
 import { getRelayConfigArg } from '../lib/relay'
 import { getTextByteLength, validateTextDraft } from '../lib/send-text'
+import { prepareShare, type SharePreparation } from '../lib/share-preparation'
 import {
 	parseCompletionPayload,
 	parseProgressPayload,
@@ -34,7 +35,28 @@ import { useSenderStore } from '../store/sender-store'
 import type { TransferMetadata, TransferProgress } from '../types/transfer'
 import type { AlertType } from '../types/ui'
 
-export type PairedInviteStatus = 'sending' | 'sent' | 'failed'
+export type PairedInviteStatus = 'preparing' | 'sending' | 'sent' | 'failed'
+
+type PreparedShare = {
+	generation: number
+	preparation: SharePreparation<string>
+	sendMode: 'file' | 'text'
+	textDraft: string
+	selectedPaths: string[]
+	totalSize?: Promise<number>
+}
+
+// Sender unmounts when navigating to Settings. Preparation, cancellation and
+// replacement ordering belong to the app session, rather than that view.
+const shareGenerationRef = { current: 0 }
+const preparedShareRef: { current: PreparedShare | null } = { current: null }
+const pendingStopRef: { current: Promise<unknown> | undefined } = {
+	current: undefined,
+}
+const inviteInFlightRef: { current: string | null } = { current: null }
+const totalSizeCacheRef: {
+	current: { ticket: string; size: Promise<number> } | null
+} = { current: null }
 
 export interface UseSenderReturn {
 	// View state (replaces isSharing, isTransporting, isCompleted)
@@ -258,6 +280,9 @@ export function useSender(): UseSenderReturn {
 										response: string
 									})
 						if (!payload?.endpoint_id) return
+						if (inviteInFlightRef.current === payload.endpoint_id) {
+							inviteInFlightRef.current = null
+						}
 						setInviteStatus(payload.endpoint_id, null)
 					} catch {
 						// Ignore malformed invite response payloads
@@ -272,6 +297,13 @@ export function useSender(): UseSenderReturn {
 
 			const nextUnlistenStart = await listen('transfer-started', () => {
 				const storeState = useSenderStore.getState()
+				if (
+					storeState.viewState === 'IDLE' ||
+					storeState.isLoading ||
+					!storeState.ticket
+				) {
+					return
+				}
 
 				transferStartTimeRef.current = Date.now()
 				latestProgressRef.current = null
@@ -351,6 +383,9 @@ export function useSender(): UseSenderReturn {
 				async (event: any) => {
 					const storeState = useSenderStore.getState()
 					const isTextShare = storeState.sendMode === 'text'
+					const generation = shareGenerationRef.current
+					const isCurrent = () =>
+						!disposed && shareGenerationRef.current === generation
 
 					// Guard: Skip if manually stopped
 					if (wasManuallyStoppedRef.current) {
@@ -385,8 +420,6 @@ export function useSender(): UseSenderReturn {
 						setTransferProgress(latestProgressRef.current)
 					}
 
-					await new Promise((resolve) => setTimeout(resolve, 10))
-
 					const endTime = Date.now()
 					// Prefer the engine's wire time: the wall clock here also
 					// covers connection setup and the completion debounce.
@@ -411,6 +444,7 @@ export function useSender(): UseSenderReturn {
 
 						if (storeState.isBroadcastMode) {
 							setTimeout(() => {
+								if (!isCurrent()) return
 								resetForBroadcast()
 								latestProgressRef.current = null
 								transferStartTimeRef.current = null
@@ -450,6 +484,7 @@ export function useSender(): UseSenderReturn {
 							// In broadcast mode: reset to listening state after a brief delay
 							// Note: active connection count is now managed by active-connection-count event
 							setTimeout(() => {
+								if (!isCurrent()) return
 								resetForBroadcast()
 								latestProgressRef.current = null
 								transferStartTimeRef.current = null
@@ -465,6 +500,7 @@ export function useSender(): UseSenderReturn {
 								const fileSize = await invoke<number>('get_file_size', {
 									path: pathToUse,
 								})
+								if (!isCurrent()) return
 								setTransferMetadata({
 									fileName,
 									fileSize,
@@ -716,6 +752,8 @@ export function useSender(): UseSenderReturn {
 	}
 
 	const startSharing = async () => {
+		// A second click must not start a second native share before React paints.
+		if (useSenderStore.getState().isLoading) return
 		if (sendMode === 'file' && !selectedPaths.length) {
 			console.warn(
 				'[useSender] startSharing: no selectedPaths, returning early'
@@ -742,8 +780,44 @@ export function useSender(): UseSenderReturn {
 			return
 		}
 
+		const generation = ++shareGenerationRef.current
+		const previous = preparedShareRef.current
+		const share: PreparedShare = {
+			generation,
+			sendMode,
+			textDraft,
+			selectedPaths: [...selectedPaths],
+			preparation: prepareShare({
+				previous: Promise.all([
+					previous?.preparation.isCancelled()
+						? previous.preparation.result
+						: previous?.preparation.result.catch(() => {}),
+					pendingStopRef.current,
+				]),
+				prepare: () =>
+					sendMode === 'text'
+						? invoke<string>('send_text', {
+								text: textDraft,
+								relay: getRelayConfigArg(),
+								discovery: getDiscoveryConfigArg(),
+							})
+						: invoke<string>('send_items', {
+								paths: selectedPaths,
+								relay: getRelayConfigArg(),
+								discovery: getDiscoveryConfigArg(),
+							}),
+				dispose: (expectedTicket) => invoke('stop_sharing', { expectedTicket }),
+			}),
+		}
+		preparedShareRef.current = share
+		inviteInFlightRef.current = null
+		totalSizeCacheRef.current = null
+		setPairedInviteStatus({})
 		try {
-			setViewState('IDLE')
+			// The target picker and cancel control are usable while the legacy
+			// engine still imports/hashes. No ticket or payload is claimed yet.
+			setTicket(null)
+			setViewState('SHARING')
 			setTransferMetadata(null)
 			setTransferProgress(null)
 			setActiveConnectionCount(0)
@@ -752,21 +826,16 @@ export function useSender(): UseSenderReturn {
 			latestProgressRef.current = null
 
 			setIsLoading(true)
-			const result =
-				sendMode === 'text'
-					? await invoke<string>('send_text', {
-							text: textDraft,
-							relay: getRelayConfigArg(),
-							discovery: getDiscoveryConfigArg(),
-						})
-					: await invoke<string>('send_items', {
-							paths: selectedPaths,
-							relay: getRelayConfigArg(),
-							discovery: getDiscoveryConfigArg(),
-						})
+			const result = await share.preparation.result
+			if (generation !== shareGenerationRef.current || result === null) return
 			setTicket(result)
 			setViewState('SHARING')
 		} catch (error) {
+			if (generation !== shareGenerationRef.current) return
+			preparedShareRef.current = null
+			inviteInFlightRef.current = null
+			setPairedInviteStatus({})
+			setViewState('IDLE')
 			console.error('[useSender] startSharing: failed:', error)
 			showAlert(
 				t('common:errors.sharingFailed'),
@@ -779,15 +848,27 @@ export function useSender(): UseSenderReturn {
 				'error'
 			)
 		} finally {
-			setIsLoading(false)
+			if (generation === shareGenerationRef.current) setIsLoading(false)
 		}
 	}
 
 	const stopSharing = async () => {
+		shareGenerationRef.current += 1
+		preparedShareRef.current?.preparation.cancel()
+		inviteInFlightRef.current = null
+		setPairedInviteStatus({})
 		// Always disable broadcast mode when stopping
 		setIsBroadcastMode(false)
 
 		try {
+			if (useSenderStore.getState().isLoading) {
+				wasManuallyStoppedRef.current = true
+				const stop = invoke('stop_sharing')
+				pendingStopRef.current = stop
+				resetToIdle()
+				await stop
+				return
+			}
 			const wasActiveTransfer =
 				viewState === 'TRANSPORTING' && !transferMetadata?.wasStopped
 			const isCompletedTransfer = viewState === 'SUCCESS' && transferMetadata
@@ -887,27 +968,63 @@ export function useSender(): UseSenderReturn {
 		await stopSharing()
 	}
 
-	const resolveShareTotalSize = async (): Promise<number> => {
-		if (sendMode === 'text') {
-			return getTextByteLength(textDraft)
-		}
-		if (transferMetadata?.fileSize) return transferMetadata.fileSize
-		try {
-			const sizes = await Promise.all(
-				selectedPaths.map((path) =>
-					invoke<number>('get_file_size', { path }).catch(() => 0)
-				)
+	const resolveShareTotalSize = (
+		share: PreparedShare | null
+	): Promise<number> => {
+		const state = useSenderStore.getState()
+		const mode = share?.sendMode ?? state.sendMode
+		if (mode === 'text') {
+			return Promise.resolve(
+				getTextByteLength(share?.textDraft ?? state.textDraft)
 			)
-			return sizes.reduce((sum, size) => sum + size, 0)
-		} catch {
-			return 0
+		}
+		if (state.transferMetadata?.fileSize != null) {
+			return Promise.resolve(state.transferMetadata.fileSize)
+		}
+		if (share?.totalSize) return share.totalSize
+		const cached = totalSizeCacheRef.current
+		if (!share && state.ticket && cached?.ticket === state.ticket) {
+			return cached.size
+		}
+		const size = Promise.all(
+			(share?.selectedPaths ?? state.selectedPaths).map((path) =>
+				invoke<number>('get_file_size', { path }).catch(() => 0)
+			)
+		).then((sizes) => sizes.reduce((sum, value) => sum + value, 0))
+		if (share) share.totalSize = size
+		else if (state.ticket) {
+			totalSizeCacheRef.current = { ticket: state.ticket, size }
+		}
+		return size
+	}
+
+	const getInviteContext = () => {
+		const generation = shareGenerationRef.current
+		const pending = preparedShareRef.current
+		const share =
+			pending?.generation === generation && !pending.preparation.isCancelled()
+				? pending
+				: null
+		const state = useSenderStore.getState()
+		if (!share && !state.ticket) return null
+		return {
+			share,
+			ticket: state.ticket,
+			generation,
+			fileCount:
+				(share?.sendMode ?? state.sendMode) === 'text'
+					? 1
+					: Math.max((share?.selectedPaths ?? state.selectedPaths).length, 1),
+			isCurrent: () =>
+				shareGenerationRef.current === generation &&
+				!share?.preparation.isCancelled() &&
+				useSenderStore.getState().viewState !== 'IDLE',
 		}
 	}
 
 	const onInvitePairedDevice = async (endpointId: string): Promise<boolean> => {
-		if (!ticket) {
-			return false
-		}
+		const context = getInviteContext()
+		if (!context) return false
 		if (!isNodeReady) {
 			toastManager.add({
 				title: t('common:settings.devices.nodeUnavailableTitle'),
@@ -916,10 +1033,11 @@ export function useSender(): UseSenderReturn {
 			})
 			return false
 		}
-		if (pairedInviteStatus[endpointId] === 'sending') return false
+		if (inviteInFlightRef.current) return false
 		const anotherInviteInFlight = Object.entries(pairedInviteStatus).some(
 			([id, status]) =>
-				id !== endpointId && (status === 'sending' || status === 'sent')
+				id !== endpointId &&
+				(status === 'preparing' || status === 'sending' || status === 'sent')
 		)
 		if (anotherInviteInFlight || pairedInviteStatus[endpointId] === 'sent') {
 			return false
@@ -933,17 +1051,24 @@ export function useSender(): UseSenderReturn {
 			return false
 		}
 		incrementPairedSendCount(endpointId)
-		const fileCount =
-			sendMode === 'text' ? 1 : Math.max(selectedPaths.length, 1)
-		setInviteStatus(endpointId, 'sending')
+		inviteInFlightRef.current = endpointId
+		setInviteStatus(endpointId, context.ticket ? 'sending' : 'preparing')
 		try {
-			const totalSize = await resolveShareTotalSize()
+			// The user's selection and the size lookup can overlap legacy
+			// import/hash work. Only a finished ticket may reach the peer.
+			const [readyTicket, totalSize] = await Promise.all([
+				context.share?.preparation.result ?? Promise.resolve(context.ticket),
+				resolveShareTotalSize(context.share),
+			])
+			if (!context.isCurrent() || !readyTicket) return false
+			setInviteStatus(endpointId, 'sending')
 			const delivered = await invitePairedDevice(
 				endpointId,
-				ticket,
-				fileCount,
+				readyTicket,
+				context.fileCount,
 				totalSize
 			)
+			if (!context.isCurrent()) return false
 			if (delivered) {
 				setInviteStatus(endpointId, 'sent')
 				toastManager.add({
@@ -961,24 +1086,30 @@ export function useSender(): UseSenderReturn {
 				description: t('common:sender.pairedDevices.deviceUnreachable'),
 				type: 'error',
 			})
-			setTimeout(() => setInviteStatus(endpointId, null), 4000)
+			setTimeout(() => {
+				if (context.isCurrent()) setInviteStatus(endpointId, null)
+			}, 4000)
+			inviteInFlightRef.current = null
 			return false
 		} catch (error) {
+			if (!context.isCurrent()) return false
+			inviteInFlightRef.current = null
 			setInviteStatus(endpointId, 'failed')
 			toastManager.add({
 				title: t('common:sender.pairedDevices.inviteFailed'),
 				description: String(error),
 				type: 'error',
 			})
-			setTimeout(() => setInviteStatus(endpointId, null), 4000)
+			setTimeout(() => {
+				if (context.isCurrent()) setInviteStatus(endpointId, null)
+			}, 4000)
 			return false
 		}
 	}
 
 	const onInviteNearbyDevice = async (endpointId: string): Promise<boolean> => {
-		if (!ticket) {
-			return false
-		}
+		const context = getInviteContext()
+		if (!context) return false
 		if (!isNodeReady) {
 			toastManager.add({
 				title: t('common:settings.devices.nodeUnavailableTitle'),
@@ -987,10 +1118,11 @@ export function useSender(): UseSenderReturn {
 			})
 			return false
 		}
-		if (pairedInviteStatus[endpointId] === 'sending') return false
+		if (inviteInFlightRef.current) return false
 		const anotherInviteInFlight = Object.entries(pairedInviteStatus).some(
 			([id, status]) =>
-				id !== endpointId && (status === 'sending' || status === 'sent')
+				id !== endpointId &&
+				(status === 'preparing' || status === 'sending' || status === 'sent')
 		)
 		if (anotherInviteInFlight || pairedInviteStatus[endpointId] === 'sent') {
 			return false
@@ -1003,17 +1135,22 @@ export function useSender(): UseSenderReturn {
 			(endpointId
 				? `${endpointId.slice(0, 8)}…`
 				: t('common:sender.pairedDevices.unknownPeer'))
-		const fileCount =
-			sendMode === 'text' ? 1 : Math.max(selectedPaths.length, 1)
-		setInviteStatus(endpointId, 'sending')
+		inviteInFlightRef.current = endpointId
+		setInviteStatus(endpointId, context.ticket ? 'sending' : 'preparing')
 		try {
-			const totalSize = await resolveShareTotalSize()
+			const [readyTicket, totalSize] = await Promise.all([
+				context.share?.preparation.result ?? Promise.resolve(context.ticket),
+				resolveShareTotalSize(context.share),
+			])
+			if (!context.isCurrent() || !readyTicket) return false
+			setInviteStatus(endpointId, 'sending')
 			const delivered = await inviteNearbyDevice(
 				endpointId,
-				ticket,
-				fileCount,
+				readyTicket,
+				context.fileCount,
 				totalSize
 			)
+			if (!context.isCurrent()) return false
 			if (delivered) {
 				setInviteStatus(endpointId, 'sent')
 				toastManager.add({
@@ -1037,16 +1174,23 @@ export function useSender(): UseSenderReturn {
 				description: t('common:settings.devices.nearby.inviteFailed'),
 				type: 'error',
 			})
-			setTimeout(() => setInviteStatus(endpointId, null), 4000)
+			setTimeout(() => {
+				if (context.isCurrent()) setInviteStatus(endpointId, null)
+			}, 4000)
+			inviteInFlightRef.current = null
 			return false
 		} catch (error) {
+			if (!context.isCurrent()) return false
+			inviteInFlightRef.current = null
 			setInviteStatus(endpointId, 'failed')
 			toastManager.add({
 				title: t('common:sender.pairedDevices.inviteFailed'),
 				description: String(error),
 				type: 'error',
 			})
-			setTimeout(() => setInviteStatus(endpointId, null), 4000)
+			setTimeout(() => {
+				if (context.isCurrent()) setInviteStatus(endpointId, null)
+			}, 4000)
 			return false
 		}
 	}

@@ -7,10 +7,7 @@ use crate::time_compat::{sleep, timeout, Duration, Instant};
 use crate::types::{get_or_create_secret, AppHandle, DiscoveryModeOption, FileMetadata, ReceiveOptions};
 use iroh::endpoint::presets;
 #[cfg(not(target_arch = "wasm32"))]
-use iroh::{
-    address_lookup::{dns::DnsAddressLookup, pkarr::PkarrResolver},
-    Endpoint, TransportAddr,
-};
+use iroh::{Endpoint, TransportAddr};
 #[cfg(target_arch = "wasm32")]
 use iroh::{Endpoint, TransportAddr};
 use iroh_blobs::{
@@ -340,25 +337,7 @@ pub async fn fetch_metadata(
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        if ticket.addr().relay_urls().count() == 0 && ticket.addr().ip_addrs().count() == 0 {
-            builder = match &discovery_mode {
-                DiscoveryModeOption::Custom {
-                    pkarr_relay_url,
-                    dns_origin,
-                } => {
-                    let mut builder =
-                        builder.address_lookup(PkarrResolver::builder(pkarr_relay_url.clone()));
-                    if let Some(origin) = dns_origin {
-                        builder =
-                            builder.address_lookup(DnsAddressLookup::builder(origin.clone()));
-                    }
-                    builder
-                }
-                DiscoveryModeOption::Default => {
-                    builder.address_lookup(DnsAddressLookup::n0_dns())
-                }
-            };
-        }
+        builder = crate::discovery::with_receive_discovery(builder, &discovery_mode);
         if let Some(addr) = options.magic_ipv4_addr {
             builder = builder.bind_addr(addr)?;
         }

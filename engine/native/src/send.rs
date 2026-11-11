@@ -15,6 +15,42 @@ use crate::import::canonicalize_input_paths;
 use crate::storage;
 use crate::types::{AutoCleanupDir, SendResult};
 
+const SHARE_ONLINE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
+async fn prepare_share_content(
+    endpoint: &Endpoint,
+    store: &iroh_blobs::store::fs::FsStore,
+    paths: Vec<PathBuf>,
+    relay_mode: &RelayMode,
+    online_timeout: std::time::Duration,
+) -> anyhow::Result<(
+    iroh_blobs::api::TempTag,
+    u64,
+    iroh_blobs::format::collection::Collection,
+)> {
+    let online = async {
+        if !matches!(relay_mode, RelayMode::Disabled) {
+            tokio::time::timeout(online_timeout, endpoint.online())
+                .await
+                .map_err(|_| anyhow::anyhow!("timed out waiting for share relay connection"))?;
+        }
+        anyhow::Ok(())
+    };
+    // The legacy ticket still needs the completed collection hash. Connecting
+    // to the configured relay can happen while that import/hash is in progress.
+    let prepared = tokio::try_join!(online, crate::import::import_paths(paths, store.as_ref()));
+    match prepared {
+        Ok(((), imported)) => Ok(imported),
+        Err(error) => {
+            endpoint.close().await;
+            if let Err(cleanup_error) = store.shutdown().await {
+                tracing::warn!(error = %cleanup_error, "failed to shut down failed share store");
+            }
+            Err(error)
+        }
+    }
+}
+
 /// Deprecated: prefer [`start_share_items`].
 pub async fn start_share(
     path: PathBuf,
@@ -37,8 +73,8 @@ pub async fn start_share_items(
 
     ensure!(!paths.is_empty(), "no paths provided for sharing");
 
-    // Ephemeral endpoint: must not reuse the node's persistent identity while
-    // the control endpoint is online, or the relay rejects duplicate endpoint ids.
+    // Ephemeral endpoint: must not compete with the online control endpoint for
+    // the same relay identity.
     let secret_key = get_or_create_secret()?;
     let relay_mode: RelayMode = options.relay_mode.clone().into();
     let builder = match &options.discovery_mode {
@@ -73,7 +109,6 @@ pub async fn start_share_items(
 
     let blobs_data_dir = storage::new_send_blobs_dir();
     let canonical_paths = canonicalize_input_paths(paths)?;
-    let blobs_data_dir2 = blobs_data_dir.clone();
     let (progress_tx, progress_rx) = mpsc::channel(64);
     let app_handle_clone = app_handle.clone();
     let is_collection = canonical_paths.len() > 1;
@@ -86,53 +121,139 @@ pub async fn start_share_items(
     };
     let ticket_type = options.ticket_type;
 
-    let setup = async move {
-        let endpoint = builder.bind().await?;
-        let store = storage::create_send_store(&blobs_data_dir2).await?;
+    let endpoint = builder.bind().await?;
+    let cleanup_dir = AutoCleanupDir::new(blobs_data_dir.clone());
+    let store = match storage::create_send_store(&blobs_data_dir).await {
+        Ok(store) => store,
+        Err(error) => {
+            endpoint.close().await;
+            return Err(error);
+        }
+    };
 
-        let blobs = BlobsProtocol::new(
-            &store,
-            Some(EventSender::new(
-                progress_tx,
-                EventMask {
-                    connected: ConnectMode::Notify,
-                    get: RequestMode::NotifyLog,
-                    ..EventMask::DEFAULT
-                },
-            )),
-        );
+    let blobs = BlobsProtocol::new(
+        &store,
+        Some(EventSender::new(
+            progress_tx,
+            EventMask {
+                connected: ConnectMode::Notify,
+                get: RequestMode::NotifyLog,
+                ..EventMask::DEFAULT
+            },
+        )),
+    );
 
-        let (temp_tag, size, _collection) =
-            crate::import::import_paths(canonical_paths, blobs.store()).await?;
+    let (temp_tag, size, _collection) = prepare_share_content(
+        &endpoint,
+        &store,
+        canonical_paths,
+        &relay_mode,
+        SHARE_ONLINE_TIMEOUT,
+    )
+    .await?;
 
-        run_share_session(
-            endpoint,
-            store,
-            blobs,
-            temp_tag,
-            size,
-            metadata,
-            ticket_type,
-            &app_handle_clone,
-            entry_type_for_progress,
-            relay_mode,
-            Some(blobs_data_dir2),
-            progress_rx,
-        )
-        .await
-        .map(|outcome| SendResult {
+    let outcome = run_share_session(
+        endpoint.clone(),
+        store.clone(),
+        blobs,
+        temp_tag,
+        size,
+        metadata,
+        ticket_type,
+        &app_handle_clone,
+        entry_type_for_progress,
+        relay_mode,
+        Some(blobs_data_dir),
+        progress_rx,
+    )
+    .await;
+
+    match outcome {
+        Ok(outcome) => Ok(SendResult {
             ticket: outcome.ticket,
             hash: outcome.hash,
             size: outcome.size,
             entry_type: outcome.entry_type,
             router: outcome.router.expect("ephemeral share router"),
             temp_tag: outcome.temp_tag,
-            blobs_data_dir: AutoCleanupDir::new(outcome.cleanup_dir.expect("native cleanup dir")),
+            blobs_data_dir: cleanup_dir,
             _progress_handle: outcome.progress_handle,
             _store: outcome.store,
             completed_peers: outcome.completed_peers,
-        })
-    };
+        }),
+        Err(error) => {
+            endpoint.close().await;
+            if let Err(cleanup_error) = store.shutdown().await {
+                tracing::warn!(error = %cleanup_error, "failed to shut down failed share store");
+            }
+            Err(error)
+        }
+    }
+}
 
-    Ok(setup.await?)
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+    use tempfile::TempDir;
+
+    async fn offline_endpoint() -> Endpoint {
+        Endpoint::builder(presets::Minimal)
+            .relay_mode(RelayMode::Disabled)
+            .bind()
+            .await
+            .expect("offline endpoint should bind")
+    }
+
+    async fn assert_closed(endpoint: &Endpoint, store: &iroh_blobs::store::fs::FsStore) {
+        assert!(endpoint.is_closed(), "failed share must close its endpoint");
+        assert!(
+            store.tags().list().await.is_err(),
+            "failed share must shut down its store"
+        );
+    }
+
+    #[tokio::test]
+    async fn share_online_timeout_closes_endpoint_and_store() {
+        let source = TempDir::new().unwrap();
+        let path = source.path().join("synthetic.bin");
+        tokio::fs::write(&path, b"synthetic share content").await.unwrap();
+        let data = TempDir::new().unwrap();
+        let store = storage::create_send_store(data.path()).await.unwrap();
+        let endpoint = offline_endpoint().await;
+
+        let error = prepare_share_content(
+            &endpoint,
+            &store,
+            vec![path],
+            &RelayMode::Default,
+            Duration::from_millis(25),
+        )
+        .await
+        .expect_err("an offline endpoint must time out");
+
+        assert!(error.to_string().contains("share relay connection"));
+        assert_closed(&endpoint, &store).await;
+    }
+
+    #[tokio::test]
+    async fn share_import_failure_closes_endpoint_and_store() {
+        let empty_source = TempDir::new().unwrap();
+        let data = TempDir::new().unwrap();
+        let store = storage::create_send_store(data.path()).await.unwrap();
+        let endpoint = offline_endpoint().await;
+
+        let error = prepare_share_content(
+            &endpoint,
+            &store,
+            vec![empty_source.path().to_path_buf()],
+            &RelayMode::Disabled,
+            Duration::from_secs(1),
+        )
+        .await
+        .expect_err("empty collection cannot produce a legacy ticket");
+
+        assert!(error.to_string().contains("no valid files"));
+        assert_closed(&endpoint, &store).await;
+    }
 }

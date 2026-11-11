@@ -121,8 +121,6 @@ struct ControlCtx {
     access: Arc<RwLock<AccessState>>,
     pairing_host_persistent: Arc<AtomicBool>,
     app_handle: AppHandle,
-    /// Updated in the background once the endpoint reaches a home relay.
-    home_relay_url: Arc<std::sync::RwLock<Option<String>>>,
     presence: Arc<std::sync::RwLock<HashMap<String, bool>>>,
     paired_connections: Arc<PairedConnectionManager>,
     /// Nearby invites sent and not yet answered. An unpaired peer's
@@ -349,12 +347,12 @@ impl ControlProtocol {
                 }) = &remote_info
                 {
                     let now = protocol::identity::unix_now_ms();
-                    let relay_url = self
-                        .ctx
-                        .home_relay_url
-                        .read()
-                        .expect("home_relay_url")
-                        .clone();
+                    // A local home relay is not a remote address hint. If this
+                    // was a direct-only connection, leave the hint unset and
+                    // let discovery resolve the peer on its next connection.
+                    let relay_url = conn.paths().iter().find_map(|path| {
+                        remote_relay_hint(path.remote_addr())
+                    });
                     let device = PairedDevice {
                         endpoint_id: endpoint_id.clone(),
                         display_name: display_name.clone(),
@@ -2187,11 +2185,11 @@ async fn send_forget_on_connection(
     Ok(())
 }
 
-fn endpoint_home_relay_url(endpoint: &Endpoint) -> Option<String> {
-    let mut local_addr = endpoint.addr();
-    apply_options(&mut local_addr, AddrInfoOptions::Relay);
-    let url = local_addr.relay_urls().next().map(|u| u.to_string());
-    url
+fn remote_relay_hint(addr: &iroh::TransportAddr) -> Option<String> {
+    match addr {
+        iroh::TransportAddr::Relay(url) => Some(url.to_string()),
+        _ => None,
+    }
 }
 
 async fn build_runtime(
@@ -2254,8 +2252,6 @@ async fn build_runtime(
 
     // Publish the node immediately after bind so pairing UI/API are available
     // without waiting on relay home connection (often several seconds on mobile).
-    let home_relay_url = Arc::new(std::sync::RwLock::new(endpoint_home_relay_url(&endpoint)));
-
     let control = ControlProtocol {
         ctx: ControlCtx {
             identity,
@@ -2263,7 +2259,6 @@ async fn build_runtime(
             access,
             pairing_host_persistent,
             app_handle: app_handle.clone(),
-            home_relay_url: home_relay_url.clone(),
             presence,
             paired_connections,
             pending_nearby_invites,
@@ -2278,14 +2273,8 @@ async fn build_runtime(
 
     let mark_network_ready = {
         let network_ready = network_ready.clone();
-        let home_relay_url = home_relay_url.clone();
         let app_handle = app_handle.clone();
-        move |endpoint: &Endpoint| {
-            if let Some(url) = endpoint_home_relay_url(endpoint) {
-                if let Ok(mut guard) = home_relay_url.write() {
-                    *guard = Some(url);
-                }
-            }
+        move || {
             network_ready.store(true, Ordering::SeqCst);
             if let Some(handle) = &app_handle {
                 let _ = handle.emit_event("device-node-network-ready");
@@ -2295,12 +2284,12 @@ async fn build_runtime(
 
     // No relay path to wait on — treat network as ready immediately.
     if matches!(relay_mode, RelayMode::Disabled) {
-        mark_network_ready(&endpoint);
+        mark_network_ready();
     } else {
         let online_endpoint = endpoint.clone();
         tokio::spawn(async move {
             online_endpoint.online().await;
-            mark_network_ready(&online_endpoint);
+            mark_network_ready();
         });
     }
 
@@ -2310,6 +2299,14 @@ async fn build_runtime(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pairing_hint_only_uses_remote_relay_transport() {
+        let relay = iroh::TransportAddr::Relay("https://peer-relay.invalid".parse().unwrap());
+        assert_eq!(remote_relay_hint(&relay).as_deref(), Some("https://peer-relay.invalid/"));
+        let direct = iroh::TransportAddr::Ip("127.0.0.1:1234".parse().unwrap());
+        assert!(remote_relay_hint(&direct).is_none());
+    }
 
     fn probe_reply(endpoint_id: &str) -> DeviceInfo {
         DeviceInfo {

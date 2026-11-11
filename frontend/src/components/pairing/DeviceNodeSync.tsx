@@ -28,6 +28,7 @@ import { useTranslation } from '@/i18n'
 import { toastManager } from '../ui/toast'
 import { useAutoAcceptQueueStore } from '@/store/auto-accept-queue-store'
 import { useAutoAcceptQueue } from '@/hooks/useAutoAcceptQueue'
+import { afterPersistHydration } from '@/lib/persist-hydration'
 
 /** Syncs relay settings to the device node and listens for paired invites globally. */
 export function DeviceNodeSync() {
@@ -57,21 +58,23 @@ export function DeviceNodeSync() {
 
 	useEffect(() => {
 		if (!IS_PAIRING_CAPABLE || !isNodeReady || didSyncRelay.current) return
-		didSyncRelay.current = true
-		void reconfigureNodeRelay(
-			getRelayConfigArg(),
-			getDiscoveryConfigArg()
-		).catch((error) => {
-			// Allow a later retry if the first sync failed (e.g. node still settling).
-			didSyncRelay.current = false
-			console.warn('Failed to sync node relay on startup:', error)
-		})
-		// `init_node_service` already applied this at startup; re-applying is a
-		// safety net for a failed read, mirroring the relay sync above.
-		void setDiscoverability(
-			useAppSettingStore.getState().discoverability
-		).catch((error) => {
-			console.warn('Failed to sync discoverability on startup:', error)
+		return afterPersistHydration(useAppSettingStore.persist, () => {
+			didSyncRelay.current = true
+			void reconfigureNodeRelay(
+				getRelayConfigArg(),
+				getDiscoveryConfigArg()
+			).catch((error) => {
+				// Allow a later retry if the first sync failed (e.g. node still settling).
+				didSyncRelay.current = false
+				console.warn('Failed to sync node relay on startup:', error)
+			})
+			// Read the hydrated value too: the default must never override a
+			// persisted "off" choice while the store is still loading.
+			void setDiscoverability(
+				useAppSettingStore.getState().discoverability
+			).catch((error) => {
+				console.warn('Failed to sync discoverability on startup:', error)
+			})
 		})
 	}, [isNodeReady])
 

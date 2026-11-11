@@ -2,13 +2,10 @@ use crate::export::export_to_directory;
 use crate::storage;
 use crate::types::ReceiveResult;
 use iroh::endpoint::presets;
-use iroh::{
-    address_lookup::{dns::DnsAddressLookup, pkarr::PkarrResolver},
-    Endpoint,
-};
+use iroh::Endpoint;
 use iroh_blobs::ticket::BlobTicket;
 use protocol::{
-    download_to_store, get_or_create_secret, AppHandle, DiscoveryModeOption, ReceiveOptions,
+    download_to_store, get_or_create_secret, AppHandle, ReceiveOptions,
 };
 use std::str::FromStr;
 use tokio::select;
@@ -53,14 +50,7 @@ fn emit_event_with_payload(app_handle: &AppHandle, event_name: &str, payload: &s
     }
 }
 
-pub async fn download(
-    ticket_str: String,
-    options: ReceiveOptions,
-    app_handle: AppHandle,
-    cancel_rx: tokio::sync::oneshot::Receiver<()>,
-) -> anyhow::Result<ReceiveResult> {
-    let ticket = BlobTicket::from_str(&ticket_str)?;
-    let addr = ticket.addr().clone();
+fn receive_endpoint_builder(options: &ReceiveOptions) -> anyhow::Result<iroh::endpoint::Builder> {
     let secret_key = get_or_create_secret()?;
 
     let custom_infra = protocol::uses_custom_infra(&options.discovery_mode, &options.relay_mode);
@@ -70,30 +60,26 @@ pub async fn download(
             .secret_key(secret_key)
             .relay_mode(options.relay_mode.clone().into());
 
-    if ticket.addr().relay_urls().count() == 0 && ticket.addr().ip_addrs().count() == 0 {
-        builder = match &options.discovery_mode {
-            DiscoveryModeOption::Custom {
-                pkarr_relay_url,
-                dns_origin,
-            } => {
-                let mut builder =
-                    builder.address_lookup(PkarrResolver::builder(pkarr_relay_url.clone()));
-                if let Some(origin) = dns_origin {
-                    builder = builder.address_lookup(DnsAddressLookup::builder(origin.clone()));
-                }
-                builder
-            }
-            DiscoveryModeOption::Default => builder.address_lookup(DnsAddressLookup::n0_dns()),
-        };
-    }
+    builder = protocol::discovery::with_receive_discovery(builder, &options.discovery_mode);
     if let Some(addr) = options.magic_ipv4_addr {
         builder = builder.bind_addr(addr)?;
     }
     if let Some(addr) = options.magic_ipv6_addr {
         builder = builder.bind_addr(addr)?;
     }
+    Ok(builder)
+}
 
-    let endpoint = builder.bind().await?;
+pub async fn download(
+    ticket_str: String,
+    options: ReceiveOptions,
+    app_handle: AppHandle,
+    cancel_rx: tokio::sync::oneshot::Receiver<()>,
+) -> anyhow::Result<ReceiveResult> {
+    let ticket = BlobTicket::from_str(&ticket_str)?;
+    let addr = ticket.addr().clone();
+
+    let endpoint = receive_endpoint_builder(&options)?.bind().await?;
     let (db, iroh_data_dir) =
         storage::create_recv_store(&ticket.hash().to_hex().to_string()).await?;
     let mut cleanup_guard = storage::recv_cleanup_guard(iroh_data_dir);
@@ -202,13 +188,93 @@ pub async fn download(
 mod tests {
     use super::*;
     use crate::send::start_share;
-    use protocol::{AddrInfoOptions, FileMetadata, RelayModeOption, SendOptions};
+    use protocol::{
+        AddrInfoOptions, DiscoveryModeOption, FileMetadata, RelayModeOption, SendOptions,
+    };
     use std::io::Write;
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     };
     use tempfile::NamedTempFile;
+
+    fn offline_discovery() -> DiscoveryModeOption {
+        DiscoveryModeOption::Custom {
+            pkarr_relay_url: "http://127.0.0.1:9/pkarr".parse().unwrap(),
+            dns_origin: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn stale_ticket_address_recovers_via_lookup() {
+        use iroh::{address_lookup::memory::MemoryLookup, EndpointAddr};
+        use iroh_blobs::{store::fs::FsStore, BlobFormat};
+
+        let mut source = NamedTempFile::new().unwrap();
+        let content = b"synthetic stale-address recovery";
+        source.write_all(content).unwrap();
+        let share = start_share(
+            source.path().to_path_buf(),
+            SendOptions {
+                relay_mode: RelayModeOption::Disabled,
+                discovery_mode: offline_discovery(),
+                ticket_type: AddrInfoOptions::RelayAndAddresses,
+                magic_ipv4_addr: Some("127.0.0.1:0".parse().unwrap()),
+                magic_ipv6_addr: None,
+            },
+            None,
+            None,
+        )
+        .await
+        .expect("loopback share should start");
+        let original_ticket = BlobTicket::from_str(&share.ticket).unwrap();
+        let sender = share.router.endpoint();
+        let live_socket = sender
+            .bound_sockets()
+            .into_iter()
+            .find(|socket| socket.is_ipv4())
+            .expect("sender has a loopback IPv4 socket");
+        let live_addr = EndpointAddr::from(sender.id()).with_ip_addr(live_socket);
+        let stale_addr =
+            EndpointAddr::from(sender.id()).with_ip_addr("127.0.0.1:9".parse().unwrap());
+        let ticket = BlobTicket::new(
+            stale_addr.clone(),
+            original_ticket.hash(),
+            BlobFormat::HashSeq,
+        );
+        let options = ReceiveOptions {
+            relay_mode: RelayModeOption::Disabled,
+            discovery_mode: offline_discovery(),
+            magic_ipv4_addr: Some("127.0.0.1:0".parse().unwrap()),
+            ..Default::default()
+        };
+        let endpoint = receive_endpoint_builder(&options)
+            .unwrap()
+            .bind()
+            .await
+            .expect("receive endpoint should bind");
+        let lookup = endpoint.address_lookup().unwrap();
+        assert_eq!(lookup.len(), 1, "custom discovery must remain installed");
+        lookup.add(MemoryLookup::from_endpoint_info([live_addr]));
+
+        let data = tempfile::TempDir::new().unwrap();
+        let store = FsStore::load(data.path()).await.unwrap();
+        let downloaded = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            download_to_store(ticket, stale_addr, &endpoint, store.as_ref(), &None),
+        )
+        .await
+        .expect("lookup should recover without a full connect timeout")
+        .expect("lookup should recover the stale ticket");
+        assert_eq!(downloaded.payload_size, content.len() as u64);
+        let (_, hash) = downloaded.collection.iter().next().unwrap();
+        let received = store.blobs().get_bytes(*hash).await.unwrap();
+        assert_eq!(received.as_ref(), content);
+
+        endpoint.close().await;
+        store.shutdown().await.unwrap();
+        share.router.shutdown().await.unwrap();
+    }
 
     #[tokio::test]
     async fn transient_download_failure_retries_before_giving_up() {

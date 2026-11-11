@@ -37,6 +37,7 @@ interface ShareLinkPanelProps {
 	selectedPath: string | null
 	sendMode: SenderMode
 	ticket: string | null
+	isPreparing?: boolean
 	copySuccess: boolean
 	isTransporting: boolean
 	isCompleted: boolean
@@ -55,6 +56,7 @@ export function ShareLinkPanel({
 	selectedPath,
 	sendMode,
 	ticket,
+	isPreparing = false,
 	copySuccess,
 	isTransporting,
 	isCompleted,
@@ -69,11 +71,13 @@ export function ShareLinkPanel({
 }: ShareLinkPanelProps) {
 	const { t } = useTranslation()
 
-	const statusText = isCompleted
-		? t('common:sender.transferCompleted')
-		: isTransporting
-			? t('common:sender.sharingInProgress')
-			: t('common:sender.listeningForConnection')
+	const statusText = isPreparing
+		? t('common:sender.startingShare')
+		: isCompleted
+			? t('common:sender.transferCompleted')
+			: isTransporting
+				? t('common:sender.sharingInProgress')
+				: t('common:sender.listeningForConnection')
 
 	const clampedProgress = transferProgress
 		? {
@@ -140,24 +144,27 @@ export function ShareLinkPanel({
 						<p className="text-xs text-left text-muted-foreground">
 							{t('common:sender.sendThisTicket')}
 						</p>
-						{showPairedDevicesOption && onOpenPairedDevices ? (
-							<div className="flex flex-col items-center gap-3 pt-1">
-								<p className="text-xs text-center text-muted-foreground">
-									{t('common:sender.sharingActive.or')}
-								</p>
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									onClick={onOpenPairedDevices}
-								>
-									<MonitorSmartphone className="h-4 w-4" />
-									{t('common:sender.sharingActive.devicesButton')}
-								</Button>
-							</div>
-						) : null}
 					</div>
 				)}
+
+				{!isTransporting && showPairedDevicesOption && onOpenPairedDevices ? (
+					<div className="flex flex-col items-center gap-3 pt-1">
+						{ticket ? (
+							<p className="text-xs text-center text-muted-foreground">
+								{t('common:sender.sharingActive.or')}
+							</p>
+						) : null}
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={onOpenPairedDevices}
+						>
+							<MonitorSmartphone className="h-4 w-4" />
+							{t('common:sender.sharingActive.devicesButton')}
+						</Button>
+					</div>
+				) : null}
 
 				{progressToDisplay && (
 					<div className="w-full">

@@ -187,6 +187,15 @@ pub async fn run_share_session<S>(
 where
     S: Send + Sync + 'static,
 {
+    // Fail before spawning a router or detached progress task. Native callers
+    // overlap this wait with import; wasm callers still reach it after import.
+    if !matches!(relay_mode, RelayMode::Disabled) {
+        if let Err(error) = timeout(Duration::from_secs(30), endpoint.online()).await {
+            endpoint.close().await;
+            return Err(error.into());
+        }
+    }
+
     let completed_peers = Arc::new(AtomicUsize::new(0));
     let progress_handle = n0_future::task::spawn(show_provide_progress_with_logging(
         progress_rx,
@@ -199,14 +208,6 @@ where
         .accept(iroh_blobs::ALPN, blobs)
         .accept(METADATA_ALPN, MetadataProtocol { metadata })
         .spawn();
-
-    let ep = router.endpoint();
-    timeout(Duration::from_secs(30), async move {
-        if !matches!(relay_mode, RelayMode::Disabled) {
-            let _ = ep.online().await;
-        }
-    })
-    .await?;
 
     let hash = temp_tag.hash();
 

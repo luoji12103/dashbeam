@@ -18,6 +18,7 @@ export function SharingActiveCard({
 	selectedPath,
 	sendMode = 'file',
 	ticket,
+	isLoading,
 	copySuccess,
 	transferProgress,
 	isTransporting,
@@ -48,6 +49,7 @@ export function SharingActiveCard({
 				selectedPath={selectedPath}
 				sendMode={sendMode}
 				ticket={ticket}
+				isPreparing={isLoading && !ticket}
 				copySuccess={copySuccess}
 				isTransporting={isTransporting}
 				isCompleted={isCompleted}
@@ -89,7 +91,7 @@ export function SharingActiveCard({
 								pairedInviteStatus={pairedInviteStatus}
 								isNodeReady={isNodeReady}
 								isNodeStatusPending={isNodeStatusPending}
-								hasTicket={Boolean(ticket)}
+								canSelectTarget={Boolean(ticket) || isLoading}
 								onInvitePairedDevice={onInvitePairedDevice}
 								onInviteNearbyDevice={onInviteNearbyDevice}
 								onInviteSuccess={() => setDevicesOpen(false)}

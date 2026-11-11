@@ -4,6 +4,7 @@
 // caller is the Android-gated `check_android_update` command.
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
 mod android_update;
+mod advisory;
 #[cfg(desktop)]
 mod autostart;
 // `ashpd` is declared under `[target.'cfg(target_os = "linux")'.dependencies]`,

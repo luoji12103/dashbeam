@@ -12,9 +12,15 @@ pub struct AppState {
     pub node_init_error: Option<String>,
     pub current_share: Option<ShareHandle>,
     pub is_share_starting: bool,
+    /// Cancellation invalidates the generation but retains the reservation
+    /// until the in-flight import has finished and its resources are closed.
+    pub(crate) share_start_generation: u64,
     pub is_transporting: bool,
     pub launch_intent: Vec<String>,
     pub current_receive_cancel: Option<tokio::sync::oneshot::Sender<()>>,
+    /// Sending cancellation consumes its sender, not the receive reservation.
+    pub current_receive_active: bool,
+    pub current_receive_cancelled: bool,
     /// Hash of the receive in flight, so history cannot delete the partial
     /// store out from under an active download.
     pub current_receive_hash: Option<String>,
@@ -40,9 +46,12 @@ impl Default for AppState {
             node_init_error: None,
             current_share: None,
             is_share_starting: false,
+            share_start_generation: 0,
             is_transporting: false,
             launch_intent: Vec::new(),
             current_receive_cancel: None,
+            current_receive_active: false,
+            current_receive_cancelled: false,
             current_receive_hash: None,
             last_cancelled_recv_hash: None,
             completed_text: HashMap::new(),
@@ -52,6 +61,43 @@ impl Default for AppState {
 }
 
 impl AppState {
+    pub fn reserve_receive(&mut self, cancel: tokio::sync::oneshot::Sender<()>) -> Result<(), String> {
+        if self.current_receive_active {
+            return Err("Already receiving a file. Wait for the current download to finish.".to_string());
+        }
+        self.current_receive_active = true;
+        self.current_receive_cancelled = false;
+        self.current_receive_cancel = Some(cancel);
+        Ok(())
+    }
+
+    pub fn request_receive_cancel(&mut self) {
+        if self.current_receive_active {
+            self.current_receive_cancelled = true;
+        }
+        if let Some(tx) = self.current_receive_cancel.take() {
+            let _ = tx.send(());
+        }
+    }
+    pub fn reserve_share_start(&mut self) -> Result<u64, String> {
+        if self.current_share.is_some() || self.is_share_starting {
+            return Err("Already sharing a file. Please stop current share first.".to_string());
+        }
+        self.share_start_generation = self.share_start_generation.wrapping_add(1);
+        self.is_share_starting = true;
+        Ok(self.share_start_generation)
+    }
+
+    pub fn share_start_is_current(&self, generation: u64) -> bool {
+        self.is_share_starting && self.share_start_generation == generation
+    }
+
+    pub fn cancel_share_start(&mut self) {
+        if self.is_share_starting {
+            self.share_start_generation = self.share_start_generation.wrapping_add(1);
+        }
+    }
+
     pub fn acknowledge_received_text(&mut self, path: &str) {
         if self
             .pending_received_text
@@ -170,7 +216,44 @@ pub type AppStateMutex = Arc<Mutex<AppState>>;
 
 #[cfg(test)]
 mod tests {
-    use super::OwnedSourceDir;
+    use super::{AppState, OwnedSourceDir};
+
+    #[test]
+    fn cancelled_preparation_retains_slot_until_cleanup() {
+        let mut state = AppState::default();
+        let generation = state.reserve_share_start().unwrap();
+        assert!(state.share_start_is_current(generation));
+        state.cancel_share_start();
+        assert!(!state.share_start_is_current(generation));
+        assert!(state.reserve_share_start().is_err());
+        // Only the owner of the completed cleanup releases the reservation.
+        state.is_share_starting = false;
+        let next = state.reserve_share_start().unwrap();
+        assert!(state.share_start_is_current(next));
+        assert!(!state.share_start_is_current(generation));
+    }
+
+    #[test]
+    fn cancelling_receive_does_not_release_its_reservation() {
+        let mut state = AppState::default();
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        state.reserve_receive(tx).unwrap();
+        state.request_receive_cancel();
+        let (other_tx, _other_rx) = tokio::sync::oneshot::channel();
+        assert!(state.reserve_receive(other_tx).is_err());
+        assert!(state.current_receive_active);
+    }
+
+    #[test]
+    fn cancellation_remains_recorded_during_final_export() {
+        let mut state = AppState::default();
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        state.reserve_receive(tx).unwrap();
+        drop(rx); // Payload + advisory have already finished.
+        state.request_receive_cancel();
+        assert!(state.current_receive_cancelled);
+        assert!(state.current_receive_active);
+    }
 
     #[test]
     fn owned_text_source_lives_until_its_guard_is_dropped() {

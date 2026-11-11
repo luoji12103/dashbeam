@@ -215,10 +215,14 @@ fn apply_custom_relay_probe_result(
     }
 }
 
-/// Prefer configured custom relays; fall back to public relays only when selected.
-pub async fn resolve_relay_mode_with_fallback(
+async fn resolve_relay_mode_with_probe<F, Fut>(
     arg: Option<RelayConfigArg>,
-) -> Result<(RelayModeOption, bool), String> {
+    probe: F,
+) -> Result<(RelayModeOption, bool), String>
+where
+    F: FnOnce(RelayModeOption) -> Fut,
+    Fut: std::future::Future<Output = Result<Option<String>, String>>,
+{
     let fallback = arg
         .as_ref()
         .map(relay_fallback_policy)
@@ -226,12 +230,9 @@ pub async fn resolve_relay_mode_with_fallback(
         .unwrap_or(RelayFallbackPolicy::Strict);
     let preferred = build_relay_mode(arg)?;
 
-    match &preferred {
-        RelayModeOption::Disabled | RelayModeOption::Default => Ok((preferred, false)),
-        RelayModeOption::Custom { .. } => {
-            let probe =
-                timeout(RELAY_PROBE_TIMEOUT, probe_relay_mode(preferred.clone()))
-                    .await;
+    match (&preferred, fallback) {
+        (RelayModeOption::Custom { .. }, RelayFallbackPolicy::Public) => {
+            let probe = timeout(RELAY_PROBE_TIMEOUT, probe(preferred.clone())).await;
 
             let probe_result = match probe {
                 Ok(result) => result,
@@ -239,7 +240,19 @@ pub async fn resolve_relay_mode_with_fallback(
             };
             apply_custom_relay_probe_result(preferred, fallback, probe_result)
         }
+        // Strict is a routing policy, not a preflight reachability check. The
+        // actual share/download endpoint establishes its own authenticated path.
+        // A temporary probe adds another bind, relay handshake and online wait
+        // without proving that the real endpoint can reach the peer.
+        _ => Ok((preferred, false)),
     }
+}
+
+/// Prefer configured custom relays; probe for public fallback only when selected.
+pub async fn resolve_relay_mode_with_fallback(
+    arg: Option<RelayConfigArg>,
+) -> Result<(RelayModeOption, bool), String> {
+    resolve_relay_mode_with_probe(arg, probe_relay_mode).await
 }
 
 /// Check which relay the app can reach, with public fallback only when selected.
@@ -560,6 +573,55 @@ mod tests {
             Err("Timed out waiting for relay connection".to_string()),
         )
         .expect("public fallback should use default relays");
+
+        assert!(matches!(mode, RelayModeOption::Default));
+        assert!(fell_back);
+    }
+
+    #[tokio::test]
+    async fn strict_custom_relay_does_not_probe() {
+        for fallback in [None, Some("strict")] {
+            let probes = std::cell::Cell::new(0);
+            let (mode, fell_back) = resolve_relay_mode_with_probe(
+                Some(custom_relay_arg(fallback)),
+                |_| {
+                    probes.set(probes.get() + 1);
+                    async { Err("strict resolution must not probe".to_string()) }
+                },
+            )
+            .await
+            .expect("strict should retain the validated custom configuration");
+
+            assert!(matches!(mode, RelayModeOption::Custom { .. }));
+            assert!(!fell_back);
+            assert_eq!(probes.get(), 0, "strict must not create a probe endpoint");
+        }
+    }
+
+    #[tokio::test]
+    async fn public_fallback_probes_and_keeps_reachable_custom_relay() {
+        let (mode, fell_back) = resolve_relay_mode_with_probe(
+            Some(custom_relay_arg(Some("public"))),
+            |mode| async move {
+                assert!(matches!(mode, RelayModeOption::Custom { .. }));
+                Ok(Some("https://relay.example.com".to_string()))
+            },
+        )
+        .await
+        .expect("reachable custom relay should remain preferred");
+
+        assert!(matches!(mode, RelayModeOption::Custom { .. }));
+        assert!(!fell_back);
+    }
+
+    #[tokio::test]
+    async fn public_fallback_probes_and_selects_public_on_failure() {
+        let (mode, fell_back) = resolve_relay_mode_with_probe(
+            Some(custom_relay_arg(Some("public"))),
+            |_| async { Err("custom relay unavailable".to_string()) },
+        )
+        .await
+        .expect("explicit public fallback should remain available");
 
         assert!(matches!(mode, RelayModeOption::Default));
         assert!(fell_back);

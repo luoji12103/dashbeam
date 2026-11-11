@@ -148,6 +148,36 @@ pub fn build_discovery_mode(arg: Option<DiscoveryConfigArg>) -> Result<Discovery
     }
 }
 
+/// Install the configured receive-side lookup even when a ticket has addresses.
+///
+/// Ticket addresses are hints and may become stale after a network change.
+/// Iroh can race a lookup against those hints when a connection needs recovery.
+/// Custom discovery must not inherit the public services from an N0 preset.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn with_receive_discovery(
+    builder: iroh::endpoint::Builder,
+    mode: &DiscoveryModeOption,
+) -> iroh::endpoint::Builder {
+    use iroh::address_lookup::{dns::DnsAddressLookup, pkarr::PkarrResolver};
+
+    let builder = builder.clear_address_lookup();
+    match mode {
+        DiscoveryModeOption::Custom {
+            pkarr_relay_url,
+            dns_origin,
+        } => {
+            let builder = builder.address_lookup(PkarrResolver::builder(pkarr_relay_url.clone()));
+            match dns_origin {
+                Some(origin) => builder.address_lookup(DnsAddressLookup::builder(origin.clone())),
+                None => builder,
+            }
+        }
+        DiscoveryModeOption::Default => builder
+            .address_lookup(PkarrResolver::n0_dns())
+            .address_lookup(DnsAddressLookup::n0_dns()),
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VerifyDiscoveryResponse {
@@ -214,6 +244,40 @@ pub async fn verify_discovery(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn receive_discovery_keeps_only_the_selected_lookup_services() {
+        use iroh::endpoint::{presets, RelayMode};
+        use iroh::Endpoint;
+
+        let custom_url: url::Url = "http://127.0.0.1:9/pkarr".parse().unwrap();
+        for (mode, expected_services) in [
+            (DiscoveryModeOption::Default, 2),
+            (
+                DiscoveryModeOption::Custom {
+                    pkarr_relay_url: custom_url.clone(),
+                    dns_origin: None,
+                },
+                1,
+            ),
+            (
+                DiscoveryModeOption::Custom {
+                    pkarr_relay_url: custom_url,
+                    dns_origin: Some("discovery.example".to_string()),
+                },
+                2,
+            ),
+        ] {
+            let endpoint = with_receive_discovery(Endpoint::builder(presets::N0), &mode)
+                .relay_mode(RelayMode::Disabled)
+                .bind()
+                .await
+                .expect("receive endpoint should bind");
+            assert_eq!(endpoint.address_lookup().unwrap().len(), expected_services);
+            endpoint.close().await;
+        }
+    }
 
     #[test]
     fn build_discovery_mode_defaults() {
