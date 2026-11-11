@@ -15,6 +15,8 @@ on:
 jobs:
   android-play-aab:
     name: Android Play Store AAB
+    # Local APKs use a different identity and are never Play Store releases.
+    if: ${{ github.event_name != 'push' || !contains(github.ref_name, '-local.') }}
     runs-on: ubuntu-22.04
     timeout-minutes: 300
     steps:

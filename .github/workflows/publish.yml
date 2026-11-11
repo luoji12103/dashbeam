@@ -8,6 +8,9 @@ on:
 jobs:
   prepare-release:
     name: Prepare release
+    # Local fork assets are built explicitly with platform-specific configs.
+    # Publishing their tag must not start upstream packages or web deployment.
+    if: ${{ !contains(github.ref_name, '-local.') }}
     permissions:
       contents: write
     runs-on: ubuntu-latest
