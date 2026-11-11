@@ -1,0 +1,12 @@
+{
+  "base_revision": "2ef67abf2e100f32db9aca7834397e705250053e",
+  "base_binary_sha256": "19ea374b04cb9ec1ca4b36d7d4751fff8352b1cd207cb381feac769ba7d524fb",
+  "optimized_binary_sha256": "d8c9414ca99552d8207eea96800b21ed5eea529629c76cf65729c0e64d510b39",
+  "patch_sha256": "d5b5a0ef5ed5490fda8c5f0a510a09e4563a1f88d7e9b24045757f7bf1b5e23b",
+  "before_export_sha256": "26eb991a0beac797bd1904f37de2c589b1aeef59200aa77686e2c8aa2537bdfc",
+  "after_export_sha256": "194b7036246d6a8259019177afb2c61630f15e66db88318f65909fb88e14097e",
+  "harness_sha256": "06fed7853df8de9762235b10e2408081e41d51adaa1dc2b5da9320b6540b8819",
+  "test_log": "export-cache-tests.txt",
+  "test_log_sha256": "2f0a49367520dee4665d6220ef8f9145bd386d38433b791a42ad7019f2d04e17",
+  "status": "isolated prototype only; not applied to product source or release"
+}

@@ -2,6 +2,7 @@
 //! Copy unchanged into each revision's engine/examples/latency_harness.rs.
 //! Cross-process timestamps use the same Linux kernel's CLOCK_MONOTONIC.
 use anyhow::{anyhow, bail, Context, Result};
+use iroh::Watcher;
 use engine::{
     build_discovery_mode, download, fetch_metadata, resolve_relay_mode_with_fallback,
     start_share_items, AddrInfoOptions, AppHandle, DiscoveryConfigArg, EventEmitter, FileMetadata,
@@ -55,7 +56,8 @@ fn args() -> Result<Args> {
     };
     if !["send", "recv"].contains(&a.role.as_str())
         || !["baseline", "candidate"].contains(&a.variant.as_str())
-        || !["disabled", "http://127.0.0.1:3340", "https://relay.dashbeam.test:3341"]
+        || !["disabled", "http://127.0.0.1:3340", "https://relay.dashbeam.test:3341",
+            "https://relay-b.dashbeam.test:3341"]
             .contains(&a.relay.as_str())
     { bail!("unsupported role, variant, or relay"); }
     Ok(a)
@@ -153,13 +155,17 @@ async fn send(a: &Args) -> Result<()> {
     let share = start_share_items(vec![a.source.clone()], options, &emitter, Some(meta))
         .await.map_err(|_| anyhow!("share start failed"))?;
     let ticket_ready = now_ns();
+    let connected_home_relays: Vec<String> = share.router.endpoint().home_relay_status().get()
+        .into_iter().filter(|status| status.is_connected())
+        .map(|status| status.url().to_string()).collect();
     atomic_private(&a.shared.join("ticket"), share.ticket.as_bytes())?;
     let stages = recorder.0.lock().map_err(|_| anyhow!("event lock"))?.stages.clone();
     atomic_private(&a.shared.join("sender.json"), serde_json::to_string(&json!({
         "variant": a.variant, "role": "send", "share_intent_ns": intent,
         "metadata_prepared_ns": metadata_prepared, "relay_resolved_ns": relay_resolved,
         "ticket_ready_ns": ticket_ready, "relay_fell_back": fell_back,
-        "imported_bytes": share.size, "stages": stages
+        "imported_bytes": share.size, "stages": stages,
+        "connected_home_relays": connected_home_relays
     }))?.as_bytes())?;
     let until = Instant::now() + Duration::from_secs(900);
     while !a.shared.join("done").exists() && Instant::now() < until {

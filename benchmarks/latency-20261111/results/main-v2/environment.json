@@ -1,0 +1,267 @@
+{
+  "experiment": "dbbench-1111-main-v2-2c8a50",
+  "cases": [
+    {
+      "id": 1,
+      "name": "direct-small-lan",
+      "file": "one-mib.bin",
+      "relay": false,
+      "rtt": 2,
+      "rate": 1000,
+      "loss": 0
+    },
+    {
+      "id": 2,
+      "name": "direct-large-lan",
+      "file": "sixtyfour-mib.bin",
+      "relay": false,
+      "rtt": 2,
+      "rate": 1000,
+      "loss": 0
+    },
+    {
+      "id": 3,
+      "name": "direct-many-small",
+      "file": "many-small",
+      "relay": false,
+      "rtt": 2,
+      "rate": 1000,
+      "loss": 0
+    },
+    {
+      "id": 4,
+      "name": "direct-small-wan",
+      "file": "one-mib.bin",
+      "relay": false,
+      "rtt": 80,
+      "rate": 50,
+      "loss": 0
+    },
+    {
+      "id": 5,
+      "name": "direct-large-wan",
+      "file": "sixtyfour-mib.bin",
+      "relay": false,
+      "rtt": 80,
+      "rate": 50,
+      "loss": 0
+    },
+    {
+      "id": 6,
+      "name": "relay-small-lan",
+      "file": "one-mib.bin",
+      "relay": true,
+      "rtt": 2,
+      "rate": 1000,
+      "loss": 0
+    },
+    {
+      "id": 7,
+      "name": "relay-small-wan",
+      "file": "one-mib.bin",
+      "relay": true,
+      "rtt": 80,
+      "rate": 50,
+      "loss": 0
+    },
+    {
+      "id": 8,
+      "name": "relay-large-wan",
+      "file": "sixtyfour-mib.bin",
+      "relay": true,
+      "rtt": 80,
+      "rate": 50,
+      "loss": 0
+    },
+    {
+      "id": 9,
+      "name": "relay-lossy-slow",
+      "file": "sixteen-mib.bin",
+      "relay": true,
+      "rtt": 150,
+      "rate": 20,
+      "loss": 0.5
+    },
+    {
+      "id": 10,
+      "name": "relay-metadata-stall",
+      "file": "one-mib.bin",
+      "relay": true,
+      "rtt": 80,
+      "rate": 50,
+      "loss": 0,
+      "stall": 3500
+    }
+  ],
+  "repeats": 5,
+  "kernel": "6.12.113+deb13-amd64",
+  "image": "sha256:12c91ba32f912b4cea54489747c98eb3c884431e40a17e94e9546d02cdfde455",
+  "build": {
+    "recorded_utc": "2026-11-11T18:24:03.076Z",
+    "variants": {
+      "baseline": {
+        "revision": "f3253bbbf6c1028821e2a66602ede9557cff4113",
+        "binary_sha256": "4203fe51dcdf555d4942d249da8d7ce7d18fcb8ad630b21fb717cd65c0c3caaa",
+        "lock_sha256": "9daebcd39fe24b1c2742d473c077778f3a354b45132e801308f7b0dc971644d0",
+        "instrumentation": {
+          "root": "/home/luoji/code/dashbeam-benchmark-20261111.6mQj0M/baseline-v2",
+          "instrumentation": "observation-only-v2",
+          "files": [
+            {
+              "file": "engine/protocol/src/types.rs",
+              "before_sha256": "aad5fb3f1b11efbc47e943e057795cc6178169bee513132f451c8636b217551d",
+              "after_sha256": "d89257b797307de70a6df64967b339968302a623a8091792549baeddbff6336b"
+            },
+            {
+              "file": "engine/src/lib.rs",
+              "before_sha256": "14f4189ac6c55bba9fd93d31e64e7e2427e7018d543162b2784b6656b4176fa9",
+              "after_sha256": "0d622c155e3bf2c2d84c6ccdbe3c7e15e028b6f28c1952f25fe95d5e7d20dade"
+            },
+            {
+              "file": "engine/native/src/send.rs",
+              "before_sha256": "0f4350f13757987ba566ec215b7c053139d7197ada80c3052525c5bf421a5d75",
+              "after_sha256": "ba60cdd47ad4157cb442a18734cb970c05d69cb8689718d175b3117a19db72f8"
+            },
+            {
+              "file": "engine/protocol/src/send.rs",
+              "before_sha256": "ccdca818dfdc03024f4c84b8c0c3eaab6d3311f1fc50fc235132292f21c74e16",
+              "after_sha256": "c83bfa578f88dea806f79ec3a8e2938fde74753aa08ef94e1d8e3c3b45aa6d03"
+            },
+            {
+              "file": "engine/native/src/receive.rs",
+              "before_sha256": "5a1ae8512cb866c4daeda524ad2d46549e4de64dd0c1c2a8339bc7044bdb5395",
+              "after_sha256": "b1f43e76e155d94bd41f0210b4f697f267d5f51d6c47f3b385e38c217d4765e4"
+            },
+            {
+              "file": "engine/protocol/src/receive.rs",
+              "before_sha256": "a3dae69fa493b5c0e3da82d54de96600453bed488fd1ded2566a2c757a9b79e5",
+              "after_sha256": "1593ffe577259f04161892731ee9fd80b1d3b2a3f56ca3086a7a98db7c92a5c5"
+            }
+          ]
+        }
+      },
+      "candidate": {
+        "revision": "2ef67abf2e100f32db9aca7834397e705250053e",
+        "binary_sha256": "19ea374b04cb9ec1ca4b36d7d4751fff8352b1cd207cb381feac769ba7d524fb",
+        "lock_sha256": "9daebcd39fe24b1c2742d473c077778f3a354b45132e801308f7b0dc971644d0",
+        "instrumentation": {
+          "root": "/home/luoji/code/dashbeam-benchmark-20261111.6mQj0M/candidate-v2",
+          "instrumentation": "observation-only-v2",
+          "files": [
+            {
+              "file": "engine/protocol/src/types.rs",
+              "before_sha256": "aad5fb3f1b11efbc47e943e057795cc6178169bee513132f451c8636b217551d",
+              "after_sha256": "d89257b797307de70a6df64967b339968302a623a8091792549baeddbff6336b"
+            },
+            {
+              "file": "engine/src/lib.rs",
+              "before_sha256": "14f4189ac6c55bba9fd93d31e64e7e2427e7018d543162b2784b6656b4176fa9",
+              "after_sha256": "0d622c155e3bf2c2d84c6ccdbe3c7e15e028b6f28c1952f25fe95d5e7d20dade"
+            },
+            {
+              "file": "engine/native/src/send.rs",
+              "before_sha256": "dd4f1e5f928d07f9fe54ab897368c90aa00c0d214d850ac19bf30d8705d1cce4",
+              "after_sha256": "e451b3f88eebd758eaaa221bb0843bdba23f1e7e924e3844a572c1e0761e1698"
+            },
+            {
+              "file": "engine/protocol/src/send.rs",
+              "before_sha256": "3bda1a61dba9fb08dc51aabd8d2291bd2fe76f63aa488ae555a00ecfee1b56fa",
+              "after_sha256": "3bda1a61dba9fb08dc51aabd8d2291bd2fe76f63aa488ae555a00ecfee1b56fa"
+            },
+            {
+              "file": "engine/native/src/receive.rs",
+              "before_sha256": "ac415cb9dcef81df7e7bdf30e832a23892489d6633404ccb81b234a787414ec5",
+              "after_sha256": "da12e9ebcdb008bf5c4bbe0185827065fe961308d6dc0938c0f94fabc842ecb8"
+            },
+            {
+              "file": "engine/protocol/src/receive.rs",
+              "before_sha256": "07b30fb2e8f5389cf8a0b71f753c9669efe3ae8677614bdcafa97d237386a6ee",
+              "after_sha256": "7017d74acdf1756627d5ef67711a6e94f599f77d1a187dbdfb267f20dfb6d277"
+            }
+          ]
+        }
+      }
+    },
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)\nbinary: rustc\ncommit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96\ncommit-date: 2026-05-25\nhost: x86_64-unknown-linux-gnu\nrelease: 1.96.0\nLLVM version: 22.1.2",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "profile": {
+      "opt_level": 2,
+      "lto": false,
+      "codegen_units": 8,
+      "build_jobs": 2,
+      "locked": true,
+      "offline": true
+    },
+    "cache_note": "each archived engine source touched before its build, then copied before the next build; all original before hashes checked against Git revisions by coordinator",
+    "fixture_sha256": "a87fbf03570e9cc83ad1918c395cf303dcd00569c4d861566ae9adb29f7431d5",
+    "relay_binary_sha256": "2cf07570a363dd005b446c3f335d141bc76a6313c9ff731e6aeb14afe7f23399"
+  },
+  "scripts": {
+    "run.mjs": "5214e1f85276d0e392621fef98447b5a70e18a5564b22d590206137fac1c50ab",
+    "instrument.mjs": "a5d803eea79f7e74587051ecb947b58ea17b5a3dec49cab5dd17d4319c4fa9f0",
+    "latency_harness.rs": "06fed7853df8de9762235b10e2408081e41d51adaa1dc2b5da9320b6540b8819"
+  },
+  "limits": {
+    "endpoint_cpus": 2,
+    "relay_cpus": 1,
+    "each_memory_bytes": 805306368,
+    "workers_per_endpoint": 2
+  },
+  "network": [
+    {
+      "driver": "bridge",
+      "internal": true,
+      "ipv6": false,
+      "ipam": {
+        "Driver": "default",
+        "Options": {},
+        "Config": [
+          {
+            "Subnet": "172.29.0.0/16",
+            "Gateway": "172.29.0.1"
+          }
+        ]
+      }
+    }
+  ],
+  "link": [
+    {
+      "ifindex": 35193,
+      "link_index": 35194,
+      "ifname": "eth0",
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "mtu": 1500,
+      "qdisc": "noqueue",
+      "operstate": "UP",
+      "linkmode": "DEFAULT",
+      "group": "default",
+      "link_type": "ether",
+      "address": "02:42:ac:1d:00:02",
+      "broadcast": "ff:ff:ff:ff:ff:ff",
+      "link_netnsid": 0
+    }
+  ],
+  "binaries": {
+    "baseline": "4203fe51dcdf555d4942d249da8d7ce7d18fcb8ad630b21fb717cd65c0c3caaa",
+    "candidate": "19ea374b04cb9ec1ca4b36d7d4751fff8352b1cd207cb381feac769ba7d524fb"
+  },
+  "scope": "real engine + simulated app orchestration; same-kernel monotonic clock; no GUI/SAF; internal HTTPS relay with trusted temporary CA and QUIC address discovery; warm source cache; cold per-transfer endpoints",
+  "fixture": "v2: no TCP proxy; real TLS and QAD; qdisc recreated per sample; v1 smoke/partial-main discarded",
+  "relay": {
+    "url": "https://relay.dashbeam.test:3341",
+    "quic_port": 7842,
+    "ca": "ephemeral benchmark-only CA; not installed on host",
+    "authentication": "none"
+  },
+  "qdisc_placement": "sender and receiver eth0 egress each RTT/2; isolated bridge/relay; no host qdisc",
+  "containers": {
+    "send": "dbbench-1111-main-v2-2c8a50-s",
+    "recv": "dbbench-1111-main-v2-2c8a50-r",
+    "relay": "dbbench-1111-main-v2-2c8a50-x"
+  }
+}

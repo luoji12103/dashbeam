@@ -9,6 +9,13 @@ The full matrix has ten scenarios and five matched old/new pairs per scenario:
 100 attempted transfers. Results retain failures, byte checks, and selected-path
 checks. No p95/SLO claim is made from five repetitions.
 
+See the [Chinese findings report](REPORT.zh-CN.md) and the [100-transfer main
+results](results/main-v2/RESULTS.md). Independent supplemental suites contain ten
+different-explicit-home transfers and thirty export-cache candidate transfers.
+The export-cache candidate was **not adopted**: its small phase-local gain did
+not produce a consistent end-to-end gain and changes external-directory-removal
+behavior. No new product source or package was produced by these benchmarks.
+
 ## Scope and isolation
 
 - Run heavy compilation/testing only on `SER8-PVE-VM-102-Debian13-Dev`.
@@ -133,3 +140,48 @@ smoke reduced relay sender prepare from ~3.04 s to ~0.29 s and receive close fro
 
 No product optimization should be made by deleting graceful endpoint close or
 disabling address discovery merely to reproduce those artificial gains.
+
+## Supplemental suites
+
+Use each result directory's exact `run.mjs` / `latency_harness.rs` snapshots and
+the corresponding build receipt; later runner changes do not describe earlier
+main-matrix executions.
+
+### Different explicit home relays
+
+Copy the already v2-instrumented archives to `baseline-cross-v3/` and
+`candidate-cross-v3/`, replace their example harness with the current one, then
+apply `node tools/add-cross-observer.mjs ABS_ARCHIVE_ROOT` once. Regenerate only
+the test leaf certificate with the dual-SAN `relay-cert.cnf`. Rebuild each with
+the fixed profile above, touching all engine `.rs` files before each build, and
+copy binaries to `bin/baseline-cross` / `bin/candidate-cross`. Save extra observer
+manifests as `results/instrument-baseline-cross.json` / `instrument-candidate-cross.json`.
+
+```sh
+node tools/record-cross.mjs ABS_ROOT
+node tools/run.mjs ABS_ROOT cross-smoke-v1 1 11 baseline,candidate cross
+node tools/run.mjs ABS_ROOT cross-v1 5 11 baseline,candidate cross
+node tools/summarize.mjs ABS_ROOT/results/cross-v1
+```
+
+Do not proceed from smoke to full if either byte/path/home check fails. This uses
+two independent relay containers, sender configured only A and receiver only B.
+It checks sender home A at ticket readiness and receiver home B at get-done,
+excluding the other home, with initial/final selected relay paths. It does not
+test both URLs on both endpoints, automatic selection or continuous A→B routing.
+
+### Export parent-cache candidate (rejected)
+
+Copy the v2-instrumented candidate to `optimized-v2/`, apply
+`export-parent-cache.patch`, and build `bin/optimized` with the same profile and
+mtime precaution. Run export tests and save their output. This is a benchmark
+variant, not a product patch to install.
+
+```sh
+node tools/record-iteration.mjs ABS_ROOT
+node tools/run.mjs ABS_ROOT iteration-v1 5 1,3,7 candidate,optimized
+node tools/summarize.mjs ABS_ROOT/results/iteration-v1
+```
+
+See `results/build-iteration.json`, `results/export-cache-tests.txt` and the report
+for the small export-only savings and the reason it was not merged.

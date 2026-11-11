@@ -1,0 +1,82 @@
+{
+  "case": {
+    "id": 1,
+    "name": "direct-small-lan",
+    "file": "one-mib.bin",
+    "relay": false,
+    "rtt": 2,
+    "rate": 1000,
+    "loss": 0
+  },
+  "ping": "PING 172.30.0.3 (172.30.0.3) 56(84) bytes of data.\n64 bytes from 172.30.0.3: icmp_seq=1 ttl=64 time=4.12 ms\n64 bytes from 172.30.0.3: icmp_seq=2 ttl=64 time=2.08 ms\n64 bytes from 172.30.0.3: icmp_seq=3 ttl=64 time=2.18 ms\n\n--- 172.30.0.3 ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss, time 401ms\nrtt min/avg/max/mdev = 2.080/2.795/4.123/0.939 ms",
+  "qdisc": {
+    "send": [
+      {
+        "kind": "netem",
+        "handle": "80ee:",
+        "root": true,
+        "refcnt": 9,
+        "options": {
+          "limit": 10000,
+          "delay": {
+            "delay": 0.001,
+            "jitter": 0,
+            "correlation": 0
+          },
+          "rate": {
+            "rate": 125000000,
+            "packetoverhead": 0,
+            "cellsize": 0,
+            "celloverhead": 0
+          },
+          "seed": 13751024627021996000,
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 336,
+        "packets": 4,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "recv": [
+      {
+        "kind": "netem",
+        "handle": "80ef:",
+        "root": true,
+        "refcnt": 9,
+        "options": {
+          "limit": 10000,
+          "delay": {
+            "delay": 0.001,
+            "jitter": 0,
+            "correlation": 0
+          },
+          "rate": {
+            "rate": 125000000,
+            "packetoverhead": 0,
+            "cellsize": 0,
+            "celloverhead": 0
+          },
+          "seed": 5011280756387666000,
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 336,
+        "packets": 4,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ]
+  },
+  "rules": {
+    "send": "-P OUTPUT ACCEPT",
+    "recv": "-P OUTPUT ACCEPT"
+  }
+}

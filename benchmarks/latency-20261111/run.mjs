@@ -13,8 +13,11 @@ assert(repeats >= 1 && repeats <= 10);
 const only = new Set((process.argv[5] || '').split(',').filter(Boolean).map(Number));
 const variants = (process.argv[6] || 'baseline,candidate').split(',');
 assert(variants.length === 2 && variants.every(v => ['baseline', 'candidate', 'optimized'].includes(v)) && new Set(variants).size === 2);
+const suite = process.argv[7] || 'main';
+assert(['main', 'cross'].includes(suite));
 const experiment = `dbbench-1111-${label}-${crypto.randomBytes(3).toString('hex')}`;
 const names = { send: `${experiment}-s`, recv: `${experiment}-r`, relay: `${experiment}-x` };
+if (suite === 'cross') names.relayb = `${experiment}-y`;
 const results = path.join(root, 'results', label);
 fs.mkdirSync(results, { recursive: false });
 const output = path.join(results, 'samples.jsonl');
@@ -22,7 +25,9 @@ const image = 'dashbeam-benchmark:20261111';
 const net = experiment;
 const created = [];
 let networkCreated = false;
-const cases = [
+const cases = (suite === 'cross' ? [
+  { id: 11, name: 'different-explicit-relay-homes', file: 'sixteen-mib.bin', relay: true, rtt: 80, rate: 50, loss: 0 },
+] : [
   { id: 1, name: 'direct-small-lan', file: 'one-mib.bin', relay: false, rtt: 2, rate: 1000, loss: 0 },
   { id: 2, name: 'direct-large-lan', file: 'sixtyfour-mib.bin', relay: false, rtt: 2, rate: 1000, loss: 0 },
   { id: 3, name: 'direct-many-small', file: 'many-small', relay: false, rtt: 2, rate: 1000, loss: 0 },
@@ -33,7 +38,8 @@ const cases = [
   { id: 8, name: 'relay-large-wan', file: 'sixtyfour-mib.bin', relay: true, rtt: 80, rate: 50, loss: 0 },
   { id: 9, name: 'relay-lossy-slow', file: 'sixteen-mib.bin', relay: true, rtt: 150, rate: 20, loss: 0.5 },
   { id: 10, name: 'relay-metadata-stall', file: 'one-mib.bin', relay: true, rtt: 80, rate: 50, loss: 0, stall: 3500 },
-].filter(c => !only.size || only.has(c.id));
+]).filter(c => !only.size || only.has(c.id));
+assert(cases.length > 0, 'case filter matched nothing in selected suite');
 function docker(...args) { return execFileSync('docker', args, { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 }).trim(); }
 function exec(role, ...args) { return docker('exec', names[role], ...args); }
 function launch(args) {
@@ -112,11 +118,14 @@ async function sample(c, pair, variant) {
   warm(path.join(root, 'fixtures', c.file));
   const containerShared = `/bench/${relative}`;
   const common = ['--variant', variant === 'baseline' ? 'baseline' : 'candidate', '--shared-dir', containerShared,
-    '--source-path', `/fixtures/${c.file}`, '--relay', c.relay ? 'https://relay.dashbeam.test:3341' : 'disabled',
+    '--source-path', `/fixtures/${c.file}`,
     '--metadata-stall-ms', String(c.stall || 0)];
+  const relayFor = role => !c.relay ? 'disabled' : suite === 'cross' && role === 'recv'
+    ? 'https://relay-b.dashbeam.test:3341' : 'https://relay.dashbeam.test:3341';
+  const binary = v => suite === 'cross' ? `${v}-cross` : v;
   const run = role => launch(['exec', '--user', '1000:1000', '-e', `TMPDIR=${containerShared}/tmp-${role}`,
     '-e', 'RUST_LOG=off', '-e', 'SSL_CERT_FILE=/bench/tools/tls/ca.pem', names[role], 'timeout', '--signal=TERM', '--kill-after=5', '180',
-    `/bench/bin/${variant}`, '--role', role, ...common]);
+    `/bench/bin/${binary(variant)}`, '--role', role, '--relay', relayFor(role), ...common]);
   const recv = run('recv');
   const send = run('send');
   const [sendExit, recvExit] = await Promise.all([send, recv]);
@@ -125,8 +134,15 @@ async function sample(c, pair, variant) {
   const success = sendExit.code === 0 && recvExit.code === 0 && receiver?.bytes_match === true;
   const initialPath = Object.keys(receiver?.stages || {}).find(k => k.startsWith('benchmark-initial-path-'))?.split('-').at(-1);
   const finalPath = Object.keys(receiver?.stages || {}).find(k => k.startsWith('benchmark-final-path-'))?.split('-').at(-1);
-  const pathVerified = success && initialPath === (c.relay ? 'relay' : 'ip') && finalPath === (c.relay ? 'relay' : 'ip');
+  const senderHomeA = sender?.connected_home_relays?.length > 0 && sender.connected_home_relays.every(url => {
+    try { return new URL(url).hostname === 'relay.dashbeam.test'; } catch { return false; }
+  }) === true;
+  const receiverHomeB = Number.isFinite(receiver?.stages?.['benchmark-recv-home-b'])
+    && !Number.isFinite(receiver?.stages?.['benchmark-recv-home-a']);
+  const pathVerified = success && initialPath === (c.relay ? 'relay' : 'ip') && finalPath === (c.relay ? 'relay' : 'ip')
+    && (suite !== 'cross' || (senderHomeA && receiverHomeB));
   const row = { case: c, pair, variant, success, path_verified: pathVerified, initial_path: initialPath, final_path: finalPath,
+    ...(suite === 'cross' ? { sender_home_a_at_ticket: senderHomeA, receiver_home_b_at_get_done: receiverHomeB } : {}),
     sender, receiver, metrics: compute(sender, receiver), process_exit: { send: sendExit, recv: recvExit }, qdisc_before: beforeQdisc, qdisc: qdisc() };
   fs.appendFileSync(output, JSON.stringify(row) + '\n', { mode: 0o600 });
   console.log(JSON.stringify({ case: c.id, pair, variant, success, path_verified: pathVerified, ...row.metrics }));
@@ -150,30 +166,39 @@ async function cleanup() {
 try {
   docker('network', 'create', '--internal', '--label', `org.dashbeam.experiment=${experiment}`, net);
   networkCreated = true;
-  for (const role of ['send', 'recv', 'relay']) {
-    const args = ['run', '-d', '--name', names[role], '--network', net, '--cpus', role === 'relay' ? '1' : '2',
+  for (const role of suite === 'cross' ? ['send', 'recv', 'relay', 'relayb'] : ['send', 'recv', 'relay']) {
+    const isRelay = role === 'relay' || role === 'relayb';
+    const args = ['run', '-d', '--name', names[role], '--network', net, '--cpus', isRelay ? '1' : '2',
       '--memory', '768m', '--read-only', '--tmpfs', '/tmp:rw,nosuid,size=128m', '--cap-drop', 'ALL',
       '--label', `org.dashbeam.experiment=${experiment}`, '-v', `${root}:/bench:rw`, '-v', `${root}/fixtures:/fixtures:ro`];
-    if (role !== 'relay') args.push('--cap-add', 'NET_ADMIN', '--cap-add', 'NET_RAW');
-    else args.push('--network-alias', 'relay.dashbeam.test');
+    if (!isRelay) args.push('--cap-add', 'NET_ADMIN', '--cap-add', 'NET_RAW');
+    else args.push('--network-alias', role === 'relay' ? 'relay.dashbeam.test' : 'relay-b.dashbeam.test');
     args.push(image);
     docker(...args); created.push(names[role]);
   }
-  docker('exec', '-d', '--user', '1000:1000', names.relay, '/bench/bin/iroh-relay', '--config-path', '/bench/tools/relay.toml');
+  for (const role of suite === 'cross' ? ['relay', 'relayb'] : ['relay']) {
+    docker('exec', '-d', '--user', '1000:1000', names[role], '/bench/bin/iroh-relay', '--config-path', '/bench/tools/relay.toml');
+  }
   await sleep(500);
-  assert(exec('relay', 'ss', '-lnt').includes(':3341'), 'relay HTTPS listener unavailable');
-  assert(exec('relay', 'ss', '-lnu').includes(':7842'), 'relay QUIC address-discovery listener unavailable');
+  for (const role of suite === 'cross' ? ['relay', 'relayb'] : ['relay']) {
+    assert(exec(role, 'ss', '-lnt').includes(':3341'), `${role} HTTPS listener unavailable`);
+    assert(exec(role, 'ss', '-lnu').includes(':7842'), `${role} QUIC address-discovery listener unavailable`);
+  }
   const metadata = { experiment, cases, repeats, kernel: exec('send', 'uname', '-r'), image: info(names.send).Image,
     build: readJSON(path.join(root, 'results', 'build-v2.json')),
+    cross_build: suite === 'cross' ? readJSON(path.join(root, 'results', 'build-cross.json')) : null,
     iteration_build: variants.includes('optimized') ? readJSON(path.join(root, 'results', 'build-iteration.json')) : null,
-    scripts: Object.fromEntries(['run.mjs', 'instrument.mjs', 'latency_harness.rs'].map(f => [f, crypto.createHash('sha256').update(fs.readFileSync(path.join(root, 'tools', f))).digest('hex')])),
+    scripts: Object.fromEntries(['run.mjs', 'instrument.mjs', 'latency_harness.rs',
+      ...(suite === 'cross' ? ['add-cross-observer.mjs', 'relay-cert.cnf'] : [])]
+      .map(f => [f, crypto.createHash('sha256').update(fs.readFileSync(path.join(root, 'tools', f))).digest('hex')])),
     limits: { endpoint_cpus: 2, relay_cpus: 1, each_memory_bytes: 768 * 1048576, workers_per_endpoint: 2 },
     network: JSON.parse(docker('network', 'inspect', net)).map(n => ({ driver: n.Driver, internal: n.Internal, ipv6: n.EnableIPv6, ipam: n.IPAM })),
     link: JSON.parse(exec('send', 'ip', '-j', 'link', 'show', 'dev', 'eth0')),
-    binaries: Object.fromEntries(variants.map(v => [v, crypto.createHash('sha256').update(fs.readFileSync(path.join(root, 'bin', v))).digest('hex')])),
+    binaries: Object.fromEntries(variants.map(v => [v, crypto.createHash('sha256').update(fs.readFileSync(path.join(root, 'bin', suite === 'cross' ? `${v}-cross` : v))).digest('hex')])),
     scope: 'real engine + simulated app orchestration; same-kernel monotonic clock; no GUI/SAF; internal HTTPS relay with trusted temporary CA and QUIC address discovery; warm source cache; cold per-transfer endpoints',
     fixture: 'v2: no TCP proxy; real TLS and QAD; qdisc recreated per sample; v1 smoke/partial-main discarded',
-    relay: { url: 'https://relay.dashbeam.test:3341', quic_port: 7842, ca: 'ephemeral benchmark-only CA; not installed on host', authentication: 'none' },
+    relay: { url: 'https://relay.dashbeam.test:3341', quic_port: 7842, ca: 'ephemeral benchmark-only CA; not installed on host', authentication: 'none',
+      ...(suite === 'cross' ? { receiver_url: 'https://relay-b.dashbeam.test:3341', setup: 'different explicit single-relay homes; not dual-URL auto-selection' } : {}) },
     qdisc_placement: 'sender and receiver eth0 egress each RTT/2; isolated bridge/relay; no host qdisc', containers: names };
   fs.writeFileSync(path.join(results, 'environment.json'), JSON.stringify(metadata, null, 2));
   for (const c of cases) {

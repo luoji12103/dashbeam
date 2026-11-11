@@ -1,0 +1,381 @@
+{
+  "attempts": 10,
+  "successes": 10,
+  "path_verified": 10,
+  "groups": [
+    {
+      "case": {
+        "id": 11,
+        "name": "different-explicit-relay-homes",
+        "file": "sixteen-mib.bin",
+        "relay": true,
+        "rtt": 80,
+        "rate": 50,
+        "loss": 0
+      },
+      "comparison_baseline": "baseline",
+      "variants": {
+        "baseline": {
+          "attempted": 5,
+          "successful": 5,
+          "path_verified": 5,
+          "metrics": {
+            "metadata_build_ms": {
+              "n": 5,
+              "median": 0.015973,
+              "min": 0.013882,
+              "max": 0.016854
+            },
+            "send_relay_resolve_ms": {
+              "n": 5,
+              "median": 593.396422,
+              "min": 586.088633,
+              "max": 598.374561
+            },
+            "engine_prepare_ms": {
+              "n": 5,
+              "median": 531.303387,
+              "min": 531.160904,
+              "max": 531.329137
+            },
+            "share_ready_ms": {
+              "n": 5,
+              "median": 1124.573307,
+              "min": 1117.417949,
+              "max": 1129.694802
+            },
+            "receive_relay_resolve_ms": {
+              "n": 5,
+              "median": 587.158718,
+              "min": 583.63292,
+              "max": 594.8185
+            },
+            "metadata_ms": {
+              "n": 5,
+              "median": 386.868705,
+              "min": 384.246572,
+              "max": 428.918445
+            },
+            "receive_payload_progress_ms": {
+              "n": 5,
+              "median": 1502.278956,
+              "min": 1494.518481,
+              "max": 1561.563327
+            },
+            "end_to_end_payload_progress_ms": {
+              "n": 5,
+              "median": 2642.843489,
+              "min": 2629.910028,
+              "max": 2705.201212
+            },
+            "end_to_end_valid_export_ms": {
+              "n": 5,
+              "median": 5935.637019,
+              "min": 5921.344555,
+              "max": 6000.48184
+            },
+            "receive_valid_export_ms": {
+              "n": 5,
+              "median": 4795.072486,
+              "min": 4786.14987,
+              "max": 4856.843955
+            },
+            "verification_ms": {
+              "n": 5,
+              "median": 3.877453,
+              "min": 3.795811,
+              "max": 3.964549
+            },
+            "connect_and_store_ms": {
+              "n": 5,
+              "median": 217.92582,
+              "min": 208.110056,
+              "max": 218.958224
+            },
+            "sizes_ms": {
+              "n": 5,
+              "median": 124.673495,
+              "min": 122.892857,
+              "max": 126.060945
+            },
+            "payload_get_ms": {
+              "n": 5,
+              "median": 3399.975735,
+              "min": 3397.141667,
+              "max": 3407.929464
+            },
+            "post_get_export_ms": {
+              "n": 5,
+              "median": 13.132695,
+              "min": 10.198656,
+              "max": 14.039111
+            },
+            "receive_close_ms": {
+              "n": 5,
+              "median": 67.438055,
+              "min": 66.575102,
+              "max": 70.299516
+            },
+            "metadata_close_ms": {
+              "n": 5,
+              "median": 80.503663,
+              "min": 80.496862,
+              "max": 82.801448
+            },
+            "send_bind_to_import_ms": {
+              "n": 5,
+              "median": 14.948806,
+              "min": 13.35903,
+              "max": 27.107443
+            },
+            "send_bind_to_online_ms": {
+              "n": 5,
+              "median": 529.135396,
+              "min": 528.771136,
+              "max": 529.218693
+            }
+          }
+        },
+        "candidate": {
+          "attempted": 5,
+          "successful": 5,
+          "path_verified": 5,
+          "metrics": {
+            "metadata_build_ms": {
+              "n": 5,
+              "median": 0.018165,
+              "min": 0.015735,
+              "max": 0.022048
+            },
+            "send_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.048684,
+              "min": 0.042828,
+              "max": 0.051644
+            },
+            "engine_prepare_ms": {
+              "n": 5,
+              "median": 561.544593,
+              "min": 553.035065,
+              "max": 575.775934
+            },
+            "share_ready_ms": {
+              "n": 5,
+              "median": 561.61274,
+              "min": 553.098705,
+              "max": 575.846666
+            },
+            "receive_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.062938,
+              "min": 0.053113,
+              "max": 0.083227
+            },
+            "metadata_ms": {
+              "n": 5,
+              "median": 402.763454,
+              "min": 385.756444,
+              "max": 411.984
+            },
+            "receive_payload_progress_ms": {
+              "n": 5,
+              "median": 547.856268,
+              "min": 543.966753,
+              "max": 554.70214
+            },
+            "end_to_end_payload_progress_ms": {
+              "n": 5,
+              "median": 1118.031761,
+              "min": 1114.382599,
+              "max": 1147.492538
+            },
+            "end_to_end_valid_export_ms": {
+              "n": 5,
+              "median": 4419.7564,
+              "min": 4405.674989,
+              "max": 4441.690972
+            },
+            "receive_valid_export_ms": {
+              "n": 5,
+              "median": 3841.183597,
+              "min": 3836.26542,
+              "max": 3851.086854
+            },
+            "verification_ms": {
+              "n": 5,
+              "median": 4.081643,
+              "min": 3.543266,
+              "max": 4.551158
+            },
+            "connect_and_store_ms": {
+              "n": 5,
+              "median": 208.114716,
+              "min": 207.436769,
+              "max": 211.994915
+            },
+            "sizes_ms": {
+              "n": 5,
+              "median": 126.655913,
+              "min": 124.899965,
+              "max": 127.700286
+            },
+            "payload_get_ms": {
+              "n": 5,
+              "median": 3404.981685,
+              "min": 3401.682642,
+              "max": 3410.164906
+            },
+            "post_get_export_ms": {
+              "n": 5,
+              "median": 12.115738,
+              "min": 10.504956,
+              "max": 12.635243
+            },
+            "receive_close_ms": {
+              "n": 5,
+              "median": 68.582445,
+              "min": 68.009709,
+              "max": 70.081493
+            },
+            "metadata_close_ms": {
+              "n": 5,
+              "median": 81.856704,
+              "min": 80.410816,
+              "max": 82.381173
+            },
+            "send_bind_to_import_ms": {
+              "n": 5,
+              "median": 23.651422,
+              "min": 16.484028,
+              "max": 24.109859
+            },
+            "send_bind_to_online_ms": {
+              "n": 5,
+              "median": 527.454971,
+              "min": 527.04423,
+              "max": 531.548663
+            }
+          }
+        }
+      },
+      "paired": {
+        "candidate": {
+          "metadata_build_ms": {
+            "n": 5,
+            "median": -0.002184000000000002,
+            "min": -0.008009000000000002,
+            "max": 0.0003510000000000006
+          },
+          "send_relay_resolve_ms": {
+            "n": 5,
+            "median": 593.347176,
+            "min": 586.045805,
+            "max": 598.322917
+          },
+          "engine_prepare_ms": {
+            "n": 5,
+            "median": -30.24120599999992,
+            "min": -44.44679700000006,
+            "max": -21.721722
+          },
+          "share_ready_ms": {
+            "n": 5,
+            "median": 564.3192439999999,
+            "min": 553.808701,
+            "max": 568.082062
+          },
+          "receive_relay_resolve_ms": {
+            "n": 5,
+            "median": 587.075491,
+            "min": 583.569982,
+            "max": 594.765273
+          },
+          "metadata_ms": {
+            "n": 5,
+            "median": -1.5531069999999545,
+            "min": -23.396507999999983,
+            "max": 16.93444500000004
+          },
+          "receive_payload_progress_ms": {
+            "n": 5,
+            "median": 957.3059260000001,
+            "min": 947.6372670000001,
+            "max": 1006.8611870000001
+          },
+          "end_to_end_payload_progress_ms": {
+            "n": 5,
+            "median": 1528.4608899999998,
+            "min": 1487.2170419999998,
+            "max": 1557.708674
+          },
+          "end_to_end_valid_export_ms": {
+            "n": 5,
+            "median": 1524.1155209999997,
+            "min": 1486.1895859999995,
+            "max": 1558.790868
+          },
+          "receive_valid_export_ms": {
+            "n": 5,
+            "median": 953.6561119999997,
+            "min": 944.966273,
+            "max": 1007.9433810000005
+          },
+          "verification_ms": {
+            "n": 5,
+            "median": -0.2812629999999996,
+            "min": -0.5866090000000002,
+            "max": 0.4076909999999998
+          },
+          "connect_and_store_ms": {
+            "n": 5,
+            "median": 9.811104,
+            "min": -2.736709999999988,
+            "max": 10.567487
+          },
+          "sizes_ms": {
+            "n": 5,
+            "median": -1.7126420000000024,
+            "min": -4.807428999999999,
+            "max": 0.7076959999999985
+          },
+          "payload_get_ms": {
+            "n": 5,
+            "median": -5.55192500000021,
+            "min": -10.189170999999988,
+            "max": 2.9477789999996276
+          },
+          "post_get_export_ms": {
+            "n": 5,
+            "median": 1.403868000000001,
+            "min": -1.9170820000000006,
+            "max": 2.197782
+          },
+          "receive_close_ms": {
+            "n": 5,
+            "median": -1.4074109999999962,
+            "min": -2.0743750000000034,
+            "max": 1.71707099999999
+          },
+          "metadata_close_ms": {
+            "n": 5,
+            "median": 0.09284700000000612,
+            "min": -1.3566799999999972,
+            "max": 0.4888620000000117
+          },
+          "send_bind_to_import_ms": {
+            "n": 5,
+            "median": -1.5352219999999992,
+            "min": -10.750829,
+            "max": 3.000336000000001
+          },
+          "send_bind_to_online_ms": {
+            "n": 5,
+            "median": 1.7010679999999638,
+            "min": -2.4100349999999935,
+            "max": 2.091166000000044
+          }
+        }
+      }
+    }
+  ]
+}

@@ -54,6 +54,19 @@ The current local **pre-release** is [v0.7.1-local.4](https://github.com/luoji12
 - The device picker and cancel action are available while preparing a share. A legacy invitation is sent only once its ticket is ready; preparation/cancellation survives page navigation, and stale cleanup is restricted to its own ticket.
 - These changes preserve the existing BlobTicket wire format. Full-file hashing, Android SAF staging, a shared data endpoint, the new streaming protocol, and the optional encrypted **disk** spool are not eliminated/implemented by this update. No universal three-second or throughput claim is made. See [transport audit and experiments](reports/transport-audit-20261110/README.md) and [release validation](reports/transport-audit-20261110/PRODUCT_UPDATE.md).
 
+### Measured latency (2026-11-11)
+
+[DEV network benchmark](benchmarks/latency-20261111/REPORT.zh-CN.md): ten conditions,
+five matched old/new pairs each, **100/100** byte/path-verified transfers. At
+80 ms RTT / 50 Mbit/s through a forced relay, median share-to-payload progress
+fell from **2.662 s to 1.129 s** for 1 MiB; sustained large-file throughput was
+essentially unchanged. A separate two-explicit-home-relay suite passed **10/10**.
+These are real-engine tests with simulated application orchestration, not GUI,
+Android SAF or phone-to-Mac acceptance. The additional export-cache candidate was
+rejected; the tested product remains `local.4`, with no new streaming protocol or
+disk spool implied. Raw samples, build hashes and reproduction scripts are linked
+in the report.
+
 ### Build and install the local packages
 
 macOS (Apple Silicon) requires Node 22.12+, pnpm, Rust, and Xcode Command Line Tools:

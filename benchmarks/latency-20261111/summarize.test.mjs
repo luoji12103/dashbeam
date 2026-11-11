@@ -15,7 +15,8 @@ function run(rows, check) {
   try {
     fs.writeFileSync(path.join(dir, 'samples.jsonl'), rows.map(JSON.stringify).join('\n') + '\n');
     const execute = () => execFileSync(process.execPath, [script, dir], { stdio: 'pipe' });
-    check(execute, () => JSON.parse(fs.readFileSync(path.join(dir, 'summary.json'))));
+    check(execute, () => JSON.parse(fs.readFileSync(path.join(dir, 'summary.json'))),
+      () => fs.readFileSync(path.join(dir, 'RESULTS.md'), 'utf8'));
   } finally { fs.rmSync(dir, { recursive: true }); }
 }
 test('failures and path mismatches stay in denominators; savings use valid pairs only', () => {
@@ -36,4 +37,15 @@ test('all-failure groups produce empty stats rather than a fabricated time', () 
 });
 test('duplicate pair identifiers are rejected', () => {
   run([row('baseline', 1, true, true, 100), row('baseline', 1, true, true, 110)], execute => assert.throws(execute));
+});
+test('cross-home summary describes two relays without claiming automatic home selection', () => {
+  const samples = [row('baseline', 1, true, true, 100), row('candidate', 1, true, true, 80)]
+    .map(r => ({ ...r, case: { id: 11, name: 'different-explicit-relay-homes' } }));
+  run(samples, (execute, read, markdown) => {
+    execute(); assert.equal(read().attempts, 2);
+    assert.match(markdown(), /two independent local relays/);
+    assert.match(markdown(), /automatic home selection is not tested/);
+    assert.doesNotMatch(markdown(), /bridge and local relay\./);
+    assert.doesNotMatch(markdown(), /Case 10/);
+  });
 });

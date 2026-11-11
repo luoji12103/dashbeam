@@ -1,0 +1,82 @@
+{
+  "case": {
+    "id": 7,
+    "name": "relay-small-wan",
+    "file": "one-mib.bin",
+    "relay": true,
+    "rtt": 80,
+    "rate": 50,
+    "loss": 0
+  },
+  "ping": "PING 172.30.0.3 (172.30.0.3) 56(84) bytes of data.\n64 bytes from 172.30.0.3: icmp_seq=1 ttl=64 time=80.2 ms\n64 bytes from 172.30.0.3: icmp_seq=2 ttl=64 time=80.2 ms\n64 bytes from 172.30.0.3: icmp_seq=3 ttl=64 time=80.2 ms\n\n--- 172.30.0.3 ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss, time 401ms\nrtt min/avg/max/mdev = 80.157/80.179/80.193/0.015 ms",
+  "qdisc": {
+    "send": [
+      {
+        "kind": "netem",
+        "handle": "811a:",
+        "root": true,
+        "refcnt": 9,
+        "options": {
+          "limit": 10000,
+          "delay": {
+            "delay": 0.04,
+            "jitter": 0,
+            "correlation": 0
+          },
+          "rate": {
+            "rate": 6250000,
+            "packetoverhead": 0,
+            "cellsize": 0,
+            "celloverhead": 0
+          },
+          "seed": 14521011588641427000,
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 294,
+        "packets": 3,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "recv": [
+      {
+        "kind": "netem",
+        "handle": "811b:",
+        "root": true,
+        "refcnt": 9,
+        "options": {
+          "limit": 10000,
+          "delay": {
+            "delay": 0.04,
+            "jitter": 0,
+            "correlation": 0
+          },
+          "rate": {
+            "rate": 6250000,
+            "packetoverhead": 0,
+            "cellsize": 0,
+            "celloverhead": 0
+          },
+          "seed": 1929482562155126300,
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 294,
+        "packets": 3,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ]
+  },
+  "rules": {
+    "send": "-P OUTPUT ACCEPT\n-A OUTPUT -d 172.30.0.3/32 -p udp -j DROP",
+    "recv": "-P OUTPUT ACCEPT\n-A OUTPUT -d 172.30.0.2/32 -p udp -j DROP"
+  }
+}

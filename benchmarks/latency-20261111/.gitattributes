@@ -1,0 +1,4 @@
+# Blank context lines in a unified diff have a required leading space.
+*.patch -whitespace
+# Keep the SHA256-receipted raw Cargo transcript byte-for-byte, including its final blank line.
+results/export-cache-tests.txt -whitespace

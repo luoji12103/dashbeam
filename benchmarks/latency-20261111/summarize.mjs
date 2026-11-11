@@ -62,8 +62,12 @@ lines.push('', '## Scope', '',
   '- Frozen source revisions, identical instrumentation, fixed compiler/profile and CPU/memory limits; see environment/build manifests.',
   '- Real Rust engine + simulated application command orchestration. This is not a full GUI/Android SAF/phone-to-Mac test.',
   '- Each sample uses a fresh process, endpoint, ephemeral identity, store and output. Source page cache is equally warmed.',
-  '- Direct/relay paths are checked on the real connection. Case 10 injects advisory-only sleep and is a synthetic timeout stress case.',
-  '- One isolated Linux kernel, Docker bridge and local relay. Internet routing, GZ↔SH relays, NAT varieties, mobile sleep and production authentication are not represented.',
+  '- Direct/relay paths are checked on the real connection.',
+  ...(groups.some(g => g.case.id === 10) ? ['- Case 10 injects advisory-only sleep and is a synthetic timeout stress case.'] : []),
+  groups.some(g => g.case.id === 11)
+    ? '- One isolated Linux kernel and Docker bridge; case 11 uses two independent local relays, with sender configured only A and receiver only B. Home snapshots and selected relay path are verified, not a continuously traced A→B payload route. Both-URL automatic home selection is not tested.'
+    : '- One isolated Linux kernel, Docker bridge and local relay.',
+  '- Internet routing, GZ↔SH geographic links, NAT varieties, mobile sleep and production authentication are not represented.',
   '- See per-case ping calibration and per-sample qdisc counters. Timing includes a shared-file ticket handoff with a 20 ms polling interval.',
   '- Output API completion is not a power-loss durability/fsync guarantee.', '');
 fs.writeFileSync(path.join(dir, 'RESULTS.md'), lines.join('\n'));

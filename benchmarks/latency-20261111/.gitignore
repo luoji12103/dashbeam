@@ -8,3 +8,7 @@ ticket
 ticket.tmp
 *.key
 *.csr
+
+# Publish the report and generated summaries despite the root Markdown rule.
+!REPORT.zh-CN.md
+!results/**/RESULTS.md

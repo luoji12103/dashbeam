@@ -1,0 +1,1129 @@
+{
+  "attempts": 30,
+  "successes": 30,
+  "path_verified": 30,
+  "groups": [
+    {
+      "case": {
+        "id": 1,
+        "name": "direct-small-lan",
+        "file": "one-mib.bin",
+        "relay": false,
+        "rtt": 2,
+        "rate": 1000,
+        "loss": 0
+      },
+      "comparison_baseline": "candidate",
+      "variants": {
+        "candidate": {
+          "attempted": 5,
+          "successful": 5,
+          "path_verified": 5,
+          "metrics": {
+            "metadata_build_ms": {
+              "n": 5,
+              "median": 0.015168,
+              "min": 0.012904,
+              "max": 0.015729
+            },
+            "send_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.014626,
+              "min": 0.01161,
+              "max": 0.015328
+            },
+            "engine_prepare_ms": {
+              "n": 5,
+              "median": 55.42346,
+              "min": 26.651653,
+              "max": 57.164353
+            },
+            "share_ready_ms": {
+              "n": 5,
+              "median": 55.452614,
+              "min": 26.676167,
+              "max": 57.193585
+            },
+            "receive_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.025085,
+              "min": 0.022019,
+              "max": 0.031627
+            },
+            "metadata_ms": {
+              "n": 5,
+              "median": 29.149052,
+              "min": 10.638851,
+              "max": 63.812828
+            },
+            "receive_payload_progress_ms": {
+              "n": 5,
+              "median": 56.403545,
+              "min": 36.60373,
+              "max": 72.914939
+            },
+            "end_to_end_payload_progress_ms": {
+              "n": 5,
+              "median": 102.375819,
+              "min": 99.375456,
+              "max": 136.306522
+            },
+            "end_to_end_valid_export_ms": {
+              "n": 5,
+              "median": 120.154226,
+              "min": 116.912119,
+              "max": 153.851114
+            },
+            "receive_valid_export_ms": {
+              "n": 5,
+              "median": 73.940208,
+              "min": 53.950374,
+              "max": 90.459531
+            },
+            "verification_ms": {
+              "n": 5,
+              "median": 0.331368,
+              "min": 0.286954,
+              "max": 0.412643
+            },
+            "connect_and_store_ms": {
+              "n": 5,
+              "median": 8.115959,
+              "min": 7.617344,
+              "max": 8.765649
+            },
+            "sizes_ms": {
+              "n": 5,
+              "median": 3.680899,
+              "min": 3.143871,
+              "max": 4.674377
+            },
+            "payload_get_ms": {
+              "n": 5,
+              "median": 20.57771,
+              "min": 18.681335,
+              "max": 20.757432
+            },
+            "post_get_export_ms": {
+              "n": 5,
+              "median": 1.463728,
+              "min": 1.244474,
+              "max": 1.508977
+            },
+            "receive_close_ms": {
+              "n": 5,
+              "median": 0.794119,
+              "min": 0.744281,
+              "max": 1.027082
+            },
+            "metadata_close_ms": {
+              "n": 5,
+              "median": 2.308437,
+              "min": 2.167639,
+              "max": 2.694116
+            },
+            "send_bind_to_import_ms": {
+              "n": 5,
+              "median": 7.375828,
+              "min": 6.73357,
+              "max": 15.961007
+            },
+            "send_bind_to_online_ms": {
+              "n": 5,
+              "median": 5.974556,
+              "min": 5.539571,
+              "max": 14.65872
+            }
+          }
+        },
+        "optimized": {
+          "attempted": 5,
+          "successful": 5,
+          "path_verified": 5,
+          "metrics": {
+            "metadata_build_ms": {
+              "n": 5,
+              "median": 0.015709,
+              "min": 0.013544,
+              "max": 0.01638
+            },
+            "send_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.015777,
+              "min": 0.013214,
+              "max": 0.020037
+            },
+            "engine_prepare_ms": {
+              "n": 5,
+              "median": 39.26901,
+              "min": 26.525073,
+              "max": 45.339023
+            },
+            "share_ready_ms": {
+              "n": 5,
+              "median": 39.295768,
+              "min": 26.560356,
+              "max": 45.370509
+            },
+            "receive_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.019605,
+              "min": 0.018213,
+              "max": 0.030314
+            },
+            "metadata_ms": {
+              "n": 5,
+              "median": 9.968393,
+              "min": 9.684004,
+              "max": 35.879422
+            },
+            "receive_payload_progress_ms": {
+              "n": 5,
+              "median": 50.337811,
+              "min": 42.634801,
+              "max": 58.41538
+            },
+            "end_to_end_payload_progress_ms": {
+              "n": 5,
+              "median": 98.190043,
+              "min": 85.943546,
+              "max": 114.832991
+            },
+            "end_to_end_valid_export_ms": {
+              "n": 5,
+              "median": 115.59278,
+              "min": 102.42947,
+              "max": 131.944581
+            },
+            "receive_valid_export_ms": {
+              "n": 5,
+              "median": 67.449401,
+              "min": 59.120725,
+              "max": 77.032522
+            },
+            "verification_ms": {
+              "n": 5,
+              "median": 0.303966,
+              "min": 0.255163,
+              "max": 0.35112
+            },
+            "connect_and_store_ms": {
+              "n": 5,
+              "median": 8.010541,
+              "min": 7.755917,
+              "max": 8.485676
+            },
+            "sizes_ms": {
+              "n": 5,
+              "median": 3.815959,
+              "min": 3.791642,
+              "max": 4.755055
+            },
+            "payload_get_ms": {
+              "n": 5,
+              "median": 19.557889,
+              "min": 18.813054,
+              "max": 21.552806
+            },
+            "post_get_export_ms": {
+              "n": 5,
+              "median": 1.529915,
+              "min": 1.27825,
+              "max": 1.684002
+            },
+            "receive_close_ms": {
+              "n": 5,
+              "median": 0.740383,
+              "min": 0.535801,
+              "max": 0.959513
+            },
+            "metadata_close_ms": {
+              "n": 5,
+              "median": 2.24959,
+              "min": 2.235207,
+              "max": 2.532105
+            },
+            "send_bind_to_import_ms": {
+              "n": 5,
+              "median": 7.278831,
+              "min": 6.773886,
+              "max": 16.75655
+            },
+            "send_bind_to_online_ms": {
+              "n": 5,
+              "median": 5.863247,
+              "min": 5.570323,
+              "max": 15.390161
+            }
+          }
+        }
+      },
+      "paired": {
+        "optimized": {
+          "metadata_build_ms": {
+            "n": 5,
+            "median": -0.0005410000000000015,
+            "min": -0.002475999999999999,
+            "max": -0.00008000000000000021
+          },
+          "send_relay_resolve_ms": {
+            "n": 5,
+            "median": -0.0016039999999999995,
+            "min": -0.0060090000000000005,
+            "max": -0.0008509999999999993
+          },
+          "engine_prepare_ms": {
+            "n": 5,
+            "median": 11.673215000000006,
+            "min": -12.617357000000002,
+            "max": 28.898387
+          },
+          "share_ready_ms": {
+            "n": 5,
+            "median": 11.671823000000003,
+            "min": -12.619601000000003,
+            "max": 28.892257999999998
+          },
+          "receive_relay_resolve_ms": {
+            "n": 5,
+            "median": 0.0038060000000000004,
+            "min": -0.006390999999999997,
+            "max": 0.013183000000000004
+          },
+          "metadata_ms": {
+            "n": 5,
+            "median": 18.510977,
+            "min": -25.240570999999996,
+            "max": 53.902047
+          },
+          "receive_payload_progress_ms": {
+            "n": 5,
+            "median": -0.14792099999999664,
+            "min": -6.931221000000001,
+            "max": 22.577128000000002
+          },
+          "end_to_end_payload_progress_ms": {
+            "n": 5,
+            "median": 10.707292999999993,
+            "min": 1.6488410000000044,
+            "max": 21.473530999999994
+          },
+          "end_to_end_valid_export_ms": {
+            "n": 5,
+            "median": 9.676333,
+            "min": 0.8101059999999904,
+            "max": 21.906532999999996
+          },
+          "receive_valid_export_ms": {
+            "n": 5,
+            "median": -0.9866559999999964,
+            "min": -7.962180999999994,
+            "max": 23.010130000000004
+          },
+          "verification_ms": {
+            "n": 5,
+            "median": 0.03092600000000001,
+            "min": -0.028058000000000027,
+            "max": 0.10867699999999997
+          },
+          "connect_and_store_ms": {
+            "n": 5,
+            "median": -0.0799120000000002,
+            "min": -0.28490399999999916,
+            "max": 0.7551079999999999
+          },
+          "sizes_ms": {
+            "n": 5,
+            "median": -0.32034600000000024,
+            "min": -1.5250430000000001,
+            "max": 0.8584179999999999
+          },
+          "payload_get_ms": {
+            "n": 5,
+            "median": 0.9498909999999974,
+            "min": -1.111768999999999,
+            "max": 1.332339000000001
+          },
+          "post_get_export_ms": {
+            "n": 5,
+            "median": -0.134544,
+            "min": -0.203411,
+            "max": 0.11443099999999995
+          },
+          "receive_close_ms": {
+            "n": 5,
+            "median": 0.0675690000000001,
+            "min": -0.013302000000000036,
+            "max": 0.218769
+          },
+          "metadata_close_ms": {
+            "n": 5,
+            "median": 0.06392100000000012,
+            "min": -0.2937980000000002,
+            "max": 0.3012220000000001
+          },
+          "send_bind_to_import_ms": {
+            "n": 5,
+            "median": -0.3068580000000001,
+            "min": -8.820766,
+            "max": 9.187121000000001
+          },
+          "send_bind_to_online_ms": {
+            "n": 5,
+            "median": -0.19019200000000058,
+            "min": -9.415605000000001,
+            "max": 9.088397
+          }
+        }
+      }
+    },
+    {
+      "case": {
+        "id": 3,
+        "name": "direct-many-small",
+        "file": "many-small",
+        "relay": false,
+        "rtt": 2,
+        "rate": 1000,
+        "loss": 0
+      },
+      "comparison_baseline": "candidate",
+      "variants": {
+        "candidate": {
+          "attempted": 5,
+          "successful": 5,
+          "path_verified": 5,
+          "metrics": {
+            "metadata_build_ms": {
+              "n": 5,
+              "median": 1.461003,
+              "min": 1.147708,
+              "max": 1.543541
+            },
+            "send_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.014054,
+              "min": 0.010629,
+              "max": 0.017311
+            },
+            "engine_prepare_ms": {
+              "n": 5,
+              "median": 55.922569,
+              "min": 44.394956,
+              "max": 66.178323
+            },
+            "share_ready_ms": {
+              "n": 5,
+              "median": 57.080906,
+              "min": 45.87327,
+              "max": 67.394766
+            },
+            "receive_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.025615,
+              "min": 0.018231,
+              "max": 0.031466
+            },
+            "metadata_ms": {
+              "n": 5,
+              "median": 33.581625,
+              "min": 11.647418,
+              "max": 53.212217
+            },
+            "receive_payload_progress_ms": {
+              "n": 5,
+              "median": 50.901668,
+              "min": 48.588081,
+              "max": 69.334065
+            },
+            "end_to_end_payload_progress_ms": {
+              "n": 5,
+              "median": 130.356889,
+              "min": 112.9023,
+              "max": 133.455423
+            },
+            "end_to_end_valid_export_ms": {
+              "n": 5,
+              "median": 178.629913,
+              "min": 165.849746,
+              "max": 185.794526
+            },
+            "receive_valid_export_ms": {
+              "n": 5,
+              "median": 111.735672,
+              "min": 101.535527,
+              "max": 119.093971
+            },
+            "verification_ms": {
+              "n": 5,
+              "median": 5.848443,
+              "min": 4.703541,
+              "max": 5.982456
+            },
+            "connect_and_store_ms": {
+              "n": 5,
+              "median": 8.454383,
+              "min": 8.217409,
+              "max": 9.880629
+            },
+            "sizes_ms": {
+              "n": 5,
+              "median": 13.564502,
+              "min": 13.380371,
+              "max": 19.337576
+            },
+            "payload_get_ms": {
+              "n": 5,
+              "median": 21.141289,
+              "min": 17.183018,
+              "max": 23.876428
+            },
+            "post_get_export_ms": {
+              "n": 5,
+              "median": 34.192702,
+              "min": 30.78399,
+              "max": 41.257759
+            },
+            "receive_close_ms": {
+              "n": 5,
+              "median": 0.176033,
+              "min": 0.161012,
+              "max": 0.192429
+            },
+            "metadata_close_ms": {
+              "n": 5,
+              "median": 2.333032,
+              "min": 2.250944,
+              "max": 4.09124
+            },
+            "send_bind_to_import_ms": {
+              "n": 5,
+              "median": 25.816602,
+              "min": 16.462658,
+              "max": 28.418315
+            },
+            "send_bind_to_online_ms": {
+              "n": 5,
+              "median": 16.253108,
+              "min": 7.824721,
+              "max": 16.54643
+            }
+          }
+        },
+        "optimized": {
+          "attempted": 5,
+          "successful": 5,
+          "path_verified": 5,
+          "metrics": {
+            "metadata_build_ms": {
+              "n": 5,
+              "median": 1.470119,
+              "min": 1.174132,
+              "max": 1.707033
+            },
+            "send_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.01753,
+              "min": 0.009066,
+              "max": 0.019735
+            },
+            "engine_prepare_ms": {
+              "n": 5,
+              "median": 45.427928,
+              "min": 39.289121,
+              "max": 78.530738
+            },
+            "share_ready_ms": {
+              "n": 5,
+              "median": 46.638765,
+              "min": 40.797596,
+              "max": 80.018387
+            },
+            "receive_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.025315,
+              "min": 0.017701,
+              "max": 0.032948
+            },
+            "metadata_ms": {
+              "n": 5,
+              "median": 10.193336,
+              "min": 9.943495,
+              "max": 25.287482
+            },
+            "receive_payload_progress_ms": {
+              "n": 5,
+              "median": 64.942015,
+              "min": 42.958701,
+              "max": 69.157345
+            },
+            "end_to_end_payload_progress_ms": {
+              "n": 5,
+              "median": 127.255883,
+              "min": 107.359451,
+              "max": 139.081879
+            },
+            "end_to_end_valid_export_ms": {
+              "n": 5,
+              "median": 175.368925,
+              "min": 147.757874,
+              "max": 184.315037
+            },
+            "receive_valid_export_ms": {
+              "n": 5,
+              "median": 105.340438,
+              "min": 91.071743,
+              "max": 121.23068
+            },
+            "verification_ms": {
+              "n": 5,
+              "median": 5.825672,
+              "min": 5.693005,
+              "max": 6.949763
+            },
+            "connect_and_store_ms": {
+              "n": 5,
+              "median": 8.333976,
+              "min": 8.164256,
+              "max": 9.358895
+            },
+            "sizes_ms": {
+              "n": 5,
+              "median": 14.046102,
+              "min": 13.25755,
+              "max": 18.078728
+            },
+            "payload_get_ms": {
+              "n": 5,
+              "median": 18.9065,
+              "min": 17.387682,
+              "max": 27.829962
+            },
+            "post_get_export_ms": {
+              "n": 5,
+              "median": 25.390475,
+              "min": 23.776312,
+              "max": 29.854384
+            },
+            "receive_close_ms": {
+              "n": 5,
+              "median": 0.150152,
+              "min": 0.14245,
+              "max": 0.255022
+            },
+            "metadata_close_ms": {
+              "n": 5,
+              "median": 2.296723,
+              "min": 2.243689,
+              "max": 2.701213
+            },
+            "send_bind_to_import_ms": {
+              "n": 5,
+              "median": 17.745297,
+              "min": 14.838433,
+              "max": 27.80551
+            },
+            "send_bind_to_online_ms": {
+              "n": 5,
+              "median": 7.441937,
+              "min": 7.054205,
+              "max": 17.858684
+            }
+          }
+        }
+      },
+      "paired": {
+        "optimized": {
+          "metadata_build_ms": {
+            "n": 5,
+            "median": -0.20617299999999994,
+            "min": -0.322411,
+            "max": 0.3694090000000001
+          },
+          "send_relay_resolve_ms": {
+            "n": 5,
+            "median": -0.0042980000000000015,
+            "min": -0.008475,
+            "max": 0.0058519999999999996
+          },
+          "engine_prepare_ms": {
+            "n": 5,
+            "median": -1.032972000000001,
+            "min": -22.608168999999997,
+            "max": 26.889202000000004
+          },
+          "share_ready_ms": {
+            "n": 5,
+            "median": -0.7654950000000014,
+            "min": -22.937481000000005,
+            "max": 26.597170000000006
+          },
+          "receive_relay_resolve_ms": {
+            "n": 5,
+            "median": -0.00015100000000000183,
+            "min": -0.0014819999999999972,
+            "max": 0.006231
+          },
+          "metadata_ms": {
+            "n": 5,
+            "median": 18.178486,
+            "min": 1.5418640000000003,
+            "max": 43.268722000000004
+          },
+          "receive_payload_progress_ms": {
+            "n": 5,
+            "median": -2.976715000000013,
+            "min": -16.331367999999998,
+            "max": 12.469404999999995
+          },
+          "end_to_end_payload_progress_ms": {
+            "n": 5,
+            "median": -8.724989999999991,
+            "min": -14.353583,
+            "max": 26.09597199999999
+          },
+          "end_to_end_valid_export_ms": {
+            "n": 5,
+            "median": -3.8227540000000033,
+            "min": -9.51917899999998,
+            "max": 38.036652000000004
+          },
+          "receive_valid_export_ms": {
+            "n": 5,
+            "median": 2.949781999999999,
+            "min": -8.251795000000001,
+            "max": 17.371640999999997
+          },
+          "verification_ms": {
+            "n": 5,
+            "median": -0.8734539999999997,
+            "min": -0.9894639999999999,
+            "max": 0.075075
+          },
+          "connect_and_store_ms": {
+            "n": 5,
+            "median": 0.16294399999999953,
+            "min": -0.9045120000000004,
+            "max": 0.5883300000000009
+          },
+          "sizes_ms": {
+            "n": 5,
+            "median": 0.12282100000000007,
+            "min": -0.7661660000000001,
+            "max": 2.973620000000002
+          },
+          "payload_get_ms": {
+            "n": 5,
+            "median": -0.45221099999999836,
+            "min": -3.9535339999999977,
+            "max": 2.2347889999999992
+          },
+          "post_get_export_ms": {
+            "n": 5,
+            "median": 8.137454000000002,
+            "min": 4.552338000000002,
+            "max": 12.223724
+          },
+          "receive_close_ms": {
+            "n": 5,
+            "median": 0.013581999999999983,
+            "min": -0.07898900000000003,
+            "max": 0.049978999999999996
+          },
+          "metadata_close_ms": {
+            "n": 5,
+            "median": 0.03630900000000015,
+            "min": -0.1602800000000002,
+            "max": 1.390027
+          },
+          "send_bind_to_import_ms": {
+            "n": 5,
+            "median": 9.704541,
+            "min": -11.342852,
+            "max": 10.673017999999999
+          },
+          "send_bind_to_online_ms": {
+            "n": 5,
+            "median": 8.811171000000002,
+            "min": -9.156054000000001,
+            "max": 9.396716000000001
+          }
+        }
+      }
+    },
+    {
+      "case": {
+        "id": 7,
+        "name": "relay-small-wan",
+        "file": "one-mib.bin",
+        "relay": true,
+        "rtt": 80,
+        "rate": 50,
+        "loss": 0
+      },
+      "comparison_baseline": "candidate",
+      "variants": {
+        "candidate": {
+          "attempted": 5,
+          "successful": 5,
+          "path_verified": 5,
+          "metrics": {
+            "metadata_build_ms": {
+              "n": 5,
+              "median": 0.015796,
+              "min": 0.013053,
+              "max": 0.020535
+            },
+            "send_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.037725,
+              "min": 0.031756,
+              "max": 0.048723
+            },
+            "engine_prepare_ms": {
+              "n": 5,
+              "median": 557.028124,
+              "min": 551.949336,
+              "max": 572.044403
+            },
+            "share_ready_ms": {
+              "n": 5,
+              "median": 557.080254,
+              "min": 552.015639,
+              "max": 572.096694
+            },
+            "receive_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.057307,
+              "min": 0.050198,
+              "max": 0.072143
+            },
+            "metadata_ms": {
+              "n": 5,
+              "median": 403.922586,
+              "min": 384.443274,
+              "max": 423.364268
+            },
+            "receive_payload_progress_ms": {
+              "n": 5,
+              "median": 546.704521,
+              "min": 541.424737,
+              "max": 562.561544
+            },
+            "end_to_end_payload_progress_ms": {
+              "n": 5,
+              "median": 1112.863536,
+              "min": 1107.890486,
+              "max": 1139.034604
+            },
+            "end_to_end_valid_export_ms": {
+              "n": 5,
+              "median": 1668.412974,
+              "min": 1662.634553,
+              "max": 1691.509536
+            },
+            "receive_valid_export_ms": {
+              "n": 5,
+              "median": 1101.056364,
+              "min": 1096.073103,
+              "max": 1115.036476
+            },
+            "verification_ms": {
+              "n": 5,
+              "median": 0.368433,
+              "min": 0.321246,
+              "max": 0.396982
+            },
+            "connect_and_store_ms": {
+              "n": 5,
+              "median": 207.763935,
+              "min": 206.964213,
+              "max": 207.822616
+            },
+            "sizes_ms": {
+              "n": 5,
+              "median": 125.995345,
+              "min": 125.658779,
+              "max": 127.630317
+            },
+            "payload_get_ms": {
+              "n": 5,
+              "median": 662.44827,
+              "min": 661.172304,
+              "max": 667.021962
+            },
+            "post_get_export_ms": {
+              "n": 5,
+              "median": 1.540587,
+              "min": 1.256176,
+              "max": 2.750222
+            },
+            "receive_close_ms": {
+              "n": 5,
+              "median": 78.966552,
+              "min": 77.98424,
+              "max": 79.224272
+            },
+            "metadata_close_ms": {
+              "n": 5,
+              "median": 80.553693,
+              "min": 80.431438,
+              "max": 82.346762
+            },
+            "send_bind_to_import_ms": {
+              "n": 5,
+              "median": 7.508889,
+              "min": 6.81606,
+              "max": 17.828327
+            },
+            "send_bind_to_online_ms": {
+              "n": 5,
+              "median": 527.627735,
+              "min": 527.07045,
+              "max": 531.307127
+            }
+          }
+        },
+        "optimized": {
+          "attempted": 5,
+          "successful": 5,
+          "path_verified": 5,
+          "metrics": {
+            "metadata_build_ms": {
+              "n": 5,
+              "median": 0.015857,
+              "min": 0.013333,
+              "max": 0.029862
+            },
+            "send_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.04678,
+              "min": 0.037904,
+              "max": 0.071243
+            },
+            "engine_prepare_ms": {
+              "n": 5,
+              "median": 558.765746,
+              "min": 553.590202,
+              "max": 572.138133
+            },
+            "share_ready_ms": {
+              "n": 5,
+              "median": 558.827942,
+              "min": 553.641439,
+              "max": 572.239238
+            },
+            "receive_relay_resolve_ms": {
+              "n": 5,
+              "median": 0.044666,
+              "min": 0.0404,
+              "max": 0.057978
+            },
+            "metadata_ms": {
+              "n": 5,
+              "median": 410.797853,
+              "min": 384.010575,
+              "max": 416.055343
+            },
+            "receive_payload_progress_ms": {
+              "n": 5,
+              "median": 553.688644,
+              "min": 544.859193,
+              "max": 562.050149
+            },
+            "end_to_end_payload_progress_ms": {
+              "n": 5,
+              "median": 1134.664328,
+              "min": 1114.36601,
+              "max": 1143.087307
+            },
+            "end_to_end_valid_export_ms": {
+              "n": 5,
+              "median": 1690.813004,
+              "min": 1669.674492,
+              "max": 1696.281766
+            },
+            "receive_valid_export_ms": {
+              "n": 5,
+              "median": 1109.156281,
+              "min": 1100.167675,
+              "max": 1118.198825
+            },
+            "verification_ms": {
+              "n": 5,
+              "median": 0.385607,
+              "min": 0.350748,
+              "max": 0.509198
+            },
+            "connect_and_store_ms": {
+              "n": 5,
+              "median": 207.627866,
+              "min": 207.153953,
+              "max": 208.013692
+            },
+            "sizes_ms": {
+              "n": 5,
+              "median": 126.696754,
+              "min": 124.957594,
+              "max": 127.737135
+            },
+            "payload_get_ms": {
+              "n": 5,
+              "median": 663.902813,
+              "min": 662.386256,
+              "max": 667.356561
+            },
+            "post_get_export_ms": {
+              "n": 5,
+              "median": 1.662834,
+              "min": 1.400344,
+              "max": 2.531714
+            },
+            "receive_close_ms": {
+              "n": 5,
+              "median": 79.025303,
+              "min": 77.95839,
+              "max": 79.148667
+            },
+            "metadata_close_ms": {
+              "n": 5,
+              "median": 80.600521,
+              "min": 80.485053,
+              "max": 88.420091
+            },
+            "send_bind_to_import_ms": {
+              "n": 5,
+              "median": 16.159311,
+              "min": 7.541776,
+              "max": 17.280004
+            },
+            "send_bind_to_online_ms": {
+              "n": 5,
+              "median": 527.327631,
+              "min": 527.142218,
+              "max": 527.431937
+            }
+          }
+        }
+      },
+      "paired": {
+        "optimized": {
+          "metadata_build_ms": {
+            "n": 5,
+            "median": -0.0023629999999999988,
+            "min": -0.014065999999999999,
+            "max": 0.004678000000000002
+          },
+          "send_relay_resolve_ms": {
+            "n": 5,
+            "median": -0.009828000000000003,
+            "min": -0.023510000000000003,
+            "max": 0.010819000000000002
+          },
+          "engine_prepare_ms": {
+            "n": 5,
+            "median": -0.8829879999999548,
+            "min": -15.335076000000072,
+            "max": 6.026438999999982
+          },
+          "share_ready_ms": {
+            "n": 5,
+            "median": -0.8971210000000838,
+            "min": -15.372652000000016,
+            "max": 6.017053999999916
+          },
+          "receive_relay_resolve_ms": {
+            "n": 5,
+            "median": 0.008743999999999995,
+            "min": -0.006211000000000001,
+            "max": 0.031743
+          },
+          "metadata_ms": {
+            "n": 5,
+            "median": 10.490290999999957,
+            "min": -26.354579,
+            "max": 19.912011000000007
+          },
+          "receive_payload_progress_ms": {
+            "n": 5,
+            "median": 1.845327999999995,
+            "min": -20.625411999999983,
+            "max": 8.84505200000001
+          },
+          "end_to_end_payload_progress_ms": {
+            "n": 5,
+            "median": -8.837108000000171,
+            "min": -30.331232999999884,
+            "max": 1.908333999999968
+          },
+          "end_to_end_valid_export_ms": {
+            "n": 5,
+            "median": -8.95120299999985,
+            "min": -32.5546139999999,
+            "max": 0.9516949999999724
+          },
+          "receive_valid_export_ms": {
+            "n": 5,
+            "median": 0.8886890000001131,
+            "min": -22.125721999999996,
+            "max": 8.125524999999925
+          },
+          "verification_ms": {
+            "n": 5,
+            "median": -0.012819999999999998,
+            "min": -0.11221600000000004,
+            "max": 0.0048100000000000365
+          },
+          "connect_and_store_ms": {
+            "n": 5,
+            "median": -0.14005999999997698,
+            "min": -0.19107599999998115,
+            "max": 0.136068999999992
+          },
+          "sizes_ms": {
+            "n": 5,
+            "median": -0.5059669999999983,
+            "min": -1.3376789999999943,
+            "max": 0.9335630000000066
+          },
+          "payload_get_ms": {
+            "n": 5,
+            "median": -1.158600999999976,
+            "min": -2.0438089999998965,
+            "max": 2.190755000000081
+          },
+          "post_get_export_ms": {
+            "n": 5,
+            "median": -0.14416800000000007,
+            "min": -0.9911270000000001,
+            "max": 1.087388
+          },
+          "receive_close_ms": {
+            "n": 5,
+            "median": 0.07560499999999593,
+            "min": -1.041062999999994,
+            "max": 1.0081619999999987
+          },
+          "metadata_close_ms": {
+            "n": 5,
+            "median": -0.05605500000000063,
+            "min": -7.814054999999996,
+            "max": 1.8359020000000044
+          },
+          "send_bind_to_import_ms": {
+            "n": 5,
+            "median": -0.7257159999999994,
+            "min": -8.650421999999999,
+            "max": 1.4755490000000009
+          },
+          "send_bind_to_online_ms": {
+            "n": 5,
+            "median": 0.4855170000000726,
+            "min": -0.2986949999999524,
+            "max": 3.8751900000000887
+          }
+        }
+      }
+    }
+  ]
+}

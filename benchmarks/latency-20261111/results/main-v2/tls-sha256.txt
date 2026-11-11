@@ -1,0 +1,2 @@
+c07aff74f2c0ebc58b0f0537801423f03f7fd45048ef12f11939e4d9cc9bd774  tools/tls/ca.pem
+c90deff1e32ccd8dab8a68deaee28db7e110885a39b0db9fafe32345fa9041e4  tools/tls/relay.pem

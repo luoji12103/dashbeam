@@ -1,0 +1,53 @@
+{
+  "recorded_utc": "2026-11-11T18:47:20.750Z",
+  "variants": {
+    "baseline": {
+      "revision": "f3253bbbf6c1028821e2a66602ede9557cff4113",
+      "binary_sha256": "ca392bbab7f71a4c07c29ea9d33cb0ada861e1225b7342e26c981a533f924e0c",
+      "lock_sha256": "9daebcd39fe24b1c2742d473c077778f3a354b45132e801308f7b0dc971644d0",
+      "additional_observation": {
+        "root": "/home/luoji/code/dashbeam-benchmark-20261111.6mQj0M/baseline-cross-v3",
+        "instrumentation": "cross-home-observer-v1",
+        "files": [
+          {
+            "file": "engine/protocol/src/receive.rs",
+            "before_sha256": "1593ffe577259f04161892731ee9fd80b1d3b2a3f56ca3086a7a98db7c92a5c5",
+            "after_sha256": "0ffa5ab9ebb55674885ea5cd9ac17c0734f83795c76634b8e646b93b126b48ea"
+          }
+        ]
+      }
+    },
+    "candidate": {
+      "revision": "2ef67abf2e100f32db9aca7834397e705250053e",
+      "binary_sha256": "f12b7c82f7731f02ba5013792b93ca887aa9700a0117232d25ce1412323a33d5",
+      "lock_sha256": "9daebcd39fe24b1c2742d473c077778f3a354b45132e801308f7b0dc971644d0",
+      "additional_observation": {
+        "root": "/home/luoji/code/dashbeam-benchmark-20261111.6mQj0M/candidate-cross-v3",
+        "instrumentation": "cross-home-observer-v1",
+        "files": [
+          {
+            "file": "engine/protocol/src/receive.rs",
+            "before_sha256": "7017d74acdf1756627d5ef67711a6e94f599f77d1a187dbdfb267f20dfb6d277",
+            "after_sha256": "3e8b513ff2b65697941c67c4effdfa396493cf8f5eac0f055f4c57e6e8b59e6d"
+          }
+        ]
+      }
+    }
+  },
+  "base_build": "build-v2.json",
+  "profile": {
+    "opt_level": 2,
+    "lto": false,
+    "codegen_units": 8,
+    "build_jobs": 2,
+    "locked": true,
+    "offline": true
+  },
+  "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)\nbinary: rustc\ncommit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96\ncommit-date: 2026-05-25\nhost: x86_64-unknown-linux-gnu\nrelease: 1.96.0\nLLVM version: 22.1.2",
+  "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+  "harness_sha256": "d0e5d9afe69471bb285f0ab1d768ef2f761f1f75c886664224f3f2f8c1b54137",
+  "ca_sha256": "c07aff74f2c0ebc58b0f0537801423f03f7fd45048ef12f11939e4d9cc9bd774",
+  "relay_cert_sha256": "9d8a1daff9a78ef3bd744eb3b553e5c236295f517f991b01367c5f577d3d7cf2",
+  "topology": "sender configured only A; receiver configured only B; no relay-to-relay mesh; peer UDP blocked; snapshots require actual home A != B",
+  "limitation": "does not model both URLs on each device or automatic home selection; snapshots are not continuous tracing"
+}
