@@ -15,6 +15,7 @@ pub mod runtime;
 pub mod secret_store;
 pub mod send;
 pub mod storage;
+pub mod stream;
 pub mod types;
 
 pub use device_identity::{
@@ -34,4 +35,8 @@ pub use protocol::{
 };
 pub use receive::download;
 pub use send::{start_share, start_share_items};
+pub use stream::{
+    StreamLimits, StreamPath, StreamReceiveOptions, StreamReceiveResult, StreamReceiver, StreamShare,
+    StreamTicket, STREAM_ALPN, STREAM_BUFFER_BYTES,
+};
 pub use types::{ReceiveResult, SendResult};

@@ -6805,6 +6805,7 @@ name = "sendme-native"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "blake3",
  "data-encoding",
  "dirs 6.0.0",
  "iroh",
