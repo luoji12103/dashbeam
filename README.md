@@ -54,7 +54,17 @@ The current local **pre-release** is [v0.7.1-local.4](https://github.com/luoji12
 - The device picker and cancel action are available while preparing a share. A legacy invitation is sent only once its ticket is ready; preparation/cancellation survives page navigation, and stale cleanup is restricted to its own ticket.
 - These changes preserve the existing BlobTicket wire format. Full-file hashing, Android SAF staging, a shared data endpoint, the new streaming protocol, and the optional encrypted **disk** spool are not eliminated/implemented by this update. No universal three-second or throughput claim is made. See [transport audit and experiments](reports/transport-audit-20261110/README.md) and [release validation](reports/transport-audit-20261110/PRODUCT_UPDATE.md).
 
-### Measured latency (2026-11-11)
+### Experimental source streaming (2026-11-12)
+
+An additional, **unreleased opt-in source-stream experiment** now reads directly
+from an open regular file, without full preparation hashing or a blob-store
+import, and receives directly into the destination filesystem. It preserves
+incremental integrity validation and uses bounded buffers. This is **not wired
+into the GUI/Android picker and is not included in local.4 packages**; legacy
+clients/tickets are unchanged. See the [experiment and API/CLI instructions](experiments/source-stream-20261112/README.md)
+and the [2026-11-12 data-plane comparison](experiments/source-stream-20261112/REPORT.zh-CN.md).
+
+### Measured compatible latency (2026-11-11)
 
 [DEV network benchmark](benchmarks/latency-20261111/REPORT.zh-CN.md): ten conditions,
 five matched old/new pairs each, **100/100** byte/path-verified transfers. At

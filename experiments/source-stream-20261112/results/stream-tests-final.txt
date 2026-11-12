@@ -1,0 +1,36 @@
+   Compiling sendme-native v0.1.0 (/home/luoji/code/dashbeam-source-stream-20261112.wXzKWL/source/engine/native)
+    Finished `release` profile [optimized] target(s) in 24.94s
+     Running unittests src/lib.rs (/home/luoji/code/dashbeam-macos/src-tauri/target/release/deps/native-a86afb4152e9d68f)
+
+running 28 tests
+test stream::tests::a_lost_completion_ack_preserves_the_verified_final_file ... ok
+test stream::tests::an_open_non_regular_descriptor_is_rejected_before_binding ... ok
+test stream::tests::an_open_regular_file_does_not_require_a_source_path ... ok
+test stream::tests::append_or_truncate_after_first_frame_cannot_produce_a_verified_commit ... ok
+test stream::tests::cancellation_after_verification_prevents_commit ... ok
+test stream::tests::cancelled_before_start_keeps_existing_files_and_reads_nothing ... ok
+test stream::tests::cancelling_an_active_receive_cleans_partial_and_bounds_further_source_reads ... ok
+test stream::tests::concurrent_receivers_do_not_share_a_mutable_source_cursor ... ok
+test stream::tests::conflict_commit_preserves_existing_file_and_symlink ... ok
+test stream::tests::control_lengths_are_bounded_before_allocating_or_deserializing ... ok
+test stream::tests::dropping_a_cancelled_payload_cleans_its_partial ... ok
+test stream::tests::empty_and_frame_boundaries_repeat_without_preparation_reads ... ok
+test stream::tests::idle_timeout_is_bounded_and_removes_partial ... ok
+test stream::tests::invalid_capability_cannot_read_source_or_create_a_partial ... ok
+test stream::tests::large_payload_uses_fixed_frame_reads_and_small_backpressure_channel ... ok
+test stream::tests::larger_transport_window_preserves_an_explicit_read_ahead_budget ... ok
+test stream::tests::malformed_streams_never_commit_and_cleanup_owned_partials ... ok
+test stream::tests::metadata_changes_or_path_replacement_cannot_complete ... ok
+test stream::tests::output_directory_symlinks_and_shared_write_access_are_rejected ... ok
+test stream::tests::over_budget_request_is_rejected_before_partial_creation_or_source_read ... ok
+test stream::tests::rejection_after_offer_keeps_source_read_ahead_bounded ... ok
+test stream::tests::request_alone_starts_the_first_frame_without_an_accept_message ... ok
+test stream::tests::request_requires_explicit_budget_and_rejects_old_or_unknown_fields ... ok
+test stream::tests::shutdown_revokes_ticket_and_does_not_affect_a_new_share ... ok
+test stream::tests::temporary_file_is_private_and_commit_is_no_clobber ... ok
+test stream::tests::ticket_is_explicit_bounded_and_debug_redacted ... ok
+test stream::tests::transport_window_has_a_finite_default_and_validates_both_boundaries ... ok
+test stream::tests::unsafe_and_cross_platform_paths_are_rejected ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 81 filtered out; finished in 4.78s
+

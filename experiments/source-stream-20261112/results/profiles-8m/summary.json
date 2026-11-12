@@ -1,0 +1,727 @@
+{
+  "attempts": 8,
+  "successes": 8,
+  "path_verified": 8,
+  "transfers": 8,
+  "groups": [
+    {
+      "case": {
+        "id": 7,
+        "name": "cold-relay-large-wan",
+        "file": "sixtyfour-mib.bin",
+        "relay": true,
+        "rtt": 80,
+        "rate": 50,
+        "count": 1
+      },
+      "variants": {
+        "legacy": {
+          "attempted": 2,
+          "successful": 2,
+          "path_verified": 2,
+          "metrics": {
+            "share_ready_ms": {
+              "n": 2,
+              "median": 553.2589645,
+              "min": 546.864224,
+              "max": 559.653705
+            },
+            "share_payload_ms": {
+              "n": 2,
+              "median": 1128.99214,
+              "min": 1107.378918,
+              "max": 1150.605362
+            },
+            "share_return_ms": {
+              "n": 2,
+              "median": 13176.872883,
+              "min": 13148.678947,
+              "max": 13205.066819
+            },
+            "share_commit_ms": {
+              "n": 2,
+              "median": 13133.575520999999,
+              "min": 13105.786952,
+              "max": 13161.36409
+            },
+            "receive_payload_ms": {
+              "n": 2,
+              "median": 565.352647,
+              "min": 542.366468,
+              "max": 588.338826
+            },
+            "receive_return_ms": {
+              "n": 2,
+              "median": 12613.233390000001,
+              "min": 12583.666497,
+              "max": 12642.800283
+            },
+            "prepare_rchar_bytes": {
+              "n": 2,
+              "median": 67113863.5,
+              "min": 67113856,
+              "max": 67113871
+            },
+            "prepare_cpu_ms": {
+              "n": 2,
+              "median": 55.043,
+              "min": 55.009,
+              "max": 55.077
+            },
+            "sender_rchar_bytes": {
+              "n": 2,
+              "median": 134502071.5,
+              "min": 134502064,
+              "max": 134502079
+            },
+            "sender_cpu_ms": {
+              "n": 2,
+              "median": 738.194,
+              "min": 714.7760000000001,
+              "max": 761.612
+            },
+            "sender_maxrss_kib": {
+              "n": 2,
+              "median": 24946,
+              "min": 24636,
+              "max": 25256
+            },
+            "receiver_maxrss_kib": {
+              "n": 2,
+              "median": 20112,
+              "min": 20020,
+              "max": 20204
+            },
+            "relay_cpu_ms": {
+              "n": 2,
+              "median": 743.2895,
+              "min": 710.875,
+              "max": 775.704
+            },
+            "first_receive_cpu_ms": {
+              "n": 2,
+              "median": 1149.943,
+              "min": 1108.0179999999998,
+              "max": 1191.8680000000002
+            },
+            "first_receive_write_bytes": {
+              "n": 2,
+              "median": 134602752,
+              "min": 134598656,
+              "max": 134606848
+            },
+            "sampled_disk_logical_bytes": {
+              "n": 2,
+              "median": 136888372,
+              "min": 136888372,
+              "max": 136888372
+            },
+            "sampled_disk_allocated_bytes": {
+              "n": 2,
+              "median": 134844416,
+              "min": 134844416,
+              "max": 134844416
+            },
+            "warm_receive_payload_ms": {
+              "n": 0,
+              "median": null,
+              "min": null,
+              "max": null
+            },
+            "warm_receive_return_ms": {
+              "n": 0,
+              "median": null,
+              "min": null,
+              "max": null
+            }
+          }
+        },
+        "stream": {
+          "attempted": 2,
+          "successful": 2,
+          "path_verified": 2,
+          "metrics": {
+            "share_ready_ms": {
+              "n": 2,
+              "median": 557.516391,
+              "min": 554.144021,
+              "max": 560.888761
+            },
+            "share_payload_ms": {
+              "n": 2,
+              "median": 921.6348875,
+              "min": 912.183258,
+              "max": 931.086517
+            },
+            "share_return_ms": {
+              "n": 2,
+              "median": 13028.0991375,
+              "min": 13019.51017,
+              "max": 13036.688105
+            },
+            "share_commit_ms": {
+              "n": 2,
+              "median": 12934.5085155,
+              "min": 12930.143595,
+              "max": 12938.873436
+            },
+            "receive_payload_ms": {
+              "n": 2,
+              "median": 350.0867535,
+              "min": 346.20617,
+              "max": 353.967337
+            },
+            "receive_return_ms": {
+              "n": 2,
+              "median": 12456.5510035,
+              "min": 12442.39099,
+              "max": 12470.711017
+            },
+            "prepare_rchar_bytes": {
+              "n": 2,
+              "median": 1779.5,
+              "min": 1779,
+              "max": 1780
+            },
+            "prepare_cpu_ms": {
+              "n": 2,
+              "median": 14.0735,
+              "min": 13.731,
+              "max": 14.416
+            },
+            "sender_rchar_bytes": {
+              "n": 2,
+              "median": 67110743,
+              "min": 67110743,
+              "max": 67110743
+            },
+            "sender_cpu_ms": {
+              "n": 2,
+              "median": 629.1435,
+              "min": 621.423,
+              "max": 636.864
+            },
+            "sender_maxrss_kib": {
+              "n": 2,
+              "median": 34694,
+              "min": 33988,
+              "max": 35400
+            },
+            "receiver_maxrss_kib": {
+              "n": 2,
+              "median": 24350,
+              "min": 23712,
+              "max": 24988
+            },
+            "relay_cpu_ms": {
+              "n": 2,
+              "median": 710.2080000000001,
+              "min": 701.553,
+              "max": 718.863
+            },
+            "first_receive_cpu_ms": {
+              "n": 2,
+              "median": 833.8555,
+              "min": 821.311,
+              "max": 846.4
+            },
+            "first_receive_write_bytes": {
+              "n": 2,
+              "median": 67108864,
+              "min": 67108864,
+              "max": 67108864
+            },
+            "sampled_disk_logical_bytes": {
+              "n": 2,
+              "median": 67109278.5,
+              "min": 67109274,
+              "max": 67109283
+            },
+            "sampled_disk_allocated_bytes": {
+              "n": 2,
+              "median": 67117056,
+              "min": 67117056,
+              "max": 67117056
+            },
+            "warm_receive_payload_ms": {
+              "n": 0,
+              "median": null,
+              "min": null,
+              "max": null
+            },
+            "warm_receive_return_ms": {
+              "n": 0,
+              "median": null,
+              "min": null,
+              "max": null
+            }
+          }
+        }
+      },
+      "paired_savings": {
+        "share_ready_ms": {
+          "n": 2,
+          "median": -4.257426500000008,
+          "min": -7.279796999999917,
+          "max": -1.2350560000000996
+        },
+        "share_payload_ms": {
+          "n": 2,
+          "median": 207.35725250000007,
+          "min": 176.29240100000015,
+          "max": 238.422104
+        },
+        "share_return_ms": {
+          "n": 2,
+          "median": 148.7737455000006,
+          "min": 129.16877700000077,
+          "max": 168.3787140000004
+        },
+        "share_commit_ms": {
+          "n": 2,
+          "median": 199.06700550000005,
+          "min": 166.91351600000053,
+          "max": 231.22049499999957
+        },
+        "receive_payload_ms": {
+          "n": 2,
+          "median": 215.26589350000006,
+          "min": 188.39913100000007,
+          "max": 242.13265600000005
+        },
+        "receive_return_ms": {
+          "n": 2,
+          "median": 156.68238650000058,
+          "min": 141.2755070000003,
+          "max": 172.08926600000086
+        },
+        "prepare_rchar_bytes": {
+          "n": 2,
+          "median": 67112084,
+          "min": 67112077,
+          "max": 67112091
+        },
+        "prepare_cpu_ms": {
+          "n": 2,
+          "median": 40.9695,
+          "min": 40.661,
+          "max": 41.278
+        },
+        "sender_rchar_bytes": {
+          "n": 2,
+          "median": 67391328.5,
+          "min": 67391321,
+          "max": 67391336
+        },
+        "sender_cpu_ms": {
+          "n": 2,
+          "median": 109.0505,
+          "min": 77.91200000000003,
+          "max": 140.18899999999996
+        },
+        "sender_maxrss_kib": {
+          "n": 2,
+          "median": -9748,
+          "min": -10144,
+          "max": -9352
+        },
+        "receiver_maxrss_kib": {
+          "n": 2,
+          "median": -4238,
+          "min": -4784,
+          "max": -3692
+        },
+        "relay_cpu_ms": {
+          "n": 2,
+          "median": 33.08149999999995,
+          "min": -7.988000000000056,
+          "max": 74.15099999999995
+        },
+        "first_receive_cpu_ms": {
+          "n": 2,
+          "median": 316.0875,
+          "min": 261.6179999999998,
+          "max": 370.55700000000013
+        },
+        "first_receive_write_bytes": {
+          "n": 2,
+          "median": 67493888,
+          "min": 67489792,
+          "max": 67497984
+        },
+        "sampled_disk_logical_bytes": {
+          "n": 2,
+          "median": 69779093.5,
+          "min": 69779089,
+          "max": 69779098
+        },
+        "sampled_disk_allocated_bytes": {
+          "n": 2,
+          "median": 67727360,
+          "min": 67727360,
+          "max": 67727360
+        }
+      }
+    },
+    {
+      "case": {
+        "id": 12,
+        "name": "high-bdp-relay",
+        "file": "sixtyfour-mib.bin",
+        "relay": true,
+        "rtt": 80,
+        "rate": 1000,
+        "count": 1,
+        "extra": true
+      },
+      "variants": {
+        "legacy": {
+          "attempted": 2,
+          "successful": 2,
+          "path_verified": 2,
+          "metrics": {
+            "share_ready_ms": {
+              "n": 2,
+              "median": 552.0563314999999,
+              "min": 550.859453,
+              "max": 553.25321
+            },
+            "share_payload_ms": {
+              "n": 2,
+              "median": 1120.8650714999999,
+              "min": 1112.858261,
+              "max": 1128.871882
+            },
+            "share_return_ms": {
+              "n": 2,
+              "median": 6437.939564,
+              "min": 6435.629149,
+              "max": 6440.249979
+            },
+            "share_commit_ms": {
+              "n": 2,
+              "median": 6394.54266,
+              "min": 6392.785227,
+              "max": 6396.300093
+            },
+            "receive_payload_ms": {
+              "n": 2,
+              "median": 557.5021975,
+              "min": 556.772978,
+              "max": 558.231417
+            },
+            "receive_return_ms": {
+              "n": 2,
+              "median": 5874.57669,
+              "min": 5864.988684,
+              "max": 5884.164696
+            },
+            "prepare_rchar_bytes": {
+              "n": 2,
+              "median": 67113871.5,
+              "min": 67113871,
+              "max": 67113872
+            },
+            "prepare_cpu_ms": {
+              "n": 2,
+              "median": 59.2595,
+              "min": 57.494,
+              "max": 61.025
+            },
+            "sender_rchar_bytes": {
+              "n": 2,
+              "median": 134502079.5,
+              "min": 134502079,
+              "max": 134502080
+            },
+            "sender_cpu_ms": {
+              "n": 2,
+              "median": 519.6305,
+              "min": 515.075,
+              "max": 524.186
+            },
+            "sender_maxrss_kib": {
+              "n": 2,
+              "median": 22436,
+              "min": 22028,
+              "max": 22844
+            },
+            "receiver_maxrss_kib": {
+              "n": 2,
+              "median": 20998,
+              "min": 20268,
+              "max": 21728
+            },
+            "relay_cpu_ms": {
+              "n": 2,
+              "median": 482.45950000000005,
+              "min": 477.187,
+              "max": 487.732
+            },
+            "first_receive_cpu_ms": {
+              "n": 2,
+              "median": 768.9585000000001,
+              "min": 763.0300000000001,
+              "max": 774.8870000000001
+            },
+            "first_receive_write_bytes": {
+              "n": 2,
+              "median": 134588416,
+              "min": 134578176,
+              "max": 134598656
+            },
+            "sampled_disk_logical_bytes": {
+              "n": 2,
+              "median": 136888372,
+              "min": 136888372,
+              "max": 136888372
+            },
+            "sampled_disk_allocated_bytes": {
+              "n": 2,
+              "median": 134844416,
+              "min": 134844416,
+              "max": 134844416
+            },
+            "warm_receive_payload_ms": {
+              "n": 0,
+              "median": null,
+              "min": null,
+              "max": null
+            },
+            "warm_receive_return_ms": {
+              "n": 0,
+              "median": null,
+              "min": null,
+              "max": null
+            }
+          }
+        },
+        "stream": {
+          "attempted": 2,
+          "successful": 2,
+          "path_verified": 2,
+          "metrics": {
+            "share_ready_ms": {
+              "n": 2,
+              "median": 556.938952,
+              "min": 552.922669,
+              "max": 560.955235
+            },
+            "share_payload_ms": {
+              "n": 2,
+              "median": 916.257173,
+              "min": 906.104889,
+              "max": 926.409457
+            },
+            "share_return_ms": {
+              "n": 2,
+              "median": 2752.7780705,
+              "min": 2748.795385,
+              "max": 2756.760756
+            },
+            "share_commit_ms": {
+              "n": 2,
+              "median": 2645.9632195,
+              "min": 2642.04596,
+              "max": 2649.880479
+            },
+            "receive_payload_ms": {
+              "n": 2,
+              "median": 343.876556,
+              "min": 340.427794,
+              "max": 347.325318
+            },
+            "receive_return_ms": {
+              "n": 2,
+              "median": 2180.3974534999998,
+              "min": 2177.676617,
+              "max": 2183.11829
+            },
+            "prepare_rchar_bytes": {
+              "n": 2,
+              "median": 1781.5,
+              "min": 1780,
+              "max": 1783
+            },
+            "prepare_cpu_ms": {
+              "n": 2,
+              "median": 13.553,
+              "min": 13.528,
+              "max": 13.578
+            },
+            "sender_rchar_bytes": {
+              "n": 2,
+              "median": 67110745,
+              "min": 67110744,
+              "max": 67110746
+            },
+            "sender_cpu_ms": {
+              "n": 2,
+              "median": 356.481,
+              "min": 350.16900000000004,
+              "max": 362.793
+            },
+            "sender_maxrss_kib": {
+              "n": 2,
+              "median": 34374,
+              "min": 34224,
+              "max": 34524
+            },
+            "receiver_maxrss_kib": {
+              "n": 2,
+              "median": 19410,
+              "min": 17964,
+              "max": 20856
+            },
+            "relay_cpu_ms": {
+              "n": 2,
+              "median": 428.278,
+              "min": 403.729,
+              "max": 452.827
+            },
+            "first_receive_cpu_ms": {
+              "n": 2,
+              "median": 448.62750000000005,
+              "min": 446.826,
+              "max": 450.42900000000003
+            },
+            "first_receive_write_bytes": {
+              "n": 2,
+              "median": 67108864,
+              "min": 67108864,
+              "max": 67108864
+            },
+            "sampled_disk_logical_bytes": {
+              "n": 2,
+              "median": 67109278,
+              "min": 67109274,
+              "max": 67109282
+            },
+            "sampled_disk_allocated_bytes": {
+              "n": 2,
+              "median": 67117056,
+              "min": 67117056,
+              "max": 67117056
+            },
+            "warm_receive_payload_ms": {
+              "n": 0,
+              "median": null,
+              "min": null,
+              "max": null
+            },
+            "warm_receive_return_ms": {
+              "n": 0,
+              "median": null,
+              "min": null,
+              "max": null
+            }
+          }
+        }
+      },
+      "paired_savings": {
+        "share_ready_ms": {
+          "n": 2,
+          "median": -4.88262050000003,
+          "min": -7.702025000000049,
+          "max": -2.0632160000000113
+        },
+        "share_payload_ms": {
+          "n": 2,
+          "median": 204.60789850000003,
+          "min": 186.4488040000001,
+          "max": 222.76699299999996
+        },
+        "share_return_ms": {
+          "n": 2,
+          "median": 3685.1614935000002,
+          "min": 3683.489223,
+          "max": 3686.8337640000004
+        },
+        "share_commit_ms": {
+          "n": 2,
+          "median": 3748.5794405,
+          "min": 3746.419614,
+          "max": 3750.7392670000004
+        },
+        "receive_payload_ms": {
+          "n": 2,
+          "median": 213.62564149999997,
+          "min": 209.44765999999998,
+          "max": 217.80362299999996
+        },
+        "receive_return_ms": {
+          "n": 2,
+          "median": 3694.1792365,
+          "min": 3681.870394,
+          "max": 3706.4880789999997
+        },
+        "prepare_rchar_bytes": {
+          "n": 2,
+          "median": 67112090,
+          "min": 67112089,
+          "max": 67112091
+        },
+        "prepare_cpu_ms": {
+          "n": 2,
+          "median": 45.7065,
+          "min": 43.916,
+          "max": 47.497
+        },
+        "sender_rchar_bytes": {
+          "n": 2,
+          "median": 67391334.5,
+          "min": 67391334,
+          "max": 67391335
+        },
+        "sender_cpu_ms": {
+          "n": 2,
+          "median": 163.14950000000002,
+          "min": 161.39300000000003,
+          "max": 164.906
+        },
+        "sender_maxrss_kib": {
+          "n": 2,
+          "median": -11938,
+          "min": -12196,
+          "max": -11680
+        },
+        "receiver_maxrss_kib": {
+          "n": 2,
+          "median": 1588,
+          "min": -588,
+          "max": 3764
+        },
+        "relay_cpu_ms": {
+          "n": 2,
+          "median": 54.18150000000003,
+          "min": 34.90500000000003,
+          "max": 73.45800000000003
+        },
+        "first_receive_cpu_ms": {
+          "n": 2,
+          "median": 320.331,
+          "min": 312.60100000000006,
+          "max": 328.06100000000004
+        },
+        "first_receive_write_bytes": {
+          "n": 2,
+          "median": 67479552,
+          "min": 67469312,
+          "max": 67489792
+        },
+        "sampled_disk_logical_bytes": {
+          "n": 2,
+          "median": 69779094,
+          "min": 69779090,
+          "max": 69779098
+        },
+        "sampled_disk_allocated_bytes": {
+          "n": 2,
+          "median": 67727360,
+          "min": 67727360,
+          "max": 67727360
+        }
+      }
+    }
+  ]
+}

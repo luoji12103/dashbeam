@@ -1,0 +1,82 @@
+{
+  "case": {
+    "id": 6,
+    "name": "cold-relay-small-wan",
+    "file": "one-mib.bin",
+    "relay": true,
+    "rtt": 80,
+    "rate": 50,
+    "count": 1
+  },
+  "ping": "PING 192.168.112.3 (192.168.112.3) 56(84) bytes of data.\n64 bytes from 192.168.112.3: icmp_seq=1 ttl=64 time=160 ms\n64 bytes from 192.168.112.3: icmp_seq=2 ttl=64 time=80.2 ms\n64 bytes from 192.168.112.3: icmp_seq=3 ttl=64 time=80.1 ms\n\n--- 192.168.112.3 ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss, time 401ms\nrtt min/avg/max/mdev = 80.133/106.864/160.304/37.787 ms",
+  "qdisc": {
+    "send": [
+      {
+        "kind": "netem",
+        "handle": "821c:",
+        "root": true,
+        "refcnt": 9,
+        "options": {
+          "limit": 10000,
+          "delay": {
+            "delay": 0.04,
+            "jitter": 0,
+            "correlation": 0
+          },
+          "rate": {
+            "rate": 6250000,
+            "packetoverhead": 0,
+            "cellsize": 0,
+            "celloverhead": 0
+          },
+          "seed": 12228190742054652000,
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 336,
+        "packets": 4,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "recv": [
+      {
+        "kind": "netem",
+        "handle": "821d:",
+        "root": true,
+        "refcnt": 9,
+        "options": {
+          "limit": 10000,
+          "delay": {
+            "delay": 0.04,
+            "jitter": 0,
+            "correlation": 0
+          },
+          "rate": {
+            "rate": 6250000,
+            "packetoverhead": 0,
+            "cellsize": 0,
+            "celloverhead": 0
+          },
+          "seed": 6821253426947327000,
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 336,
+        "packets": 4,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ]
+  },
+  "rules": {
+    "send": "-P OUTPUT ACCEPT\n-A OUTPUT -d 192.168.112.3/32 -p udp -j DROP",
+    "recv": "-P OUTPUT ACCEPT\n-A OUTPUT -d 192.168.112.2/32 -p udp -j DROP"
+  }
+}

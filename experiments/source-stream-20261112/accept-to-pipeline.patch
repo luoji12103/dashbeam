@@ -1,0 +1,281 @@
+--- a/engine/native/src/stream.rs
++++ b/engine/native/src/stream.rs
+@@ -4,6 +4,14 @@
+ //! flow. A ticket is a bearer secret: anyone holding it may read this share until
+ //! shutdown. Endpoint authentication and encryption are supplied by Iroh QUIC.
+ //! There is no pre-hash, blob store, full copy, resume, or automatic retry.
++//! Calling receive explicitly consents to a transfer within its byte budget.
++//! Its request carries that budget, so an authenticated sender can send Offer
++//! followed immediately by payload without a separate acceptance round trip.
++//! The receiver still validates Offer before creating a partial or reading
++//! payload. A rejection/cancellation closes the connection; speculative source
++//! reading remains bounded by the QUIC receive/send windows and one sender
++//! frame. These transport buffers are separate from the 64 KiB application
++//! buffer; a receiver does not allocate a complete file in memory.
+ //!
+ //! The digest describes the bytes actually read (a CapturedStream), not an
+ //! atomic historical snapshot. Metadata checks detect ordinary concurrent
+@@ -51,7 +59,7 @@
+ mod codec;
+ use codec::{
+     read_control, read_exact, read_frame_length, require_eof, timed, validate_name, write_all,
+-    write_control, Accept, Complete, Manifest, Offer, Request, VERSION,
++    write_control, Complete, Manifest, Offer, Request, VERSION,
+ };
+ pub use codec::STREAM_BUFFER_BYTES;
+ 
+@@ -494,6 +502,12 @@
+                 && blake3::Hash::from(request.capability) == blake3::Hash::from(capability),
+             "source stream unauthorized"
+         );
++        // The request is the receiver's explicit transfer consent. Check both
++        // budgets before acquiring the file, inspecting metadata or seeking.
++        ensure!(
++            source.stamp.len <= limits.max_bytes && source.stamp.len <= request.max_bytes,
++            "source exceeds stream request byte limit"
++        );
+         // File metadata, seeking, and content reads occur only after auth.
+         let mut file = source.file.lock().await;
+         source.unchanged(&file).await?;
+@@ -503,8 +517,8 @@
+             &Offer { version: VERSION, name: source.name.clone(), bytes: source.stamp.len },
+             limits.idle_timeout,
+         ).await?;
+-        let accept: Accept = read_control(&mut rx, limits.idle_timeout).await?;
+-        ensure!(accept.version == VERSION, "source stream accept version");
++        // Payload follows Offer on this same ordered stream. Do not wait for a
++        // second application round trip or start a read-ahead producer task.
+         anyhow::Ok((tx, rx, file))
+     }).await.context("source stream request timeout")??;
+ 
+@@ -628,11 +642,15 @@
+             }
+             let connection = self.connection.as_ref().expect("connection established");
+             let initial_path = selected_path(connection);
+-            let (mut tx, mut rx, offer) = timeout(self.limits.request_timeout, async {
++            let (tx, mut rx, offer) = timeout(self.limits.request_timeout, async {
+                 let (mut tx, mut rx) = connection.open_bi().await?;
+                 write_control(
+                     &mut tx,
+-                    &Request { version: VERSION, capability: ticket.capability },
++                    &Request {
++                        version: VERSION,
++                        capability: ticket.capability,
++                        max_bytes: self.limits.max_bytes,
++                    },
+                     self.limits.idle_timeout,
+                 ).await?;
+                 let offer: Offer = read_control(&mut rx, self.limits.idle_timeout).await?;
+@@ -642,7 +660,6 @@
+                 anyhow::Ok((tx, rx, offer))
+             }).await.context("source stream request timeout")??;
+             let mut partial = PartialFile::create(&output_dir)?;
+-            write_control(&mut tx, &Accept { version: VERSION }, self.limits.idle_timeout).await?;
+             let verified = receive_payload(
+                 &mut rx, &mut partial, &offer, &self.limits, started,
+             ).await?;
+--- a/engine/native/src/stream_codec.rs
++++ b/engine/native/src/stream_codec.rs
+@@ -7,6 +7,8 @@
+ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+ use tokio::time::timeout;
+ 
++// This experimental v1 has not been released. max_bytes is required, and both
++// peers reject unknown fields: pre-budget/Accept prototype peers fail closed.
+ pub(super) const VERSION: u8 = 1;
+ pub(super) const MAX_CONTROL_BYTES: usize = 4096;
+ pub(super) const MAX_NAME_BYTES: usize = 240;
+@@ -17,6 +19,10 @@
+ pub(super) struct Request {
+     pub version: u8,
+     pub capability: [u8; 32],
++    /// Sending this request explicitly authorizes receiving up to this size.
++    /// Required: older pre-release requests fail closed instead of obtaining
++    /// an implicit unlimited budget.
++    pub max_bytes: u64,
+ }
+ 
+ #[derive(Serialize, Deserialize)]
+@@ -29,12 +35,6 @@
+ 
+ #[derive(Serialize, Deserialize)]
+ #[serde(deny_unknown_fields)]
+-pub(super) struct Accept {
+-    pub version: u8,
+-}
+-
+-#[derive(Serialize, Deserialize)]
+-#[serde(deny_unknown_fields)]
+ pub(super) struct Manifest {
+     pub bytes: u64,
+     pub blake3: [u8; 32],
+--- a/engine/native/src/stream_tests.rs
++++ b/engine/native/src/stream_tests.rs
+@@ -163,7 +163,7 @@
+ }
+ 
+ #[tokio::test]
+-async fn over_budget_offer_is_rejected_before_partial_creation_or_source_read() {
++async fn over_budget_request_is_rejected_before_partial_creation_or_source_read() {
+     let source = TempDir::new().unwrap();
+     let output = TempDir::new().unwrap();
+     let path = source.path().join("payload.bin");
+@@ -180,7 +180,128 @@
+     share.shutdown().await;
+ }
+ 
++#[test]
++fn request_requires_explicit_budget_and_rejects_old_or_unknown_fields() {
++    let capability = vec![0u8; 32];
++    let missing = serde_json::json!({ "version": VERSION, "capability": capability });
++    assert!(serde_json::from_value::<Request>(missing).is_err());
++    let unknown = serde_json::json!({
++        "version": VERSION, "capability": vec![0u8; 32], "max_bytes": 1,
++        "accept_later": true,
++    });
++    assert!(serde_json::from_value::<Request>(unknown).is_err());
++    let zero_budget = serde_json::json!({
++        "version": VERSION, "capability": vec![0u8; 32], "max_bytes": 0,
++    });
++    assert_eq!(serde_json::from_value::<Request>(zero_budget).unwrap().max_bytes, 0);
++}
++
+ #[tokio::test]
++async fn request_alone_starts_the_first_frame_without_an_accept_message() {
++    let source = TempDir::new().unwrap();
++    let path = source.path().join("payload.bin");
++    let bytes = vec![79u8; STREAM_BUFFER_BYTES + 1];
++    std::fs::write(&path, &bytes).unwrap();
++    let share = StreamShare::start_with_limits(path, send_options(), limits()).await.unwrap();
++    let receiver = StreamReceiver::new(receive_options()).await.unwrap();
++    let ticket = share.ticket();
++    let connection = receiver.endpoint.0.connect(ticket.addr.clone(), STREAM_ALPN).await.unwrap();
++    let (mut tx, mut rx) = connection.open_bi().await.unwrap();
++    write_control(
++        &mut tx,
++        &Request {
++            version: VERSION,
++            capability: ticket.capability,
++            max_bytes: bytes.len() as u64,
++        },
++        limits().idle_timeout,
++    ).await.unwrap();
++    let offer: Offer = read_control(&mut rx, limits().idle_timeout).await.unwrap();
++    assert_eq!(offer.bytes, bytes.len() as u64);
++    // Send nothing after Request: the first frame must arrive independently.
++    let len = read_frame_length(&mut rx, offer.bytes, limits().idle_timeout).await.unwrap();
++    let mut first_frame = vec![0u8; len];
++    read_exact(&mut rx, &mut first_frame, limits().idle_timeout).await.unwrap();
++    assert_eq!(first_frame, bytes[..len]);
++    assert!(share.source_bytes_read() >= len as u64);
++    connection.close(VarInt::from_u32(0), b"test finished after first frame");
++    receiver.shutdown().await;
++    share.shutdown().await;
++}
++
++#[tokio::test]
++async fn rejection_after_offer_keeps_source_read_ahead_bounded() {
++    let source = TempDir::new().unwrap();
++    let path = source.path().join("payload.bin");
++    let size = 4 * 1024 * 1024;
++    std::fs::write(&path, vec![23u8; size]).unwrap();
++    let share = StreamShare::start_with_limits(path, send_options(), limits()).await.unwrap();
++    let receiver = StreamReceiver::new(receive_options()).await.unwrap();
++    let ticket = share.ticket();
++    let connection = receiver.endpoint.0.connect(ticket.addr.clone(), STREAM_ALPN).await.unwrap();
++    let (mut tx, mut rx) = connection.open_bi().await.unwrap();
++    write_control(
++        &mut tx,
++        &Request {
++            version: VERSION,
++            capability: ticket.capability,
++            max_bytes: size as u64,
++        },
++        limits().idle_timeout,
++    ).await.unwrap();
++    let _: Offer = read_control(&mut rx, limits().idle_timeout).await.unwrap();
++    // Stop application reads after Offer. The peer may fill the advertised
++    // receive window and its own send window, plus one application frame.
++    tokio::time::sleep(Duration::from_millis(50)).await;
++    let maximum_read_ahead =
++        2 * u64::from(TRANSPORT_WINDOW) + STREAM_BUFFER_BYTES as u64 + codec::MAX_CONTROL_BYTES as u64;
++    assert!(share.source_bytes_read() <= maximum_read_ahead);
++    connection.close(VarInt::from_u32(0), b"test rejected offer");
++    // Acquiring the cursor after closing observes the producer's final count,
++    // not a transient sample taken while it still owns an in-flight file read.
++    let cursor = timeout(limits().request_timeout, share.source.file.lock()).await.unwrap();
++    assert!(share.source_bytes_read() <= maximum_read_ahead);
++    assert!(share.source_bytes_read() < size as u64);
++    drop(cursor);
++    receiver.shutdown().await;
++    share.shutdown().await;
++}
++
++#[tokio::test]
++async fn cancelling_an_active_receive_cleans_partial_and_bounds_further_source_reads() {
++    let source = TempDir::new().unwrap();
++    let output = TempDir::new().unwrap();
++    let path = source.path().join("payload.bin");
++    let size = 8 * 1024 * 1024;
++    std::fs::write(&path, vec![37u8; size]).unwrap();
++    let share = StreamShare::start_with_limits(path, send_options(), limits()).await.unwrap();
++    let ticket = share.ticket();
++    let output_path = canonical(&output);
++    let (cancel, cancelled) = oneshot::channel();
++    let transfer = tokio::spawn(async move {
++        receive(&ticket, output_path, receive_options(), cancelled).await
++    });
++    timeout(Duration::from_secs(5), async {
++        while part_count(output.path()) == 0 && !transfer.is_finished() {
++            tokio::task::yield_now().await;
++        }
++    }).await.unwrap();
++    assert!(part_count(output.path()) > 0, "receive finished before cancellation point");
++    let read_at_cancel = share.source_bytes_read();
++    cancel.send(()).unwrap();
++    let error = timeout(Duration::from_secs(10), transfer).await.unwrap().unwrap().unwrap_err();
++    assert!(error.to_string().contains("cancelled"));
++    let cursor = timeout(limits().request_timeout, share.source.file.lock()).await.unwrap();
++    let maximum_remaining_read_ahead =
++        2 * u64::from(TRANSPORT_WINDOW) + STREAM_BUFFER_BYTES as u64 + codec::MAX_CONTROL_BYTES as u64;
++    assert!(share.source_bytes_read() <= read_at_cancel + maximum_remaining_read_ahead);
++    drop(cursor);
++    assert_eq!(part_count(output.path()), 0);
++    assert!(!output.path().join("payload.bin").exists());
++    share.shutdown().await;
++}
++
++#[tokio::test]
+ async fn concurrent_receivers_do_not_share_a_mutable_source_cursor() {
+     let source = TempDir::new().unwrap();
+     let output_a = TempDir::new().unwrap();
+@@ -455,15 +576,18 @@
+     let (mut tx, mut rx) = connection.open_bi().await.unwrap();
+     write_control(
+         &mut tx,
+-        &Request { version: VERSION, capability: ticket.capability },
++        &Request {
++            version: VERSION,
++            capability: ticket.capability,
++            max_bytes: limits().max_bytes,
++        },
+         limits().idle_timeout,
+     ).await.unwrap();
+     let offer: Offer = read_control(&mut rx, limits().idle_timeout).await.unwrap();
+-    write_control(&mut tx, &Accept { version: VERSION }, limits().idle_timeout).await.unwrap();
+     let len = read_frame_length(&mut rx, offer.bytes, limits().idle_timeout).await.unwrap();
+     let mut frame = vec![0u8; len];
+     read_exact(&mut rx, &mut frame, limits().idle_timeout).await.unwrap();
+-    // The send window is 1 MiB, so a 4 MiB source cannot have completed while
++    // Both QUIC windows are 1 MiB, so a 4 MiB source cannot have completed while
+     // this peer has consumed only its first 64 KiB frame.
+     let mut writer = std::fs::OpenOptions::new().write(true).open(&source_path).unwrap();
+     if truncate {
+@@ -519,7 +643,6 @@
+             &Offer { version: VERSION, name: "verified.bin".into(), bytes: content.len() as u64 },
+             Duration::from_secs(5),
+         ).await.unwrap();
+-        let _: Accept = read_control(&mut rx, Duration::from_secs(5)).await.unwrap();
+         // Stop only the client's outgoing direction. The offered payload can
+         // still be received, verified and committed, but its final ACK fails.
+         rx.stop(VarInt::from_u32(13)).unwrap();

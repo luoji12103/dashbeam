@@ -1,0 +1,91 @@
+{
+  "case": {
+    "id": 8,
+    "name": "cold-relay-lossy",
+    "file": "sixteen-mib.bin",
+    "relay": true,
+    "rtt": 150,
+    "rate": 20,
+    "loss": 0.5,
+    "count": 1
+  },
+  "ping": "PING 192.168.128.3 (192.168.128.3) 56(84) bytes of data.\n64 bytes from 192.168.128.3: icmp_seq=1 ttl=64 time=150 ms\n64 bytes from 192.168.128.3: icmp_seq=2 ttl=64 time=150 ms\n64 bytes from 192.168.128.3: icmp_seq=3 ttl=64 time=150 ms\n\n--- 192.168.128.3 ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss, time 400ms\nrtt min/avg/max/mdev = 150.212/150.234/150.259/0.019 ms",
+  "qdisc": {
+    "send": [
+      {
+        "kind": "netem",
+        "handle": "828a:",
+        "root": true,
+        "refcnt": 9,
+        "options": {
+          "limit": 10000,
+          "delay": {
+            "delay": 0.075,
+            "jitter": 0,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.005,
+            "correlation": 0
+          },
+          "rate": {
+            "rate": 2500000,
+            "packetoverhead": 0,
+            "cellsize": 0,
+            "celloverhead": 0
+          },
+          "seed": 5000,
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 294,
+        "packets": 3,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "recv": [
+      {
+        "kind": "netem",
+        "handle": "828b:",
+        "root": true,
+        "refcnt": 9,
+        "options": {
+          "limit": 10000,
+          "delay": {
+            "delay": 0.075,
+            "jitter": 0,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.005,
+            "correlation": 0
+          },
+          "rate": {
+            "rate": 2500000,
+            "packetoverhead": 0,
+            "cellsize": 0,
+            "celloverhead": 0
+          },
+          "seed": 5001,
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 294,
+        "packets": 3,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ]
+  },
+  "rules": {
+    "send": "-P OUTPUT ACCEPT\n-A OUTPUT -d 192.168.128.3/32 -p udp -j DROP",
+    "recv": "-P OUTPUT ACCEPT\n-A OUTPUT -d 192.168.128.2/32 -p udp -j DROP"
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "case": {
+    "id": 11,
+    "name": "high-bdp-direct",
+    "file": "sixtyfour-mib.bin",
+    "relay": false,
+    "rtt": 80,
+    "rate": 1000,
+    "count": 1,
+    "extra": true
+  },
+  "ping": "PING 192.168.96.3 (192.168.96.3) 56(84) bytes of data.\n64 bytes from 192.168.96.3: icmp_seq=1 ttl=64 time=160 ms\n64 bytes from 192.168.96.3: icmp_seq=2 ttl=64 time=80.2 ms\n64 bytes from 192.168.96.3: icmp_seq=3 ttl=64 time=80.1 ms\n\n--- 192.168.96.3 ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss, time 400ms\nrtt min/avg/max/mdev = 80.108/106.885/160.397/37.838 ms",
+  "qdisc": {
+    "send": [
+      {
+        "kind": "netem",
+        "handle": "8208:",
+        "root": true,
+        "refcnt": 9,
+        "options": {
+          "limit": 10000,
+          "delay": {
+            "delay": 0.04,
+            "jitter": 0,
+            "correlation": 0
+          },
+          "rate": {
+            "rate": 125000000,
+            "packetoverhead": 0,
+            "cellsize": 0,
+            "celloverhead": 0
+          },
+          "seed": 13891203957866156000,
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 336,
+        "packets": 4,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "recv": [
+      {
+        "kind": "netem",
+        "handle": "8209:",
+        "root": true,
+        "refcnt": 9,
+        "options": {
+          "limit": 10000,
+          "delay": {
+            "delay": 0.04,
+            "jitter": 0,
+            "correlation": 0
+          },
+          "rate": {
+            "rate": 125000000,
+            "packetoverhead": 0,
+            "cellsize": 0,
+            "celloverhead": 0
+          },
+          "seed": 10676896042559891000,
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 336,
+        "packets": 4,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ]
+  },
+  "rules": {
+    "send": "-P OUTPUT ACCEPT",
+    "recv": "-P OUTPUT ACCEPT"
+  }
+}

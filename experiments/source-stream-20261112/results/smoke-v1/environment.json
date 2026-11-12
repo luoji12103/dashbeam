@@ -1,0 +1,70 @@
+{
+  "experiment": "dbstream-1112-smoke-v1-623f9f",
+  "cases": [
+    {
+      "id": 1,
+      "name": "cold-direct-small-lan",
+      "file": "one-mib.bin",
+      "relay": false,
+      "rtt": 2,
+      "rate": 1000,
+      "count": 1
+    },
+    {
+      "id": 6,
+      "name": "cold-relay-small-wan",
+      "file": "one-mib.bin",
+      "relay": true,
+      "rtt": 80,
+      "rate": 50,
+      "count": 1
+    },
+    {
+      "id": 9,
+      "name": "repeat-relay-small-wan",
+      "file": "one-mib.bin",
+      "relay": true,
+      "rtt": 80,
+      "rate": 50,
+      "count": 3
+    }
+  ],
+  "repeats": 1,
+  "kernel": "6.12.113+deb13-amd64",
+  "image": "sha256:12c91ba32f912b4cea54489747c98eb3c884431e40a17e94e9546d02cdfde455",
+  "binary_sha256": "d6f06bb6b75133636e9c74b8e767daf6b0538e758a6b80a03766b3bf3ac6ac3a",
+  "scripts": {
+    "run.mjs": "e2365ac7694fa66cfac9f8d0ec4bb4e3051e9ee333bddc900f3f730323f68ab0",
+    "source_stream_bench.rs": "30b7fb71fc547ecd243cfd0ad0fa73d35ddb0d296d364c753bb5029de6524388"
+  },
+  "build": null,
+  "limits": {
+    "endpoint_cpus": 2,
+    "relay_cpus": 1,
+    "memory_bytes": 805306368,
+    "workers": 2
+  },
+  "scope": "engine-only data plane; no metadata advisory/UI/SAF/consent; legacy current compatible engine versus experimental streaming; same source warm page cache; cold share per sample; repeat count reuses sender in BOTH variants, streaming additionally caches receiver connection; hash/copy CPU and IO included; byte comparison excluded from individual receive interval",
+  "network": [
+    {
+      "driver": "bridge",
+      "internal": true,
+      "ipam": {
+        "Driver": "default",
+        "Options": {},
+        "Config": [
+          {
+            "Subnet": "192.168.32.0/20",
+            "Gateway": "192.168.32.1"
+          }
+        ]
+      }
+    }
+  ],
+  "relay": {
+    "url": "https://relay.dashbeam.test:3341",
+    "authentication": "none",
+    "ca": "experiment only"
+  },
+  "qdisc": "endpoint egress each RTT/2; seeded loss; peer UDP blocked in forced-relay cases; no host rules"
+}

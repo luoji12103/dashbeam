@@ -1,0 +1,66 @@
+   Compiling sendme-native v0.1.0 (/home/luoji/code/dashbeam-source-stream-20261112.wXzKWL/source/engine/native)
+    Finished `release` profile [optimized] target(s) in 25.71s
+     Running unittests src/lib.rs (code/dashbeam-macos/src-tauri/target/release/deps/native-a86afb4152e9d68f)
+
+running 20 tests
+test stream::tests::an_open_non_regular_descriptor_is_rejected_before_binding ... ok
+test stream::tests::a_lost_completion_ack_preserves_the_verified_final_file ... FAILED
+test stream::tests::an_open_regular_file_does_not_require_a_source_path ... FAILED
+test stream::tests::cancellation_after_verification_prevents_commit ... ok
+test stream::tests::cancelled_before_start_keeps_existing_files_and_reads_nothing ... ok
+test stream::tests::append_after_first_frame_cannot_produce_a_verified_commit ... ok
+test stream::tests::control_lengths_are_bounded_before_allocating_or_deserializing ... ok
+test stream::tests::conflict_commit_preserves_existing_file_and_symlink ... FAILED
+test stream::tests::dropping_a_cancelled_payload_cleans_its_partial ... ok
+test stream::tests::empty_and_frame_boundaries_repeat_without_preparation_reads ... FAILED
+test stream::tests::idle_timeout_is_bounded_and_removes_partial ... ok
+test stream::tests::invalid_capability_cannot_read_source_or_create_a_partial ... ok
+test stream::tests::malformed_streams_never_commit_and_cleanup_owned_partials ... ok
+test stream::tests::metadata_changes_or_path_replacement_cannot_complete ... ok
+test stream::tests::output_directory_symlinks_and_shared_write_access_are_rejected ... ok
+test stream::tests::shutdown_revokes_ticket_and_does_not_affect_a_new_share ... FAILED
+test stream::tests::temporary_file_is_private_and_commit_is_no_clobber ... ok
+test stream::tests::ticket_is_explicit_bounded_and_debug_redacted ... ok
+test stream::tests::unsafe_and_cross_platform_paths_are_rejected ... ok
+test stream::tests::large_payload_uses_fixed_frame_reads_and_small_backpressure_channel ... ok
+
+failures:
+
+---- stream::tests::a_lost_completion_ack_preserves_the_verified_final_file stdout ----
+
+thread 'stream::tests::a_lost_completion_ack_preserves_the_verified_final_file' (756058) panicked at native/src/stream_tests.rs:478:93:
+called `Result::unwrap()` on an `Err` value: output directory must not be writable by other users
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- stream::tests::an_open_regular_file_does_not_require_a_source_path stdout ----
+
+thread 'stream::tests::an_open_regular_file_does_not_require_a_source_path' (756060) panicked at native/src/stream_tests.rs:132:13:
+called `Result::unwrap()` on an `Err` value: output directory must not be writable by other users
+
+---- stream::tests::conflict_commit_preserves_existing_file_and_symlink stdout ----
+
+thread 'stream::tests::conflict_commit_preserves_existing_file_and_symlink' (756070) panicked at native/src/stream_tests.rs:192:13:
+called `Result::unwrap()` on an `Err` value: output directory must not be writable by other users
+
+---- stream::tests::empty_and_frame_boundaries_repeat_without_preparation_reads stdout ----
+
+thread 'stream::tests::empty_and_frame_boundaries_repeat_without_preparation_reads' (756077) panicked at native/src/stream_tests.rs:101:91:
+called `Result::unwrap()` on an `Err` value: output directory must not be writable by other users
+
+---- stream::tests::shutdown_revokes_ticket_and_does_not_affect_a_new_share stdout ----
+
+thread 'stream::tests::shutdown_revokes_ticket_and_does_not_affect_a_new_share' (756092) panicked at native/src/stream_tests.rs:528:5:
+assertion failed: receive(&second.ticket(), output.path().into(), receive_options(),
+            cancelled).await.is_ok()
+
+
+failures:
+    stream::tests::a_lost_completion_ack_preserves_the_verified_final_file
+    stream::tests::an_open_regular_file_does_not_require_a_source_path
+    stream::tests::conflict_commit_preserves_existing_file_and_symlink
+    stream::tests::empty_and_frame_boundaries_repeat_without_preparation_reads
+    stream::tests::shutdown_revokes_ticket_and_does_not_affect_a_new_share
+
+test result: FAILED. 15 passed; 5 failed; 0 ignored; 0 measured; 81 filtered out; finished in 0.52s
+
+error: test failed, to rerun pass `-p sendme-native --lib`

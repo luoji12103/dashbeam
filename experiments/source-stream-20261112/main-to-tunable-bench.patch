@@ -1,0 +1,99 @@
+--- a/experiments/source-stream-20261112/source_stream_bench.rs
++++ b/experiments/source-stream-20261112/source_stream_bench.rs
+@@ -66,13 +66,14 @@
+     let (mut a,mut b)=(File::open(source)?,File::open(dest)?); let (mut x,mut y)=([0u8;65536],[0u8;65536]);
+     loop{let n=a.read(&mut x)?; if n==0{break;} b.read_exact(&mut y[..n])?;ensure!(x[..n]==y[..n],"file bytes differ");} Ok(())
+ }
+-struct Args { role:String,variant:String,shared:PathBuf,source:PathBuf,relay:String,count:usize }
++struct Args { role:String,variant:String,shared:PathBuf,source:PathBuf,relay:String,count:usize,window_bytes:u32 }
+ fn args()->Result<Args>{
+     let mut m=BTreeMap::new();let mut it=std::env::args().skip(1);
+     while let Some(k)=it.next(){ensure!(k.starts_with("--"),"bad option");ensure!(m.insert(k,it.next().context("missing value")?).is_none(),"duplicate option");}
+-    ensure!(m.len()==6,"expected six options");
++    ensure!((6..=7).contains(&m.len())&&m.keys().all(|k|["--role","--variant","--shared","--source","--relay","--count","--window-mib"].contains(&k.as_str())),"unexpected benchmark options");
+     let get=|k:&str|->Result<String>{m.get(k).cloned().context("missing option")};
+-    let a=Args{role:get("--role")?,variant:get("--variant")?,shared:get("--shared")?.into(),source:get("--source")?.into(),relay:get("--relay")?,count:get("--count")?.parse()?};
++    let window_bytes=if let Some(window)=m.get("--window-mib") {let mib:u32=window.parse()?;ensure!((1..=16).contains(&mib),"invalid benchmark window");mib*1024*1024}else{native::stream::StreamLimits::default().transport_window_bytes};
++    let a=Args{role:get("--role")?,variant:get("--variant")?,shared:get("--shared")?.into(),source:get("--source")?.into(),relay:get("--relay")?,count:get("--count")?.parse()?,window_bytes};
+     ensure!(["send","recv"].contains(&a.role.as_str())&&["legacy","stream"].contains(&a.variant.as_str()),"bad role/variant");
+     ensure!((1..=3).contains(&a.count),"bad count"); Ok(a)
+ }
+@@ -81,9 +82,12 @@
+ fn discovery()->Result<DiscoveryModeOption>{Ok(DiscoveryModeOption::Custom{pkarr_relay_url:"https://relay.dashbeam.test:3341/pkarr".parse()?,dns_origin:None})}
+ fn send_options(a:&Args)->Result<SendOptions>{Ok(SendOptions{relay_mode:relay(a)?,discovery_mode:discovery()?,ticket_type:engine::AddrInfoOptions::RelayAndAddresses,..Default::default()})}
+ fn recv_options(a:&Args,out:PathBuf)->Result<ReceiveOptions>{Ok(ReceiveOptions{relay_mode:relay(a)?,discovery_mode:discovery()?,output_dir:Some(out),..Default::default()})}
+-fn stream_window_bytes(variant:&str)->Option<u32>{
+-    (variant=="stream").then(||native::stream::StreamLimits::default().transport_window_bytes)
++fn stream_limits(a:&Args)->native::stream::StreamLimits{
++    native::stream::StreamLimits{transport_window_bytes:a.window_bytes,..Default::default()}
+ }
++fn stream_window_bytes(a:&Args)->Option<u32>{
++    (a.variant=="stream").then_some(a.window_bytes)
++}
+ 
+ async fn send(a:&Args)->Result<()> {
+     let temp=a.shared.join("sender-temp"); fs::create_dir(&temp)?; native::storage::TEMP_DIR.set(temp.clone()).unwrap();
+@@ -91,7 +95,7 @@
+     let (ticket,legacy,stream)=if a.variant=="legacy" {
+         let s=engine::start_share_items(vec![a.source.clone()],send_options(a)?,&None,None).await?;
+         (s.ticket.clone(),Some(s),None)
+-    }else{let s=StreamShare::start(a.source.clone(),send_options(a)?).await?;(s.ticket().to_token()?,None,Some(s))};
++    }else{let s=StreamShare::start_with_limits(a.source.clone(),send_options(a)?,stream_limits(a)).await?;(s.ticket().to_token()?,None,Some(s))};
+     let ready=ns(); let prepare_io=process();
+     let before_read=stream.as_ref().map(|s|s.source_bytes_read());
+     atomic(&a.shared.join("ticket"),ticket.as_bytes())?;
+@@ -102,7 +106,7 @@
+     let result=json!({"share_intent_ns":intent,"ticket_ready_ns":ready,"data_done_ns":data_done,
+         "before":io_before,"prepared":prepare_io,"after":io_after,"source_bytes_read_at_ready":before_read,
+         "source_bytes_read_final":source_read,
+-        "stream_transport_window_bytes":stream_window_bytes(&a.variant),"disk":sample.finish(),"shutdown_ns":ns()});
++        "stream_transport_window_bytes":stream_window_bytes(a),"disk":sample.finish(),"shutdown_ns":ns()});
+     atomic(&a.shared.join("sender.json"),&serde_json::to_vec_pretty(&result)?)?;Ok(())
+ }
+ async fn receive(a:&Args)->Result<()> {
+@@ -113,7 +117,7 @@
+     // Monitor includes store AND final output. The two stores are never conflated with source fixtures.
+     let sample=Sampler::start(a.shared.clone());
+     let initial_io=process(); let receiver_intent=ns();
+-    let mut stream_client=if a.variant=="stream"{Some(StreamReceiver::new(StreamReceiveOptions{network:recv_options(a,output.clone())?,..Default::default()}).await?)}else{None};
++    let mut stream_client=if a.variant=="stream"{Some(StreamReceiver::new(StreamReceiveOptions{network:recv_options(a,output.clone())?,limits:stream_limits(a)}).await?)}else{None};
+     let parsed=if a.variant=="stream"{Some(StreamTicket::from_token(&token)?)}else{None};
+     let mut transfers=Vec::new();
+     for i in 0..a.count{
+@@ -140,7 +144,7 @@
+     }
+     let after_io=process();if let Some(c)=stream_client{c.shutdown().await;}
+     let result=json!({"receiver_intent_ns":receiver_intent,"transfers":transfers,"before":initial_io,"after":after_io,
+-        "disk":sample.finish(),"shutdown_ns":ns(),"bytes_match":true,"stream_transport_window_bytes":stream_window_bytes(&a.variant)});
++        "disk":sample.finish(),"shutdown_ns":ns(),"bytes_match":true,"stream_transport_window_bytes":stream_window_bytes(a)});
+     atomic(&a.shared.join("receiver.json"),&serde_json::to_vec_pretty(&result)?)?;
+     atomic(&a.shared.join("done"),b"ok")?;Ok(())
+ }
+--- a/experiments/source-stream-20261112/run.mjs
++++ b/experiments/source-stream-20261112/run.mjs
+@@ -9,6 +9,7 @@
+ const label=process.argv[3]||'main';assert(/^[a-z0-9-]+$/.test(label));
+ const repeats=Number(process.argv[4]||3);assert(Number.isInteger(repeats)&&repeats>=1&&repeats<=5);
+ const only=new Set((process.argv[5]||'').split(',').filter(Boolean).map(Number));
++const windowMib=Number(process.env.DASHBEAM_BENCH_WINDOW_MIB||8);assert(Number.isInteger(windowMib)&&windowMib>=1&&windowMib<=16);
+ const cases=[
+  {id:1,name:'cold-direct-small-lan',file:'one-mib.bin',relay:false,rtt:2,rate:1000,count:1},
+  {id:2,name:'cold-direct-large-lan',file:'quarter-gib.bin',relay:false,rtt:2,rate:1000,count:1},
+@@ -57,7 +58,7 @@
+  shape(c,5100+pair*2);const before=qdisc(),relayBefore=relayResources();
+  const relative=path.join('samples',`${label}-c${c.id}-p${pair}-${variant}`),host=path.join(root,relative),shared=`/bench/${relative}`;
+  fs.mkdirSync(host,{recursive:false,mode:0o700});warm(path.join(root,'fixtures',c.file));
+- const common=['--variant',variant,'--shared',shared,'--source',`/fixtures/${c.file}`,'--count',String(c.count),'--relay',c.relay?'https://relay.dashbeam.test:3341':'disabled'];
++ const common=['--variant',variant,'--shared',shared,'--source',`/fixtures/${c.file}`,'--count',String(c.count),'--relay',c.relay?'https://relay.dashbeam.test:3341':'disabled','--window-mib',String(windowMib)];
+  const run=role=>launch(['exec','--user','1000:1000','-e','RUST_LOG=off','-e','SSL_CERT_FILE=/bench/tools/tls/ca.pem',names[role],
+   'timeout','--signal=TERM','--kill-after=5','240','/bench/bin/source_stream_bench','--role',role,...common]);
+  const [recvExit,sendExit]=await Promise.all([run('recv'),run('send')]);
+@@ -89,7 +90,7 @@
+  assert(exec('relay','ss','-lnt').includes(':3341'));assert(exec('relay','ss','-lnu').includes(':7842'));
+  const environment={experiment,cases,repeats,kernel:exec('send','uname','-r'),image:info(names.send).Image,
+   binary_sha256:sha(path.join(root,'bin/source_stream_bench')),scripts:Object.fromEntries(['run.mjs','source_stream_bench.rs'].map(f=>[f,sha(path.join(root,'tools',f))])),
+-  build:json(path.join(root,'results/build.json')),limits:{endpoint_cpus:2,relay_cpus:1,memory_bytes:768*1048576,workers:2},
++  build:json(path.join(root,'results/build.json')),limits:{endpoint_cpus:2,relay_cpus:1,memory_bytes:768*1048576,workers:2,stream_transport_window_mib:windowMib},
+   scope:'engine-only data plane; no metadata advisory/UI/SAF/consent; legacy current compatible engine versus experimental streaming; same source warm page cache; cold share per sample; repeat count reuses sender in BOTH variants, streaming additionally caches receiver connection; hash/copy CPU and IO included; byte comparison excluded from individual receive interval',
+   network:JSON.parse(docker('network','inspect',net)).map(n=>({driver:n.Driver,internal:n.Internal,ipam:n.IPAM})),
+   relay:{url:'https://relay.dashbeam.test:3341',authentication:'none',ca:'experiment only'},

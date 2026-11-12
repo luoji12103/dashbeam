@@ -1,0 +1,29 @@
+   Compiling sendme-protocol v0.1.0 (/home/luoji/code/dashbeam-source-stream-20261112.wXzKWL/source/engine/protocol)
+   Compiling sendme-native v0.1.0 (/home/luoji/code/dashbeam-source-stream-20261112.wXzKWL/source/engine/native)
+    Finished `release` profile [optimized] target(s) in 29.74s
+     Running unittests src/lib.rs (code/dashbeam-macos/src-tauri/target/release/deps/native-a86afb4152e9d68f)
+
+running 20 tests
+test stream::tests::an_open_non_regular_descriptor_is_rejected_before_binding ... ok
+test stream::tests::a_lost_completion_ack_preserves_the_verified_final_file ... ok
+test stream::tests::an_open_regular_file_does_not_require_a_source_path ... ok
+test stream::tests::cancellation_after_verification_prevents_commit ... ok
+test stream::tests::cancelled_before_start_keeps_existing_files_and_reads_nothing ... ok
+test stream::tests::conflict_commit_preserves_existing_file_and_symlink ... ok
+test stream::tests::control_lengths_are_bounded_before_allocating_or_deserializing ... ok
+test stream::tests::append_or_truncate_after_first_frame_cannot_produce_a_verified_commit ... ok
+test stream::tests::dropping_a_cancelled_payload_cleans_its_partial ... ok
+test stream::tests::idle_timeout_is_bounded_and_removes_partial ... ok
+test stream::tests::invalid_capability_cannot_read_source_or_create_a_partial ... ok
+test stream::tests::empty_and_frame_boundaries_repeat_without_preparation_reads ... ok
+test stream::tests::malformed_streams_never_commit_and_cleanup_owned_partials ... ok
+test stream::tests::large_payload_uses_fixed_frame_reads_and_small_backpressure_channel ... ok
+test stream::tests::output_directory_symlinks_and_shared_write_access_are_rejected ... ok
+test stream::tests::metadata_changes_or_path_replacement_cannot_complete ... ok
+test stream::tests::temporary_file_is_private_and_commit_is_no_clobber ... ok
+test stream::tests::ticket_is_explicit_bounded_and_debug_redacted ... ok
+test stream::tests::unsafe_and_cross_platform_paths_are_rejected ... ok
+test stream::tests::shutdown_revokes_ticket_and_does_not_affect_a_new_share ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 81 filtered out; finished in 3.77s
+

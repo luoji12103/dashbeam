@@ -30,6 +30,18 @@
 
 一款免费开源的文件传输工具，借助[前沿点对点网络](https://www.iroh.computer)的力量，让你直接传输文件，无需将数据存储在云端服务器上。
 
+## 本仓库的 fork 与本地改动
+
+这是 `luoji12103/dashbeam` 维护的社区 fork，上游为 `tonyantony300/dashbeam`，沿用 AGPL-3.0 许可证。
+本地改动包括 macOS 菜单栏、Dock 行为、Finder 分享扩展与可选 Flash Drop，跨端文字/剪贴板传输，
+macOS 接收完成后的复制文件/路径操作，以及兼容原协议的启动时延和取消竞态修复。
+完整成品版本、各平台验收边界与下载链接见[主 README](../../README.md)。
+
+另有[直接源文件流式传输实验](../../experiments/source-stream-20261112/README.md)：取消完整预 hash 和 blob 仓库暂存，
+边传边校验，直接写接收目标文件系统，并测试复用接收连接、消除多余应用往返。
+它是尚未接入 GUI/Android picker 的显式实验 API/CLI，**不是已发布安装包已经具备的功能**；
+旧客户端及 BlobTicket 不变。[对比报告](../../experiments/source-stream-20261112/REPORT.zh-CN.md)单独说明性能与取舍。
+
 既然可以可靠、轻松地直接传输文件，端到端加密且不泄露任何个人信息，又何必依赖 WeTransfer、Dropbox 或 Google Drive 呢？
 
 选择当下最顺手的方式：**发送链接或二维码**，在任意设备上打开；**发送给配对过一次的设备**；或**发送给已经在你网络中的设备**。三种方式传输的字节和路径完全一样 - 直连、端到端加密。

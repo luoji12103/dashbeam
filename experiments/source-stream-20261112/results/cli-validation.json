@@ -1,0 +1,10 @@
+{
+  "binary_sha256": "a89883fb4398a2628e9974a8c3aa82187e33727ffa0a0c8de210ff179c5377ff",
+  "no_implicit_public_network": true,
+  "invalid_window_rejected": true,
+  "ticket_mode": "0600",
+  "direct_cli_bytes_match": true,
+  "bytes": 1048576,
+  "completion_receipt_transport_delivered": true,
+  "sender_ctrl_c_clean_exit": true
+}

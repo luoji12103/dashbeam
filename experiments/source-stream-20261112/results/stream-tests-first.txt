@@ -1,0 +1,28 @@
+   Compiling sendme-protocol v0.1.0 (/home/luoji/code/dashbeam-source-stream-20261112.wXzKWL/source/engine/protocol)
+   Compiling sendme-native v0.1.0 (/home/luoji/code/dashbeam-source-stream-20261112.wXzKWL/source/engine/native)
+error[E0503]: cannot use `self.limits.whole_timeout` because it was mutably borrowed
+   --> native/src/stream.rs:640:30
+    |
+602 |         let transfer = async {
+    |                        ----- `*self` is borrowed here
+...
+608 |                 self.close_connection();
+    |                 ---- borrow occurs due to use of `*self` in coroutine
+...
+640 |             result = timeout(self.limits.whole_timeout, transfer) =>
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^  -------- borrow later used here
+    |                              |
+    |                              use of borrowed `*self`
+
+error[E0515]: cannot return value referencing function parameter `path`
+   --> native/src/stream.rs:743:67
+    |
+743 |     match paths.iter().find(|path| path.is_selected()).map(|path| path.remote_addr()) {
+    |                                                                   ----^^^^^^^^^^^^^^
+    |                                                                   |
+    |                                                                   returns a value referencing data owned by the current function
+    |                                                                   `path` is borrowed here
+
+Some errors have detailed explanations: E0503, E0515.
+For more information about an error, try `rustc --explain E0503`.
+error: could not compile `sendme-native` (lib test) due to 2 previous errors

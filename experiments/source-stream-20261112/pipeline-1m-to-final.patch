@@ -1,0 +1,201 @@
+--- a/engine/native/src/stream.rs
++++ b/engine/native/src/stream.rs
+@@ -68,7 +68,9 @@
+ const MAX_TICKET_BYTES: usize = 8192;
+ const MAX_CONNECTIONS: usize = 4;
+ const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
+-const TRANSPORT_WINDOW: u32 = 1024 * 1024;
++const MIN_TRANSPORT_WINDOW: u32 = STREAM_BUFFER_BYTES as u32;
++const DEFAULT_TRANSPORT_WINDOW: u32 = 8 * 1024 * 1024;
++const MAX_TRANSPORT_WINDOW: u32 = 16 * 1024 * 1024;
+ 
+ /// A private bearer capability for an ephemeral share. Debug redacts the secret.
+ #[derive(Clone)]
+@@ -136,6 +138,11 @@
+     /// Per-file byte budget, 8 GiB by default and explicitly overridable. It is
+     /// a transfer limit, not a guarantee of available disk space.
+     pub max_bytes: u64,
++    /// Per-connection QUIC send and receive window limits, not preallocated
++    /// memory. Default 8 MiB; valid range 64 KiB through 16 MiB. Explicitly use
++    /// 1 MiB for a smaller transport budget at the cost of high-RTT throughput.
++    /// Actual memory also depends on outstanding data and transport overhead.
++    pub transport_window_bytes: u32,
+ }
+ 
+ impl Default for StreamLimits {
+@@ -145,6 +152,7 @@
+             idle_timeout: Duration::from_secs(30),
+             whole_timeout: Duration::from_secs(24 * 60 * 60),
+             max_bytes: 8 * 1024 * 1024 * 1024,
++            transport_window_bytes: DEFAULT_TRANSPORT_WINDOW,
+         }
+     }
+ }
+@@ -157,6 +165,10 @@
+                 && !self.whole_timeout.is_zero(),
+             "source stream timeouts must be positive"
+         );
++        ensure!(
++            (MIN_TRANSPORT_WINDOW..=MAX_TRANSPORT_WINDOW).contains(&self.transport_window_bytes),
++            "source stream transport window must be 64 KiB through 16 MiB"
++        );
+         Ok(())
+     }
+ }
+@@ -411,9 +423,9 @@
+     Ok(QuicTransportConfig::builder()
+         .max_concurrent_bidi_streams(VarInt::from_u32(1))
+         .max_concurrent_uni_streams(VarInt::from_u32(0))
+-        .stream_receive_window(VarInt::from_u32(TRANSPORT_WINDOW))
+-        .receive_window(VarInt::from_u32(TRANSPORT_WINDOW))
+-        .send_window(u64::from(TRANSPORT_WINDOW))
++        .stream_receive_window(VarInt::from_u32(limits.transport_window_bytes))
++        .receive_window(VarInt::from_u32(limits.transport_window_bytes))
++        .send_window(u64::from(limits.transport_window_bytes))
+         .max_idle_timeout(Some(limits.idle_timeout.try_into()?))
+         .build())
+ }
+--- a/engine/native/src/stream_tests.rs
++++ b/engine/native/src/stream_tests.rs
+@@ -31,6 +31,9 @@
+         idle_timeout: Duration::from_secs(5),
+         whole_timeout: Duration::from_secs(30),
+         max_bytes: 32 * 1024 * 1024,
++        // Keep cancellation and mutable-source fixtures below their known
++        // source-read bounds independently of the public throughput default.
++        transport_window_bytes: 1024 * 1024,
+     }
+ }
+ 
+@@ -95,6 +98,27 @@
+     assert!(StreamTicket::from_token(&"x".repeat(MAX_TICKET_BYTES + 1)).is_err());
+ }
+ 
++#[test]
++fn transport_window_has_a_finite_default_and_validates_both_boundaries() {
++    assert_eq!(StreamLimits::default().transport_window_bytes, 8 * 1024 * 1024);
++    for window in [0, MIN_TRANSPORT_WINDOW - 1, MAX_TRANSPORT_WINDOW + 1, u32::MAX] {
++        let mut options = limits();
++        options.transport_window_bytes = window;
++        assert!(options.validate().is_err(), "out-of-range window accepted");
++    }
++    for window in [
++        MIN_TRANSPORT_WINDOW,
++        1024 * 1024,
++        DEFAULT_TRANSPORT_WINDOW,
++        MAX_TRANSPORT_WINDOW,
++    ] {
++        let mut options = limits();
++        options.transport_window_bytes = window;
++        options.validate().unwrap();
++        transport_config(&options).unwrap();
++    }
++}
++
+ #[tokio::test]
+ async fn empty_and_frame_boundaries_repeat_without_preparation_reads() {
+     for size in [0usize, 1, 65_535, 65_536, 65_537] {
+@@ -231,12 +255,27 @@
+ 
+ #[tokio::test]
+ async fn rejection_after_offer_keeps_source_read_ahead_bounded() {
++    rejected_offer_read_ahead(limits().transport_window_bytes, 4 * 1024 * 1024).await;
++}
++
++#[tokio::test]
++async fn larger_transport_window_preserves_an_explicit_read_ahead_budget() {
++    rejected_offer_read_ahead(DEFAULT_TRANSPORT_WINDOW, 24 * 1024 * 1024).await;
++}
++
++async fn rejected_offer_read_ahead(window: u32, size: usize) {
+     let source = TempDir::new().unwrap();
+     let path = source.path().join("payload.bin");
+-    let size = 4 * 1024 * 1024;
+-    std::fs::write(&path, vec![23u8; size]).unwrap();
+-    let share = StreamShare::start_with_limits(path, send_options(), limits()).await.unwrap();
+-    let receiver = StreamReceiver::new(receive_options()).await.unwrap();
++    // Sparse fixture: the test needs a source larger than its transport
++    // budget, without allocating another complete payload in test memory.
++    std::fs::File::create(&path).unwrap().set_len(size as u64).unwrap();
++    let mut sender_options = limits();
++    sender_options.transport_window_bytes = window;
++    let share = StreamShare::start_with_limits(path, send_options(), sender_options).await.unwrap();
++    assert_eq!(share.source_bytes_read(), 0);
++    let mut receiver_options = receive_options();
++    receiver_options.limits.transport_window_bytes = window;
++    let receiver = StreamReceiver::new(receiver_options).await.unwrap();
+     let ticket = share.ticket();
+     let connection = receiver.endpoint.0.connect(ticket.addr.clone(), STREAM_ALPN).await.unwrap();
+     let (mut tx, mut rx) = connection.open_bi().await.unwrap();
+@@ -254,7 +293,7 @@
+     // receive window and its own send window, plus one application frame.
+     tokio::time::sleep(Duration::from_millis(50)).await;
+     let maximum_read_ahead =
+-        2 * u64::from(TRANSPORT_WINDOW) + STREAM_BUFFER_BYTES as u64 + codec::MAX_CONTROL_BYTES as u64;
++        2 * u64::from(window) + STREAM_BUFFER_BYTES as u64 + codec::MAX_CONTROL_BYTES as u64;
+     assert!(share.source_bytes_read() <= maximum_read_ahead);
+     connection.close(VarInt::from_u32(0), b"test rejected offer");
+     // Acquiring the cursor after closing observes the producer's final count,
+@@ -293,7 +332,9 @@
+     assert!(error.to_string().contains("cancelled"));
+     let cursor = timeout(limits().request_timeout, share.source.file.lock()).await.unwrap();
+     let maximum_remaining_read_ahead =
+-        2 * u64::from(TRANSPORT_WINDOW) + STREAM_BUFFER_BYTES as u64 + codec::MAX_CONTROL_BYTES as u64;
++        2 * u64::from(limits().transport_window_bytes)
++            + STREAM_BUFFER_BYTES as u64
++            + codec::MAX_CONTROL_BYTES as u64;
+     assert!(share.source_bytes_read() <= read_at_cancel + maximum_remaining_read_ahead);
+     drop(cursor);
+     assert_eq!(part_count(output.path()), 0);
+--- a/engine/examples/source_stream.rs
++++ b/engine/examples/source_stream.rs
+@@ -21,6 +21,9 @@
+     /// Explicit file-size budget; this is not a reservation of available disk space.
+     #[arg(long, default_value_t = 8 * 1024 * 1024 * 1024u64)]
+     max_bytes: u64,
++    /// QUIC flow-control ceiling, not a full-file cache. Use 1 for a low-memory profile.
++    #[arg(long, default_value_t = 8, value_parser = clap::value_parser!(u32).range(1..=16))]
++    transport_window_mib: u32,
+     #[command(subcommand)]
+     action: Action,
+ }
+@@ -57,7 +60,7 @@
+ async fn main() -> Result<()> {
+     let a=Args::parse();let (relay_mode,discovery_mode)=network(&a)?;
+     ensure!(a.max_bytes>0,"--max-bytes must be positive");
+-    let limits=StreamLimits{max_bytes:a.max_bytes,..Default::default()};
++    let limits=StreamLimits{max_bytes:a.max_bytes,transport_window_bytes:a.transport_window_mib * 1024 * 1024,..Default::default()};
+     match a.action {
+         Action::Send {source,ticket_file} => {
+             let share=StreamShare::start_with_limits(source,SendOptions{relay_mode,discovery_mode,..Default::default()},limits).await?;
+--- a/experiments/source-stream-20261112/source_stream_bench.rs
++++ b/experiments/source-stream-20261112/source_stream_bench.rs
+@@ -81,6 +81,9 @@
+ fn discovery()->Result<DiscoveryModeOption>{Ok(DiscoveryModeOption::Custom{pkarr_relay_url:"https://relay.dashbeam.test:3341/pkarr".parse()?,dns_origin:None})}
+ fn send_options(a:&Args)->Result<SendOptions>{Ok(SendOptions{relay_mode:relay(a)?,discovery_mode:discovery()?,ticket_type:engine::AddrInfoOptions::RelayAndAddresses,..Default::default()})}
+ fn recv_options(a:&Args,out:PathBuf)->Result<ReceiveOptions>{Ok(ReceiveOptions{relay_mode:relay(a)?,discovery_mode:discovery()?,output_dir:Some(out),..Default::default()})}
++fn stream_window_bytes(variant:&str)->Option<u32>{
++    (variant=="stream").then(||native::stream::StreamLimits::default().transport_window_bytes)
++}
+ 
+ async fn send(a:&Args)->Result<()> {
+     let temp=a.shared.join("sender-temp"); fs::create_dir(&temp)?; native::storage::TEMP_DIR.set(temp.clone()).unwrap();
+@@ -98,7 +101,8 @@
+     if let Some(s)=stream{s.shutdown().await;}
+     let result=json!({"share_intent_ns":intent,"ticket_ready_ns":ready,"data_done_ns":data_done,
+         "before":io_before,"prepared":prepare_io,"after":io_after,"source_bytes_read_at_ready":before_read,
+-        "source_bytes_read_final":source_read,"disk":sample.finish(),"shutdown_ns":ns()});
++        "source_bytes_read_final":source_read,
++        "stream_transport_window_bytes":stream_window_bytes(&a.variant),"disk":sample.finish(),"shutdown_ns":ns()});
+     atomic(&a.shared.join("sender.json"),&serde_json::to_vec_pretty(&result)?)?;Ok(())
+ }
+ async fn receive(a:&Args)->Result<()> {
+@@ -136,7 +140,7 @@
+     }
+     let after_io=process();if let Some(c)=stream_client{c.shutdown().await;}
+     let result=json!({"receiver_intent_ns":receiver_intent,"transfers":transfers,"before":initial_io,"after":after_io,
+-        "disk":sample.finish(),"shutdown_ns":ns(),"bytes_match":true});
++        "disk":sample.finish(),"shutdown_ns":ns(),"bytes_match":true,"stream_transport_window_bytes":stream_window_bytes(&a.variant)});
+     atomic(&a.shared.join("receiver.json"),&serde_json::to_vec_pretty(&result)?)?;
+     atomic(&a.shared.join("done"),b"ok")?;Ok(())
+ }

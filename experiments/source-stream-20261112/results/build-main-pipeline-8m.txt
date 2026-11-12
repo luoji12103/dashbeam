@@ -1,0 +1,3 @@
+   Compiling sendme-native v0.1.0 (/home/luoji/code/dashbeam-source-stream-20261112.wXzKWL/source/engine/native)
+   Compiling engine v0.1.0 (/home/luoji/code/dashbeam-source-stream-20261112.wXzKWL/source/engine)
+    Finished `release` profile [optimized] target(s) in 35.33s

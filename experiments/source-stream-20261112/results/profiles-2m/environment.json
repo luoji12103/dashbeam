@@ -1,0 +1,217 @@
+{
+  "experiment": "dbstream-1112-profiles-2m-5950de",
+  "cases": [
+    {
+      "id": 7,
+      "name": "cold-relay-large-wan",
+      "file": "sixtyfour-mib.bin",
+      "relay": true,
+      "rtt": 80,
+      "rate": 50,
+      "count": 1
+    },
+    {
+      "id": 12,
+      "name": "high-bdp-relay",
+      "file": "sixtyfour-mib.bin",
+      "relay": true,
+      "rtt": 80,
+      "rate": 1000,
+      "count": 1,
+      "extra": true
+    }
+  ],
+  "repeats": 2,
+  "kernel": "6.12.113+deb13-amd64",
+  "image": "sha256:12c91ba32f912b4cea54489747c98eb3c884431e40a17e94e9546d02cdfde455",
+  "binary_sha256": "ffad1ca6c7aec1464b29e686996569690d3d067f63e928a469be08d8bf2f05f5",
+  "scripts": {
+    "run.mjs": "98f06dfa216303bfaf163f9c92adfc65417e0818ad0bc5c59091dd6c09b4147a",
+    "source_stream_bench.rs": "00925e1491aebbb2116779cd22ddeb628f45f5c72fb613160e306de403d4206b"
+  },
+  "build": {
+    "base_commit": "431e8376714d7ef44034b3b32c239c4bbef5fe90",
+    "description": "Archived compatible base plus experimental streaming sources and observation-only benchmark hooks. See source_sha256 for exact measured code.",
+    "recorded_at": "2026-11-12T13:08:36.424Z",
+    "host": "debian13-dev",
+    "kernel": "6.12.113+deb13-amd64",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)\nbinary: rustc\ncommit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96\ncommit-date: 2026-05-25\nhost: x86_64-unknown-linux-gnu\nrelease: 1.96.0\nLLVM version: 22.1.2",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "node": "v20.19.2",
+    "build": {
+      "manifest": "source/engine/Cargo.toml",
+      "args": [
+        "--locked",
+        "--offline",
+        "--release",
+        "--example",
+        "source_stream_bench",
+        "--example",
+        "source_stream"
+      ],
+      "env": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_PROFILE_RELEASE_OPT_LEVEL": "2",
+        "CARGO_PROFILE_RELEASE_LTO": "false",
+        "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": "8",
+        "CARGO_TARGET_DIR": "/home/luoji/code/dashbeam-macos/src-tauri/target"
+      },
+      "commands": [
+        "cargo test --manifest-path source/engine/Cargo.toml --locked --offline --release -p sendme-native stream::tests -- --test-threads=1",
+        "cargo build --manifest-path source/engine/Cargo.toml --locked --offline --release --example source_stream_bench --example source_stream"
+      ]
+    },
+    "source_sha256": {
+      "engine/Cargo.lock": "e69b7c2981609113e39ff203a3d0a006ffebcb1ccde18288a7e4fb48918566d7",
+      "engine/Cargo.toml": "5acc50628e5642d9b1efb283797bedeff4567ca842bf7389aa771fd02cb194cd",
+      "engine/examples/probe_custom_relay.rs": "86a0f3642da1dc36ee5fe88b3fa7db63369ca50405d1989435c6461186f3731f",
+      "engine/examples/received_files_probe.rs": "3311d59551913d652c43f7d82b2169b454010bdff19cf6cc06812f169c5cd54f",
+      "engine/examples/source_stream.rs": "9d6527c02c3d9596441e66c7eeb7ab34b9cf2e16e575d9edf8274435de138208",
+      "engine/examples/source_stream_bench.rs": "00925e1491aebbb2116779cd22ddeb628f45f5c72fb613160e306de403d4206b",
+      "engine/examples/text_ui_probe.rs": "50b608c7f8fd30eb988f0ea3aa2c84ae35a4d2a1adc830a34ea281c2eb0f271b",
+      "engine/native/Cargo.toml": "8c0a1d700e3d1dda959bd613298187a535cbf58ee424cb73c4b1a1bb80610c7b",
+      "engine/native/src/device_identity.rs": "3bcf35f44914b0d1e87c4d38d0f722312db4e29c50bad6710dbf3b72b01f5602",
+      "engine/native/src/export.rs": "26eb991a0beac797bd1904f37de2c589b1aeef59200aa77686e2c8aa2537bdfc",
+      "engine/native/src/history.rs": "e660d5695b4e38fe5f3e529afd4450e660952b2153e893e32f848e28291d8bb8",
+      "engine/native/src/identity_store.rs": "6a69f21f8356a3f0f9c69c865bcf8eecfce2deac680f8b7c720c864bd3d13a22",
+      "engine/native/src/import.rs": "378bcd99ddbdc52d59c17e35ad9e0475096a06fe8eade9b8bcdc368bad3486e9",
+      "engine/native/src/lan_discovery.rs": "7547631fc7a8a97e4f11b066637ebc077a425733dc80c3ab8102d3fbfd2f31e3",
+      "engine/native/src/lib.rs": "8a9a3f2bebee84be6702a7d59c56599ec7d2604338cf5bf4ce063a287b613a79",
+      "engine/native/src/nearby.rs": "b83fcb4be505737af4b6b7b6c4182b22adc412a9ce55ff56d0b4b0ce8504bd1d",
+      "engine/native/src/node.rs": "8ceff4f1d5c58a0a2263d2b173ec54fec668373f3df9f1a5c45ee6a6861315f7",
+      "engine/native/src/paired_connections.rs": "ed7ffae137df7cb3444c982e4725c8778cbb6cccf838bb9d27eee2c009d39649",
+      "engine/native/src/pairing_host.rs": "7f4960ddf23eeed63e161e7b79eef18abae61bf22afd4963d170aad1712f1da5",
+      "engine/native/src/pairing_util.rs": "3291706d2614898ba21a5167847a0019056839e6b2eb50f4871f2b22463aae62",
+      "engine/native/src/rate_limit.rs": "fb9b5825b795c133ee0c1941d5a28b05cca959dc31ce17b2975b1396b1cdd7a5",
+      "engine/native/src/receive.rs": "da12e9ebcdb008bf5c4bbe0185827065fe961308d6dc0938c0f94fabc842ecb8",
+      "engine/native/src/runtime.rs": "d9925a5718b95f4415f12b21a4dc3a3f2e3f0cdbee15e5feacc1938db12d666c",
+      "engine/native/src/secret_store.rs": "45cb7541ded26cf005ed718836068805c7604d5dd872dd6b1f0a2075834972c2",
+      "engine/native/src/send.rs": "e451b3f88eebd758eaaa221bb0843bdba23f1e7e924e3844a572c1e0761e1698",
+      "engine/native/src/storage.rs": "218d74ff14e16bc668119262cd18a810487f3f2a2338b8bf1fa8888463c25877",
+      "engine/native/src/stream.rs": "d122725de58908a771ed473bee12a2387e41ca5d5a73bd92c55eb23f33bc183a",
+      "engine/native/src/stream_codec.rs": "37526a5c2cb489e692b69972219325e73c039a1f70d286c58b27eb175ae1566d",
+      "engine/native/src/stream_tests.rs": "4bff10b19e3772fe5ecaf83a9729aa619d0f617859dcf3e5dfddafde76aed8bd",
+      "engine/native/src/types.rs": "483415f965b8bd9cd1281fd0bd95fb6b3b3f587e8b6c6edb217674f085a24cbd",
+      "engine/protocol/Cargo.toml": "b9fcb1a21cd20abb63dc214c51f74b53e597fe2f418933a1549aa053877f4674",
+      "engine/protocol/src/control.rs": "eca60c38edc8ce86b415141651e2e5a11d5655f2abf49627277ab8788a0da7cc",
+      "engine/protocol/src/discovery.rs": "88184f63c7da9a7bed8b06dfa1484f88cb5cf021073d2133aaa3825b2c21b5ab",
+      "engine/protocol/src/identity.rs": "bf2c82bb791fcd4eab2d2ba7d857f67336d3280e93364bbfa042be12880438a4",
+      "engine/protocol/src/lib.rs": "3dbdd537334891375b02e3ef6ca904f7758222a2e8f1bbff4369008a992d0303",
+      "engine/protocol/src/nearby.rs": "9577d8e82d48854e0cd0c0b075cf70fab0eb5431d16feee7239fa510b6809fca",
+      "engine/protocol/src/pairing.rs": "10a4ed7649c4e5c8e0786fa89fcaead85edf7e74903598b466cee7fd0a06083f",
+      "engine/protocol/src/pairing_auth.rs": "fd5daad6ab15877432e942680f99d2851f817ffb7ab6b902d6865df95f972a7d",
+      "engine/protocol/src/progress.rs": "e91f2724d589709ea48686176fca47dad2a89620472dfa88f27986d88ff124b4",
+      "engine/protocol/src/receive.rs": "7017d74acdf1756627d5ef67711a6e94f599f77d1a187dbdfb267f20dfb6d277",
+      "engine/protocol/src/relay.rs": "f2bf39160e049509ccad070b25f007eb17aceb04a859d164d1f3794a5351fad2",
+      "engine/protocol/src/send.rs": "3bda1a61dba9fb08dc51aabd8d2291bd2fe76f63aa488ae555a00ecfee1b56fa",
+      "engine/protocol/src/time_compat.rs": "fb37210f11000343cade986d8d895dbaed663f5698a4998604005f7fbe64184c",
+      "engine/protocol/src/tls_config.rs": "b84d0c6bbce4d9232bee4cf6116179a24dbd38a5cb3a75ac643c945ee988e2a8",
+      "engine/protocol/src/types.rs": "d89257b797307de70a6df64967b339968302a623a8091792549baeddbff6336b",
+      "engine/src/lib.rs": "0d622c155e3bf2c2d84c6ccdbe3c7e15e028b6f28c1952f25fe95d5e7d20dade",
+      "engine/tests/common/mod.rs": "96af63487572be46332a903404bb40d7d5fe39cff6dda3dd7a26408889f09d86",
+      "engine/tests/test_cleanup.rs": "aa6fb9c54c6cd9bfd67b038d90d58c919eb2cf9ef81a46ada70ca05234114fd2",
+      "engine/tests/test_conflicts.rs": "9410ed67e92eeb37da13a119dad184034dc4c3191b204227c35dba79a683e609",
+      "engine/tests/test_directory.rs": "953a90430db63110879fc6b000bf677ef08d0ff8ad3a2542198a2304409436ce",
+      "engine/tests/test_events.rs": "22a2f1344b5b7992187d8f0a2bd6b71f39b57a435689b2fa39481512e584b1cc",
+      "engine/tests/test_large_file.rs": "37344a474d1e72c92793157369e3639ada2e9bd76593569d25f0459536e7a2d9",
+      "engine/tests/test_metadata.rs": "09c7f33cdcf5603cf8ab4d5b3aa42560104053ae36694b4b6769c1c990708c2c",
+      "engine/tests/test_multi_item.rs": "08c073f5ff1d658ac8d3c912e690bd177cecdaebc1dd73aef1fb39537f3669c8",
+      "engine/tests/test_nearby.rs": "7cdaa971f2a3dd75ad29a61a07c5a746849b2a69d33d67455cb605de7630a29b",
+      "engine/tests/test_pairing.rs": "1dead3327c12f8cd5d4b276b6f5cf2ed617cdd39c13d0d18acfd992c4d429647",
+      "engine/tests/test_pairing_e2e.rs": "a555574882b43b3e1e66aa34e77129f41cf578184e01df6fea9eef98031292b4",
+      "engine/tests/test_progress_agreement.rs": "9ab7a5e652ccd034d763393ec9acb19537c88e17e712b0df4c7ac8c6aef2e8f3",
+      "engine/tests/test_share_peer_count.rs": "6a70cf74dc62f9b7c27e022557ae4600372e15094642f9cbbf6c4339f45e387c",
+      "engine/tests/test_single_file.rs": "527cd93b38dfb8b2134b42e1977ebd056484476623c1845b99035ae1696e3207",
+      "engine/wasm-io/Cargo.toml": "b08351eb4995c6261bff58bdf612473955cd5e564d71d2f2026f76b33926f1c8",
+      "engine/wasm-io/src/export.rs": "cfdd92d8a4efeb2fdd304698e7a7098cb5b44363eba0952dde6940b890bf742b",
+      "engine/wasm-io/src/import.rs": "0afff08961e6a95b8c9d14cf41dd07b85138bc3d0c649830e5747e3577a28466",
+      "engine/wasm-io/src/lib.rs": "9a33490af119d0dc21c09346f2b5fc349bcb1b835ac31b634965f530983fe602",
+      "engine/wasm-io/src/receive.rs": "2540574cb8b02ead522d5a5f6f3bc47eb2c4e74fcbfe4520442f234013bde2e9",
+      "engine/wasm-io/src/send.rs": "9505b6296a023410c988b21a500c721c6d31179c3d27ff96317b263c2629c607",
+      "engine/wasm-io/src/storage.rs": "0c56eb8414483fb6aef3a4e15d657e0ab10ed1691c289b2c89df246a159524f3",
+      "engine/wasm-io/src/types.rs": "a539bb76b9ca5b4e866b657084ddaeff6a27efd613430f682029d47a102cc39b"
+    },
+    "instrumentation": {
+      "root": "/home/luoji/code/dashbeam-source-stream-20261112.wXzKWL/source",
+      "instrumentation": "observation-only-v2",
+      "files": [
+        {
+          "file": "engine/protocol/src/types.rs",
+          "before_sha256": "aad5fb3f1b11efbc47e943e057795cc6178169bee513132f451c8636b217551d",
+          "after_sha256": "d89257b797307de70a6df64967b339968302a623a8091792549baeddbff6336b"
+        },
+        {
+          "file": "engine/src/lib.rs",
+          "before_sha256": "14f4189ac6c55bba9fd93d31e64e7e2427e7018d543162b2784b6656b4176fa9",
+          "after_sha256": "0d622c155e3bf2c2d84c6ccdbe3c7e15e028b6f28c1952f25fe95d5e7d20dade"
+        },
+        {
+          "file": "engine/native/src/send.rs",
+          "before_sha256": "dd4f1e5f928d07f9fe54ab897368c90aa00c0d214d850ac19bf30d8705d1cce4",
+          "after_sha256": "e451b3f88eebd758eaaa221bb0843bdba23f1e7e924e3844a572c1e0761e1698"
+        },
+        {
+          "file": "engine/protocol/src/send.rs",
+          "before_sha256": "3bda1a61dba9fb08dc51aabd8d2291bd2fe76f63aa488ae555a00ecfee1b56fa",
+          "after_sha256": "3bda1a61dba9fb08dc51aabd8d2291bd2fe76f63aa488ae555a00ecfee1b56fa"
+        },
+        {
+          "file": "engine/native/src/receive.rs",
+          "before_sha256": "ac415cb9dcef81df7e7bdf30e832a23892489d6633404ccb81b234a787414ec5",
+          "after_sha256": "da12e9ebcdb008bf5c4bbe0185827065fe961308d6dc0938c0f94fabc842ecb8"
+        },
+        {
+          "file": "engine/protocol/src/receive.rs",
+          "before_sha256": "07b30fb2e8f5389cf8a0b71f753c9669efe3ae8677614bdcafa97d237386a6ee",
+          "after_sha256": "7017d74acdf1756627d5ef67711a6e94f599f77d1a187dbdfb267f20dfb6d277"
+        }
+      ]
+    },
+    "tools_sha256": {
+      "instrument.mjs": "a5d803eea79f7e74587051ecb947b58ea17b5a3dec49cab5dd17d4319c4fa9f0",
+      "run.mjs": "98f06dfa216303bfaf163f9c92adfc65417e0818ad0bc5c59091dd6c09b4147a",
+      "source_stream_bench.rs": "00925e1491aebbb2116779cd22ddeb628f45f5c72fb613160e306de403d4206b",
+      "summarize.mjs": "87f8e3c688078a930a0c85f4e047c5189426a7b11470637df35c00bc45de0336",
+      "record-build.mjs": "5a7cd1f275356d27404cf391cb8e00e1a9d1a3a77f938b5126d7717195b5759d"
+    },
+    "binary_sha256": {
+      "source_stream_bench": "ffad1ca6c7aec1464b29e686996569690d3d067f63e928a469be08d8bf2f05f5",
+      "source_stream": "a89883fb4398a2628e9974a8c3aa82187e33727ffa0a0c8de210ff179c5377ff",
+      "iroh-relay": "2cf07570a363dd005b446c3f335d141bc76a6313c9ff731e6aeb14afe7f23399"
+    },
+    "checks_sha256": {
+      "stream-tests-final.txt": "f9e91906c5bb3d2b4c085a04a3ca43edb4831a397ec82acea7c4610e3e0808a0",
+      "build-final.txt": "1d35214a896843592f5b223ac3d5982e1385788b0c816e2c417302064dac4da2"
+    }
+  },
+  "limits": {
+    "endpoint_cpus": 2,
+    "relay_cpus": 1,
+    "memory_bytes": 805306368,
+    "workers": 2,
+    "stream_transport_window_mib": 2
+  },
+  "scope": "engine-only data plane; no metadata advisory/UI/SAF/consent; legacy current compatible engine versus experimental streaming; same source warm page cache; cold share per sample; repeat count reuses sender in BOTH variants, streaming additionally caches receiver connection; hash/copy CPU and IO included; byte comparison excluded from individual receive interval",
+  "network": [
+    {
+      "driver": "bridge",
+      "internal": true,
+      "ipam": {
+        "Driver": "default",
+        "Options": {},
+        "Config": [
+          {
+            "Subnet": "192.168.144.0/20",
+            "Gateway": "192.168.144.1"
+          }
+        ]
+      }
+    }
+  ],
+  "relay": {
+    "url": "https://relay.dashbeam.test:3341",
+    "authentication": "none",
+    "ca": "experiment only"
+  },
+  "qdisc": "endpoint egress each RTT/2; seeded loss; peer UDP blocked in forced-relay cases; no host rules"
+}
