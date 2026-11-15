@@ -11,8 +11,13 @@ on:
       release_tag:
         description: Existing GitHub release tag to receive the Windows assets
         required: true
-        default: v0.7.1-local.3
+        default: v0.7.2-local.1
         type: string
+      upload_release:
+        description: Upload to an existing local release after acceptance
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -37,6 +42,17 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      - name: Validate local version and release scope
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          if ($env:RELEASE_TAG -notmatch "^v$([regex]::Escape($version))-local\.[0-9]+$") {
+            throw "Release must be a local tag matching the checked-out package version"
+          }
+          node scripts/validate-version.js
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -67,10 +83,10 @@ jobs:
         shell: pwsh
         env:
           RUST_TARGET: x86_64-pc-windows-msvc
-          VERSION: 0.7.1
         run: node scripts/package-windows-portable.js
 
       - name: Upload Windows assets to the local release
+        if: ${{ inputs.upload_release }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -90,4 +106,4 @@ jobs:
           name: dashbeam-windows-local
           path: |
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*
-            dist/*portable.zip
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/portable/*portable.zip
