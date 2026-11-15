@@ -28,7 +28,7 @@
 
 </div>
 
-一款免费开源的文件传输工具，借助[前沿点对点网络](https://www.iroh.computer)的力量，让你直接传输文件，无需将数据存储在云端服务器上。
+一款免费开源的文件传输工具，借助前沿点对点网络的力量，让你直接传输文件，无需将数据存储在云端服务器上。
 
 ## 本仓库的 fork 与本地改动
 
@@ -44,7 +44,15 @@ macOS 接收完成后的复制文件/路径操作，以及兼容原协议的启�
 
 既然可以可靠、轻松地直接传输文件，端到端加密且不泄露任何个人信息，又何必依赖 WeTransfer、Dropbox 或 Google Drive 呢？
 
-选择当下最顺手的方式：**发送链接或二维码**，在任意设备上打开；**发送给配对过一次的设备**；或**发送给已经在你网络中的设备**。三种方式传输的字节和路径完全一样 - 直连、端到端加密。
+<div align="center">
+
+<br />
+
+<a href="https://www.testmuai.com" rel="nofollow"><picture><source media="(prefers-color-scheme: dark)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-light.svg"><source media="(prefers-color-scheme: light)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg"><img src="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg" height="80" alt="TestMuAI"></picture></a>
+&emsp;&emsp;
+<a href="https://vercel.com/open-source-program"><picture><source media="(prefers-color-scheme: dark)" srcset="../../assets/vercel-oss-light.svg"><source media="(prefers-color-scheme: light)" srcset="../../assets/vercel-oss-dark.svg"><img src="../../assets/vercel-oss-dark.svg" width="254" height="80" alt="Vercel OSS Program"></picture></a>
+
+</div>
 
 
 
@@ -55,6 +63,7 @@ macOS 接收完成后的复制文件/路径操作，以及兼容原协议的启�
 - **多千兆速度** - 可跑满高速连接
 - **附近设备** - 局域网自动发现；Pair & Send
 - **已配对设备** - 用配对码（远程）或通过 Nearby 配对一次；之后无需 ticket 即可发送
+- **受信任的设备** - 为已配对的设备开启自动接收；来自它的文件无需确认即可送达
 - **可续传、多接收方** - 续传中断的传输；同时分享给多人
 - **按密钥拨号** - 按设备身份连接，而非 IP 地址
 - **漫游** - 传输途中切换 Wi-Fi、蜂窝网络或其他网络也不会中断
@@ -95,27 +104,30 @@ macOS 接收完成后的复制文件/路径操作，以及兼容原协议的启�
   </tr>
   <tr>
     <td>💻 <b>Windows (x64)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64-setup.exe'>Setup.exe</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64_en-US.msi'>MSI</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64-portable.zip'>Portable ZIP</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64-setup.exe'>Setup.exe</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64_en-US.msi'>MSI</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64-portable.zip'>Portable ZIP</a></td>
     <td>~10 MB</td>
   </tr>
   <tr>
     <td>💻 <b>macOS (Universal)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_universal.dmg'>DashBeam.dmg</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_aarch64.dmg'>Apple Silicon</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64.dmg'>Intel</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_universal.dmg'>DashBeam.dmg</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_aarch64.dmg'>Apple Silicon</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64.dmg'>Intel</a></td>
     <td>~15 MB</td>
   </tr>
   <tr>
     <td>💻 <b>Linux (amd64)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_amd64.deb'>DashBeam.deb</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-0.7.0-1.x86_64.rpm'>.rpm</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_amd64.AppImage'>AppImage</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_amd64.deb'>DashBeam.deb</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-0.7.2-1.x86_64.rpm'>.rpm</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_amd64.AppImage'>AppImage</a></td>
     <td>~13 MB</td>
   </tr>
   <tr>
-    <td>📱 <b>Android (arm64)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-v0.7.0-arm64.apk'>DashBeam.apk</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-v0.7.0-armv7.apk'>armv7</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-v0.7.0-universal.apk'>universal</a></td>
-    <td>~50 MB</td>
+    <td>📱 <b>Android</b></td>
+    <td><div align="center">
+<a href="https://play.google.com/store/apps/details?id=com.dashbeam.android"><img src="../../assets/gplay.png" height="30" alt="Get it on Google Play"></a>
+</div>
+</td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-v0.7.2-arm64.apk'>arm64 APK</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-v0.7.2-armv7.apk'>armv7</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-v0.7.2-universal.apk'>universal</a></td>
+    <td>~15 MB</td>
   </tr>
   <tr>
     <td>⌨️ <b>CLI</b></td>
@@ -127,7 +139,7 @@ macOS 接收完成后的复制文件/路径操作，以及兼容原协议的启�
     <td>🌐 <b>Web（吞吐量受限）</b></td>
     <td><a href='https://app.dashbeam.net'>app.dashbeam.net</a></td>
     <td>-</td>
-    <td>~2 MB</td>
+    <td>_</td>
   </tr>
 </table>
 
@@ -135,21 +147,6 @@ macOS 接收完成后的复制文件/路径操作，以及兼容原协议的启�
 
 遇到问题？请查看[故障排查](../troubleshooting.md)，其中列出了常见问题以及如何收集日志。
 
-
-
-## 合作伙伴
-
-<a href="https://www.testmuai.com" rel="nofollow">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-light.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg">
-    <img src="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg" height="80" alt="TestMuAI">
-  </picture>
-</a>
-
-我们正在寻找合作伙伴，与我们一起推进使命！与我们携手合作、提供支持，共同突破点对点文件传输的边界。
-
-[**我们聊聊**](https://www.dashbeam.net/en/contact)
 
 
 ## 支持的语言
@@ -317,14 +314,13 @@ AGPL-3.0
 
 感谢您关注本项目！若您觉得有用，欢迎点个 Star 并帮忙传播。
 
+<br>
 
-## 构建于
-
-<div align="left">
-  <a href="https://iroh.computer">
-    <img alt="iroh" src="https://raw.githubusercontent.com/n0-computer/iroh/main/.img/iroh_wordmark.svg" width="200">
-  </a>
+<div align="center">
+<a href="https://play.google.com/store/apps/details?id=com.dashbeam.android"><img src="../../assets/gplay.png" height="60" alt="Get it on Google Play"></a>
 </div>
+
+
 
 
 
@@ -332,7 +328,7 @@ AGPL-3.0
 <!-- <div align="center" style="color: gray;"></div> -->
 
 [badge-website]: https://img.shields.io/badge/website-dashbeam.net-orange
-[badge-version]: https://img.shields.io/badge/version-0.7.0-blue
+[badge-version]: https://img.shields.io/badge/version-0.7.2-blue
 [badge-discord]: https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white
 [badge-platforms]: https://img.shields.io/badge/platforms-macOS%2C%20Windows%2C%20Linux%2C%20Android%2C%20CLI%2C%20-green
 [badge-sponsor]: https://img.shields.io/badge/sponsor-ff69b4

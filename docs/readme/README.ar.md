@@ -30,11 +30,19 @@
 
 </div>
 
-أداة مجانية ومفتوحة المصدر لنقل الملفات تستفيد من قوة [شبكات الند للند المتطورة](https://www.iroh.computer)، لتنقل الملفات مباشرة دون تخزينها على خوادم سحابية.
+أداة مجانية ومفتوحة المصدر لنقل الملفات تستفيد من قوة شبكات الند للند المتطورة، لتنقل الملفات مباشرة دون تخزينها على خوادم سحابية.
 
 لماذا الاعتماد على WeTransfer أو Dropbox أو Google Drive بينما يمكنك نقل الملفات بشكل موثوق وسهل، مع تشفير من طرف إلى طرف دون الكشف عن أي معلومات شخصية؟
 
-اختر الطريقة الأقرب إليك: **أرسل رابطًا أو رمز QR** يُفتح على أي جهاز، أو **أرسل إلى جهاز اقترنت به مرة واحدة**، أو **أرسل إلى جهاز موجود بالفعل على شبكتك**. الطرق الثلاث تنقل البايتات نفسها بالطريقة نفسها — مباشرةً ومشفّرة من طرف إلى طرف.
+<div align="center">
+
+<br />
+
+<a href="https://www.testmuai.com" rel="nofollow"><picture><source media="(prefers-color-scheme: dark)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-light.svg"><source media="(prefers-color-scheme: light)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg"><img src="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg" height="80" alt="TestMuAI"></picture></a>
+&emsp;&emsp;
+<a href="https://vercel.com/open-source-program"><picture><source media="(prefers-color-scheme: dark)" srcset="../../assets/vercel-oss-light.svg"><source media="(prefers-color-scheme: light)" srcset="../../assets/vercel-oss-dark.svg"><img src="../../assets/vercel-oss-dark.svg" width="254" height="80" alt="Vercel OSS Program"></picture></a>
+
+</div>
 
 
 
@@ -45,6 +53,7 @@
 - **سرعات بجيجابت متعددة** — يستغل الاتصالات السريعة بالكامل
 - **الأجهزة القريبة** — اكتشاف تلقائي على الشبكة المحلية؛ Pair & Send
 - **الأجهزة المقترنة** — اقترن مرة واحدة برمز (عن بُعد) أو عبر Nearby، ثم أرسل بلا تذاكر
+- **الأجهزة الموثوقة** — فعّل القبول التلقائي لجهاز مقترن، فتصل ملفاته دون أن يسألك التطبيق
 - **قابل للاستئناف ومتعدد الأقران** — استأنف عمليات النقل المتوقفة، وشارك مع عدة أشخاص في آن واحد
 - **الاتصال بالمفتاح** — اتصال بهوية الجهاز لا بعنوان IP
 - **التجوال** — بدّل بين Wi-Fi وبيانات الهاتف والشبكات أثناء النقل دون انقطاعه
@@ -85,27 +94,30 @@
   </tr>
   <tr>
     <td>💻 <b>Windows (x64)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64-setup.exe'>Setup.exe</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64_en-US.msi'>MSI</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64-portable.zip'>Portable ZIP</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64-setup.exe'>Setup.exe</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64_en-US.msi'>MSI</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64-portable.zip'>Portable ZIP</a></td>
     <td>~10 MB</td>
   </tr>
   <tr>
     <td>💻 <b>macOS (Universal)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_universal.dmg'>DashBeam.dmg</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_aarch64.dmg'>Apple Silicon</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64.dmg'>Intel</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_universal.dmg'>DashBeam.dmg</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_aarch64.dmg'>Apple Silicon</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64.dmg'>Intel</a></td>
     <td>~15 MB</td>
   </tr>
   <tr>
     <td>💻 <b>Linux (amd64)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_amd64.deb'>DashBeam.deb</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-0.7.0-1.x86_64.rpm'>.rpm</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_amd64.AppImage'>AppImage</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_amd64.deb'>DashBeam.deb</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-0.7.2-1.x86_64.rpm'>.rpm</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_amd64.AppImage'>AppImage</a></td>
     <td>~13 MB</td>
   </tr>
   <tr>
-    <td>📱 <b>Android (arm64)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-v0.7.0-arm64.apk'>DashBeam.apk</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-v0.7.0-armv7.apk'>armv7</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-v0.7.0-universal.apk'>universal</a></td>
-    <td>~50 MB</td>
+    <td>📱 <b>Android</b></td>
+    <td><div align="center">
+<a href="https://play.google.com/store/apps/details?id=com.dashbeam.android"><img src="../../assets/gplay.png" height="30" alt="Get it on Google Play"></a>
+</div>
+</td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-v0.7.2-arm64.apk'>arm64 APK</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-v0.7.2-armv7.apk'>armv7</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-v0.7.2-universal.apk'>universal</a></td>
+    <td>~15 MB</td>
   </tr>
   <tr>
     <td>⌨️ <b>CLI</b></td>
@@ -117,7 +129,7 @@
     <td>🌐 <b>Web (Limited throughput)</b></td>
     <td><a href='https://app.dashbeam.net'>app.dashbeam.net</a></td>
     <td>-</td>
-    <td>~2 MB</td>
+    <td>_</td>
   </tr>
 </table>
 
@@ -125,21 +137,6 @@
 
 تواجه مشكلات؟ راجع [استكشاف الأخطاء](../troubleshooting.md) للمشكلات الشائعة وكيفية جمع السجلات.
 
-
-
-## الشركاء
-
-<a href="https://www.testmuai.com" rel="nofollow">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-light.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg">
-    <img src="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg" height="80" alt="TestMuAI">
-  </picture>
-</a>
-
-نبحث عن شركاء ينضمون إلى مهمتنا! شاركنا الدعم بينما ندفع حدود نقل الملفات من نظير إلى نظير.
-
-[**لنتحدث**](https://www.dashbeam.net/en/contact)
 
 
 ## اللغات المدعومة
@@ -311,16 +308,13 @@ AGPL-3.0
 
 شكرًا لاطلاعك على هذا المشروع! إذا وجدته مفيدًا، فكّر في منحه نجمة والمساعدة في نشر الوعي به.
 
+<br>
 
-
-
-## مبني على
-
-<div align="left">
-  <a href="https://iroh.computer">
-    <img alt="iroh" src="https://raw.githubusercontent.com/n0-computer/iroh/main/.img/iroh_wordmark.svg" width="200">
-  </a>
+<div align="center">
+<a href="https://play.google.com/store/apps/details?id=com.dashbeam.android"><img src="../../assets/gplay.png" height="60" alt="Get it on Google Play"></a>
 </div>
+
+
 
 
 
@@ -330,7 +324,7 @@ AGPL-3.0
 </div>
 
 [badge-website]: https://img.shields.io/badge/website-dashbeam.net-orange
-[badge-version]: https://img.shields.io/badge/version-0.7.0-blue
+[badge-version]: https://img.shields.io/badge/version-0.7.2-blue
 [badge-discord]: https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white
 [badge-platforms]: https://img.shields.io/badge/platforms-macOS%2C%20Windows%2C%20Linux%2C%20Android%2C%20CLI%2C%20-green
 [badge-sponsor]: https://img.shields.io/badge/sponsor-ff69b4

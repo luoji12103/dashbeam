@@ -28,11 +28,19 @@
 
 </div>
 
-Un outil de transfert de fichiers gratuit et open source qui exploite la puissance du [réseau peer-to-peer de pointe](https://www.iroh.computer), vous permettant de transférer des fichiers directement sans les stocker sur des serveurs cloud.
+Un outil de transfert de fichiers gratuit et open source qui exploite la puissance du réseau peer-to-peer de pointe, vous permettant de transférer des fichiers directement sans les stocker sur des serveurs cloud.
 
 Pourquoi compter sur WeTransfer, Dropbox ou Google Drive lorsque vous pouvez transférer des fichiers de manière fiable et simple, directement, avec chiffrement de bout en bout et sans divulguer d'informations personnelles ?
 
-Choisissez la voie la plus pratique sur le moment : **envoyer un lien ou un QR code** qui s'ouvre sur n'importe quel appareil, **envoyer à un appareil appairé une fois pour toutes**, ou **envoyer à un appareil déjà présent sur votre réseau**. Les trois déplacent les mêmes octets de la même façon – directement et chiffrés de bout en bout.
+<div align="center">
+
+<br />
+
+<a href="https://www.testmuai.com" rel="nofollow"><picture><source media="(prefers-color-scheme: dark)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-light.svg"><source media="(prefers-color-scheme: light)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg"><img src="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg" height="80" alt="TestMuAI"></picture></a>
+&emsp;&emsp;
+<a href="https://vercel.com/open-source-program"><picture><source media="(prefers-color-scheme: dark)" srcset="../../assets/vercel-oss-light.svg"><source media="(prefers-color-scheme: light)" srcset="../../assets/vercel-oss-dark.svg"><img src="../../assets/vercel-oss-dark.svg" width="254" height="80" alt="Vercel OSS Program"></picture></a>
+
+</div>
 
 
 
@@ -43,6 +51,7 @@ Choisissez la voie la plus pratique sur le moment : **envoyer un lien ou un QR c
 - **Débits multi-gigabit** – Sature les connexions rapides
 - **À proximité** – Découverte automatique sur le LAN ; Pair & Send
 - **Appareils appairés** – Appairez une fois par code (à distance) ou via Nearby ; envoyez sans ticket
+- **Appareils de confiance** – Activez l'acceptation automatique pour un appareil appairé ; ses fichiers arrivent sans confirmation
 - **Reprise & multi-pairs** – Reprenez les transferts interrompus ; partagez avec plusieurs personnes à la fois
 - **Connexion par clé** – Connexion par identité d'appareil, pas par adresse IP
 - **Itinérance** – Passez du Wi-Fi à la 4G ou changez de réseau en plein transfert sans le perdre
@@ -83,27 +92,30 @@ Le moyen le plus simple de commencer est de télécharger l'une des versions sui
   </tr>
   <tr>
     <td>💻 <b>Windows (x64)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64-setup.exe'>Setup.exe</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64_en-US.msi'>MSI</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64-portable.zip'>Portable ZIP</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64-setup.exe'>Setup.exe</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64_en-US.msi'>MSI</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64-portable.zip'>Portable ZIP</a></td>
     <td>~10 MB</td>
   </tr>
   <tr>
     <td>💻 <b>macOS (Universal)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_universal.dmg'>DashBeam.dmg</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_aarch64.dmg'>Apple Silicon</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_x64.dmg'>Intel</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_universal.dmg'>DashBeam.dmg</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_aarch64.dmg'>Apple Silicon</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_x64.dmg'>Intel</a></td>
     <td>~15 MB</td>
   </tr>
   <tr>
     <td>💻 <b>Linux (amd64)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_amd64.deb'>DashBeam.deb</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-0.7.0-1.x86_64.rpm'>.rpm</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam_0.7.0_amd64.AppImage'>AppImage</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_amd64.deb'>DashBeam.deb</a></td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-0.7.2-1.x86_64.rpm'>.rpm</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam_0.7.2_amd64.AppImage'>AppImage</a></td>
     <td>~13 MB</td>
   </tr>
   <tr>
-    <td>📱 <b>Android (arm64)</b></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-v0.7.0-arm64.apk'>DashBeam.apk</a></td>
-    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-v0.7.0-armv7.apk'>armv7</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.0/DashBeam-v0.7.0-universal.apk'>universal</a></td>
-    <td>~50 MB</td>
+    <td>📱 <b>Android</b></td>
+    <td><div align="center">
+<a href="https://play.google.com/store/apps/details?id=com.dashbeam.android"><img src="../../assets/gplay.png" height="30" alt="Get it on Google Play"></a>
+</div>
+</td>
+    <td><a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-v0.7.2-arm64.apk'>arm64 APK</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-v0.7.2-armv7.apk'>armv7</a>, <a href='https://github.com/tonyantony300/dashbeam/releases/download/v0.7.2/DashBeam-v0.7.2-universal.apk'>universal</a></td>
+    <td>~15 MB</td>
   </tr>
   <tr>
     <td>⌨️ <b>CLI</b></td>
@@ -115,7 +127,7 @@ Le moyen le plus simple de commencer est de télécharger l'une des versions sui
     <td>🌐 <b>Web (débit limité)</b></td>
     <td><a href='https://app.dashbeam.net'>app.dashbeam.net</a></td>
     <td>-</td>
-    <td>~2 MB</td>
+    <td>_</td>
   </tr>
 </table>
 
@@ -123,21 +135,6 @@ Plus d'options sur [GitHub Releases](https://github.com/tonyantony300/dashbeam/r
 
 Un problème ? Consultez [Dépannage](../troubleshooting.md) pour les soucis courants et la marche à suivre pour collecter les journaux.
 
-
-
-## Partenaires
-
-<a href="https://www.testmuai.com" rel="nofollow">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-light.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg">
-    <img src="https://www.dashbeam.net/assets/sponsors/testmu-dark.svg" height="80" alt="TestMuAI">
-  </picture>
-</a>
-
-Nous recherchons des partenaires pour rejoindre notre mission ! Associez-vous à nous et soutenez-nous tandis que nous repoussons les limites du transfert de fichiers peer-to-peer.
-
-[**DISCUTONS**](https://www.dashbeam.net/en/contact)
 
 
 ## Langues prises en charge
@@ -305,16 +302,13 @@ Contactez-moi [ici](https://www.dashbeam.net/en/contact) pour des suggestions, d
 
 Merci d'avoir consulté ce projet ! Si vous le trouvez utile, pensez à lui donner une étoile et à en faire connaître autour de vous.
 
+<br>
 
-
-
-## Construit avec
-
-<div align="left">
-  <a href="https://iroh.computer">
-    <img alt="iroh" src="https://raw.githubusercontent.com/n0-computer/iroh/main/.img/iroh_wordmark.svg" width="200">
-  </a>
+<div align="center">
+<a href="https://play.google.com/store/apps/details?id=com.dashbeam.android"><img src="../../assets/gplay.png" height="60" alt="Get it on Google Play"></a>
 </div>
+
+
 
 
 
@@ -322,7 +316,7 @@ Merci d'avoir consulté ce projet ! Si vous le trouvez utile, pensez à lui donn
 <!-- <div align="center" style="color: gray;"></div> -->
 
 [badge-website]: https://img.shields.io/badge/website-dashbeam.net-orange
-[badge-version]: https://img.shields.io/badge/version-0.7.0-blue
+[badge-version]: https://img.shields.io/badge/version-0.7.2-blue
 [badge-discord]: https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white
 [badge-platforms]: https://img.shields.io/badge/platforms-macOS%2C%20Windows%2C%20Linux%2C%20Android%2C%20CLI%2C%20-green
 [badge-sponsor]: https://img.shields.io/badge/sponsor-ff69b4
