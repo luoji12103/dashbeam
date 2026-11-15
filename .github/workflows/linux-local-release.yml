@@ -32,6 +32,9 @@ jobs:
         shell: bash
     env:
       FROZEN_PRODUCT_SHA: 07d999b479e25657e6374e413210a0c086c0b853
+      # Keep Cargo on the exact installation that receives the WASM target;
+      # the frozen source's "1.91" alias is a separate rustup toolchain.
+      RUSTUP_TOOLCHAIN: "1.91.1"
       CARGO_TARGET_DIR: ${{ github.workspace }}/src-tauri/target
       CARGO_BUILD_JOBS: "2"
       CARGO_INCREMENTAL: "0"
@@ -110,8 +113,11 @@ jobs:
             pnpm --version
             rustc --version
             cargo --version
+            rustup show active-toolchain
+            rustup target list --installed
             clang --version
           } | tee "$BUILD_EVIDENCE/final-toolchain.txt"
+          test -d "$(rustc --print sysroot)/lib/rustlib/wasm32-unknown-unknown/lib"
 
       - name: Install locked JavaScript dependencies
         run: |
