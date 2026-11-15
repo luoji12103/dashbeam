@@ -58,30 +58,58 @@ The current local **pre-release** is [v0.7.1-local.4](https://github.com/luoji12
 - The latency update removes per-transfer relay preflight in Strict mode, overlaps sending endpoint warm-up with import/hash, and enables configured discovery for stale ticket addresses. Startup reads saved network settings before creating the first control endpoint, rather than briefly connecting with public defaults.
 - Payload downloads start alongside the bounded metadata lookup. Completion is held until metadata/final export settles; cancellation retains the receive reservation until cleanup, so old tasks cannot clear a newer transfer's state. Text markers still require strict validation; ordinary text files never auto-copy.
 - The device picker and cancel action are available while preparing a share. A legacy invitation is sent only once its ticket is ready; preparation/cancellation survives page navigation, and stale cleanup is restricted to its own ticket.
-- These changes preserve the existing BlobTicket wire format. Full-file hashing, Android SAF staging, a shared data endpoint, the new streaming protocol, and the optional encrypted **disk** spool are not eliminated/implemented by this update. No universal three-second or throughput claim is made. See [transport audit and experiments](reports/transport-audit-20261110/README.md) and [release validation](reports/transport-audit-20261110/PRODUCT_UPDATE.md).
+- The compatible latency path preserves the existing BlobTicket wire format and still performs full-file hashing/blob import. It does not remove Android SAF staging or add a server **disk** spool; source streaming is a separate opt-in candidate described below. No universal three-second or throughput claim is made. See [transport audit and experiments](reports/transport-audit-20261110/README.md) and [release validation](reports/transport-audit-20261110/PRODUCT_UPDATE.md).
 
 ### Experimental source streaming (2026-11-15)
 
-The local.5 candidate integrates source streaming into the native GUI as an
-explicit, **default-off, per-send** “Fast send (experimental)” switch. It supports
-one regular file up to 8 GiB between paired devices running compatible builds.
-It reuses the persistent device endpoint, reads the existing source file without
-a full preparation hash or blob-store import, and writes verified bytes directly
-into the destination filesystem with bounded buffers. Stopping a share revokes
-only that share, not the device's control connection.
+The proposed **v0.7.2-local.1** candidate (macOS/Android build 70201) integrates
+source streaming into the native GUI as a **default-off, per-send** “Prefer fast
+sending (experimental)” switch. This is not a release announcement: the local.4
+download links above remain historical packages and do not contain this GUI
+integration.
+
+Preparation waits until a paired target is selected. The sender checks that
+device's **current live CONTROL connection** with the existing
+`WhoAreYou`/`Identity` exchange and optional `source-stream-v1` capability.
+Missing, old, unrecognized or timed-out replies select the compatible legacy
+path before an Invite is sent; no capability is persisted in pairing records.
+The positive result is bound to that exact connection. If it closes or is
+replaced before the Invite, the uninvited stream share is revoked and converted
+once to a normal legacy share. Once an Invite write has started, an error never
+triggers automatic fallback or a second Invite. A failed legacy delivery still
+returns its actual ticket, allowing an explicit retry without a stale stream
+ticket. This leaves the existing control-message tags, pairing authentication
+and BlobTicket format unchanged; it is not a blanket compatibility claim for
+every historical or future client.
+
+When supported, one regular file up to 8 GiB uses the persistent device endpoint,
+without a full preparation hash or blob-store import, and verified bytes are
+written directly into the destination filesystem with bounded buffers. An
+ineligible source uses the legacy path instead. Stopping a share revokes only
+that share, not the device's control connection. The final share check and Invite
+write share a cancellation gate; connection waiting happens outside that gate,
+and the write is bounded to 750 ms.
 
 Keep the source unchanged until completion. There is no resume, automatic retry,
-capability negotiation with old clients, browser link, QR code, unpaired/Nearby
-delivery or broadcast in this mode. Text, folders, multiple files and Flash Drop
-retain the compatible legacy path. Android SAF picker staging is **not** removed:
-the new path avoids the subsequent blob import/hash, not the initial URI copy.
-No server disk spool, dependency upgrade or universal three-second guarantee is
-implied. local.4 packages do not contain this GUI integration.
+browser link, QR code, unpaired/Nearby delivery or broadcast for a stream ticket;
+a legacy fallback retains normal ticket behavior. Text, folders, multiple files
+and Flash Drop use the compatible legacy path. Android SAF picker staging is
+**not** removed: the new path avoids the subsequent blob import/hash, not the
+initial URI copy. There is no server disk spool or universal three-second
+guarantee.
 
-See the [experiment and API/CLI instructions](experiments/source-stream-20261112/README.md)
-and the [2026-11-12 data-plane comparison](experiments/source-stream-20261112/REPORT.zh-CN.md).
+At product source `07d999b`, DEV regression checks passed 184 frontend, 105
+protocol and 120 native tests, together with TypeScript checks and a
+Darwin-target frontend build. These are automated/source-level results, not
+completed release packaging or installed-device acceptance. The new candidate's
+cross-platform packages and real-device GUI/transfer acceptance remain separate
+gates.
 
-### Measured compatible latency (2026-11-11)
+The [experiment and API/CLI instructions](experiments/source-stream-20261112/README.md)
+and [2026-11-12 data-plane comparison](experiments/source-stream-20261112/REPORT.zh-CN.md)
+are historical experiment references, not post-v0.7.2 GUI performance results.
+
+### Historical compatible latency (2026-11-11, local.4)
 
 [DEV network benchmark](benchmarks/latency-20261111/REPORT.zh-CN.md): ten conditions,
 five matched old/new pairs each, **100/100** byte/path-verified transfers. At
@@ -90,9 +118,10 @@ fell from **2.662 s to 1.129 s** for 1 MiB; sustained large-file throughput was
 essentially unchanged. A separate two-explicit-home-relay suite passed **10/10**.
 These are real-engine tests with simulated application orchestration, not GUI,
 Android SAF or phone-to-Mac acceptance. The additional export-cache candidate was
-rejected; the tested product remains `local.4`, with no new streaming protocol or
-disk spool implied. Raw samples, build hashes and reproduction scripts are linked
-in the report.
+rejected. These measurements cover `local.4`, before the v0.7.2 dependency update
+and GUI streaming integration; they are not a benchmark of the new candidate and
+do not imply a streaming protocol or disk spool in local.4. Raw samples, build
+hashes and reproduction scripts are linked in the report.
 
 ### Build and install the local packages
 

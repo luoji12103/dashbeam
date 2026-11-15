@@ -41,10 +41,40 @@ macOS 接收完成后的复制文件/路径操作，以及兼容原协议的启�
 及 main `c5de165`，包括 Iroh 1.3.0、iroh-blobs 0.103.1；这不表示新安装包已经发布。
 每次同步保留本地功能，并重新进行旧版/官方版互通验收，见[官方同步策略](../UPSTREAM_SYNC.md)。
 
-另有[直接源文件流式传输实验](../../experiments/source-stream-20261112/README.md)：取消完整预 hash 和 blob 仓库暂存，
-边传边校验，直接写接收目标文件系统，并测试复用接收连接、消除多余应用往返。
-它是尚未接入 GUI/Android picker 的显式实验 API/CLI，**不是已发布安装包已经具备的功能**；
-旧客户端及 BlobTicket 不变。[对比报告](../../experiments/source-stream-20261112/REPORT.zh-CN.md)单独说明性能与取舍。
+### 实验性源文件流式传输（2026-11-15）
+
+拟发布的 **v0.7.2-local.1** 候选版（macOS/Android build 70201）已在原生 GUI 接入
+“优先快速发送（实验）”，**默认关闭、每次发送单独选择**。这不是发布公告；
+主 README 中现有 `v0.7.1-local.4` 下载链接保持不变，旧安装包不包含此 GUI 功能。
+
+选择已配对目标后才开始准备，并通过其**当前在线 CONTROL 连接**上的既有
+`WhoAreYou`/`Identity` 交换检查可选 `source-stream-v1` 能力。
+旧版、缺少能力、无法识别或超时的回复会在发送 Invite 前选择兼容的 legacy 路径，
+不把能力永久缓存进配对记录。肯定结果只对该条连接有效；若发送 Invite 前连接关闭或被替换，
+撤销尚未邀请的 stream 分享，再转换为一次普通 legacy 分享。
+Invite 写入开始后发生错误，**不会自动回退或再发一次邀请**；legacy 发送失败仍返回实际票据，
+界面先同步新票据，供用户显式重试。既有控制消息类型、配对认证与 BlobTicket 格式不变，
+但这不等于承诺所有历史或未来客户端都已验收。
+
+对端支持时，单个不超过 8 GiB 的普通文件可复用常驻设备 endpoint，
+省去完整准备 hash 与 blob 仓库导入，边传边校验并以有界缓冲直接写接收目标文件系统；
+不符合条件的源文件走 legacy。停止分享仅撤销本次分享，不关闭设备控制连接。
+实际邀请写入与最后的分享状态检查共用取消 gate；等待连接不持有该 gate，写入限时 750 ms。
+
+流式传输期间必须保持源文件不变；stream 票据不支持续传、自动重试、浏览器链接、二维码、
+未配对/Nearby 发送或广播，回退后的 legacy 票据仍保留普通行为。
+文字、文件夹、多文件和 Flash Drop 继续走 legacy。
+Android SAF picker 的初始 URI 暂存复制**没有移除**，只省去其后一次 blob 导入/hash；
+未加入服务端磁盘 spool，也没有统一“三秒传完”的保证。
+
+产品源码 `07d999b` 已通过 DEV 的前端 184、protocol 105、native 120 项回归测试，
+以及 TypeScript 检查和 Darwin 目标前端构建。这些是自动化/源码层验证，
+不等于跨平台安装包已经发布或真实设备 GUI/传输验收已经完成。
+
+[实验 API/CLI 说明](../../experiments/source-stream-20261112/README.md)与
+[2026-11-12 数据面对照报告](../../experiments/source-stream-20261112/REPORT.zh-CN.md)保留为历史实验记录。
+[2026-11-11 普通传输时延报告](../../benchmarks/latency-20261111/REPORT.zh-CN.md)仅针对 `local.4`：
+其数据早于 v0.7.2 依赖升级和 GUI 流式集成，不能视为新版性能或 Android SAF/手机到 Mac 的验收结果。
 
 既然可以可靠、轻松地直接传输文件，端到端加密且不泄露任何个人信息，又何必依赖 WeTransfer、Dropbox 或 Google Drive 呢？
 

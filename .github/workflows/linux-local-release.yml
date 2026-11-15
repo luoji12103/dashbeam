@@ -1,0 +1,265 @@
+name: Linux local build-only
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Frozen product commit (full SHA; no branch or tag)
+        required: true
+        default: 07d999b479e25657e6374e413210a0c086c0b853
+        type: string
+
+# This workflow can upload run artifacts, but cannot publish a GitHub release.
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-local-build-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    env:
+      FROZEN_PRODUCT_SHA: 07d999b479e25657e6374e413210a0c086c0b853
+      CARGO_TARGET_DIR: ${{ github.workspace }}/src-tauri/target
+      CARGO_BUILD_JOBS: "2"
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: "2"
+      CARGO_PROFILE_RELEASE_LTO: "false"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "8"
+      CARGO_PROFILE_RELEASE_DEBUG: "0"
+      TAURI_LINUX_AYATANA_APPINDICATOR: "1"
+      CC: clang
+      CXX: clang++
+    steps:
+      - name: Validate frozen product input
+        env:
+          REQUESTED_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          BUILD_EVIDENCE="$RUNNER_TEMP/dashbeam-linux-local-evidence"
+          LOCAL_STAGE="$RUNNER_TEMP/dashbeam-linux-local-stage"
+          printf 'BUILD_EVIDENCE=%s\nLOCAL_STAGE=%s\n' "$BUILD_EVIDENCE" "$LOCAL_STAGE" >> "$GITHUB_ENV"
+          mkdir -p "$BUILD_EVIDENCE" "$LOCAL_STAGE"
+          if [[ ! "$REQUESTED_REF" =~ ^[0-9a-f]{40}$ ]] || [[ "$REQUESTED_REF" != "$FROZEN_PRODUCT_SHA" ]]; then
+            echo "This build-only workflow accepts only its frozen product SHA." >&2
+            exit 2
+          fi
+          printf '%s\n' "$REQUESTED_REF" | tee "$BUILD_EVIDENCE/final-requested-source-commit.txt"
+
+      - name: Checkout frozen product, not the workflow commit
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Record frozen source provenance
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FROZEN_PRODUCT_SHA"
+          git rev-parse HEAD | tee "$BUILD_EVIDENCE/final-source-commit.txt"
+          git ls-files -z | xargs -0 sha256sum > "$BUILD_EVIDENCE/final-source-files-before.sha256"
+          node scripts/validate-version.js
+          node -e 'if (require("./package.json").version !== "0.7.2") throw new Error("Expected package version 0.7.2")'
+          df -h "$GITHUB_WORKSPACE" | tee "$BUILD_EVIDENCE/final-disk-before.txt"
+
+      - name: Install Linux Tauri and WASM dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update 2>&1 | tee "$BUILD_EVIDENCE/final-apt-update.txt"
+          sudo apt-get install -y \
+            build-essential clang pkg-config libssl-dev libgtk-3-dev \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf xdg-utils \
+            2>&1 | tee "$BUILD_EVIDENCE/final-apt-install.txt"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.12.1
+
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Set up Rust 1.91.1 and WASM target
+        uses: dtolnay/rust-toolchain@dd87c1884d4b74c592b9ad3151acd86a8a80c6f2 # 1.91.1
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Record toolchain versions
+        run: |
+          set -euo pipefail
+          {
+            node --version
+            pnpm --version
+            rustc --version
+            cargo --version
+            clang --version
+          } | tee "$BUILD_EVIDENCE/final-toolchain.txt"
+
+      - name: Install locked JavaScript dependencies
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile 2>&1 | tee "$BUILD_EVIDENCE/final-pnpm-install.txt"
+
+      - name: Frontend library tests
+        run: |
+          set -euo pipefail
+          pnpm run test:lib 2>&1 | tee "$BUILD_EVIDENCE/final-frontend-tests.txt"
+
+      - name: Rebuild and check WASM bridge
+        run: |
+          set -euo pipefail
+          cargo install wasm-bindgen-cli --version 0.2.126 --locked \
+            2>&1 | tee "$BUILD_EVIDENCE/final-wasm-bindgen-install.txt"
+          pnpm run build:wasm 2>&1 | tee "$BUILD_EVIDENCE/final-wasm-build.txt"
+          pnpm run check:wasm 2>&1 | tee "$BUILD_EVIDENCE/final-wasm-parity.txt"
+          test -s frontend/src/wasm/pkg/wasm_bridge.js
+          test -s frontend/src/wasm/pkg/wasm_bridge_bg.wasm
+          tar -czf "$LOCAL_STAGE/DashBeam-0.7.2-wasm-pkg.tar.gz" -C frontend/src/wasm pkg
+
+      - name: Build local Linux frontend for native test context
+        run: |
+          set -euo pipefail
+          VITE_LOCAL_BUILD=true TAURI_ENV_PLATFORM=linux pnpm run build \
+            2>&1 | tee "$BUILD_EVIDENCE/final-frontend-linux-build.txt"
+
+      - name: App library tests without public metadata E2E
+        run: |
+          set -euo pipefail
+          # The isolated-X11 test remains #[ignore]; do not add --ignored.
+          cargo test --locked --manifest-path src-tauri/Cargo.toml --lib \
+            -- --skip fetch_ticket_metadata_command_e2e --test-threads=1 \
+            2>&1 | tee "$BUILD_EVIDENCE/final-app-tests.txt"
+
+      - name: Persistent product-node streaming integration
+        run: |
+          set -euo pipefail
+          cargo test --locked --manifest-path engine/Cargo.toml \
+            --test test_source_stream_node -- --test-threads=1 --nocapture \
+            2>&1 | tee "$BUILD_EVIDENCE/final-node-integration.txt"
+
+      - name: Build release temporary device probe
+        run: |
+          set -euo pipefail
+          cargo build --locked --release --manifest-path engine/Cargo.toml \
+            --example device_probe \
+            2>&1 | tee "$BUILD_EVIDENCE/final-device-probe-build.txt"
+          install -m 0755 "$CARGO_TARGET_DIR/release/examples/device_probe" "$LOCAL_STAGE/device_probe"
+          file "$LOCAL_STAGE/device_probe" | tee "$BUILD_EVIDENCE/final-device-probe-file.txt"
+          sha256sum "$LOCAL_STAGE/device_probe" | tee "$BUILD_EVIDENCE/final-device-probe.sha256"
+
+      - name: Build local Linux deb without updater or release upload
+        run: |
+          set -euo pipefail
+          unset RELEASE_ID GH_TOKEN GITHUB_TOKEN GITHUB_REPOSITORY
+          pnpm exec tauri build --bundles deb \
+            --config '{"build":{"beforeBuildCommand":"VITE_LOCAL_BUILD=true TAURI_ENV_PLATFORM=linux pnpm run build"},"bundle":{"createUpdaterArtifacts":false}}' \
+            2>&1 | tee "$BUILD_EVIDENCE/final-linux-build.txt"
+
+      - name: Stage and patch only this build's deb
+        run: |
+          set -euo pipefail
+          # Fresh runner + exact version/architecture + exactly one match.
+          shopt -s nullglob
+          debs=("$CARGO_TARGET_DIR"/release/bundle/deb/*_0.7.2_amd64.deb)
+          test "${#debs[@]}" = 1
+          test "$(dpkg-deb --field "${debs[0]}" Version)" = 0.7.2
+          test "$(dpkg-deb --field "${debs[0]}" Architecture)" = amd64
+          cp --no-clobber "${debs[0]}" "$LOCAL_STAGE/"
+          # Do not invoke patch-linux-deb.js: it scans all shared debs and has
+          # release-upload support. This adapter accepts only the staged copy.
+          node --input-type=module <<'NODE' 2>&1 | tee "$BUILD_EVIDENCE/final-linux-deb-patch.txt"
+          import fs from 'node:fs'
+          import path from 'node:path'
+          import { spawnSync } from 'node:child_process'
+          const stage = fs.realpathSync(process.env.LOCAL_STAGE)
+          const debs = fs.readdirSync(stage).filter(name => name.endsWith('_0.7.2_amd64.deb'))
+          if (debs.length !== 1) throw new Error('Expected one staged 0.7.2 amd64 deb')
+          const artifact = path.join(stage, debs[0])
+          function run(args) {
+            const result = spawnSync('dpkg-deb', args, { encoding: 'utf8' })
+            if (result.error || result.status !== 0) throw new Error('dpkg-deb failed')
+            return result.stdout.trim()
+          }
+          if (run(['--field', artifact, 'Version']) !== '0.7.2' ||
+              run(['--field', artifact, 'Architecture']) !== 'amd64') throw new Error('Unexpected deb metadata')
+          const unpacked = fs.mkdtempSync(path.join(process.env.BUILD_EVIDENCE, 'final-deb-stage.'))
+          try {
+            run(['--extract', artifact, unpacked])
+            run(['--control', artifact, path.join(unpacked, 'DEBIAN')])
+            const control = path.join(unpacked, 'DEBIAN/control')
+            const original = fs.readFileSync(control, 'utf8')
+            if (!/^Depends: .+$/m.test(original)) throw new Error('Missing package Depends field')
+            const depends = 'libayatana-appindicator3-1 | libappindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0t64 | libgtk-3-0'
+            fs.writeFileSync(control, original.replace(/^Depends: .+$/m, `Depends: ${depends}`))
+            run(['--build', unpacked, artifact])
+            console.log(`Patched only staged ${debs[0]}`)
+            console.log(`Depends: ${depends}`)
+          } finally {
+            // Only this newly created package-extraction directory is removed.
+            fs.rmSync(unpacked, { recursive: true, force: true })
+          }
+          NODE
+          staged_debs=("$LOCAL_STAGE"/*_0.7.2_amd64.deb)
+          test "${#staged_debs[@]}" = 1
+          dpkg-deb --info "${staged_debs[0]}" | tee "$BUILD_EVIDENCE/final-linux-deb-info.txt"
+          dpkg-deb --contents "${staged_debs[0]}" > "$BUILD_EVIDENCE/final-linux-deb-files.txt"
+          dpkg-deb --field "${staged_debs[0]}" Depends | tee "$BUILD_EVIDENCE/final-linux-deb-depends.txt"
+
+      - name: Verify locked inputs and checksum staged assets
+        run: |
+          set -euo pipefail
+          git diff --exit-code -- engine/Cargo.lock src-tauri/Cargo.lock wasm-bridge/Cargo.lock pnpm-lock.yaml \
+            2>&1 | tee "$BUILD_EVIDENCE/final-lockfile-check.txt"
+          test -x "$LOCAL_STAGE/device_probe"
+          test -s "$LOCAL_STAGE/DashBeam-0.7.2-wasm-pkg.tar.gz"
+          (
+            cd "$LOCAL_STAGE"
+            sha256sum -- ./*.deb ./device_probe ./DashBeam-0.7.2-wasm-pkg.tar.gz > SHA256SUMS
+          )
+          cp "$BUILD_EVIDENCE/final-source-commit.txt" "$LOCAL_STAGE/SOURCE_COMMIT"
+          cat "$LOCAL_STAGE/SHA256SUMS"
+          {
+            echo "### Linux local build-only"
+            echo ""
+            echo "- Frozen product: \`$FROZEN_PRODUCT_SHA\`"
+            echo "- Includes local deb, release device_probe and rebuilt WASM package."
+            echo "- No release publication, signing credentials, production relay access or device GUI acceptance."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Collect final diagnostics
+        if: ${{ always() }}
+        run: |
+          set -u
+          mkdir -p "$BUILD_EVIDENCE"
+          git status --short > "$BUILD_EVIDENCE/final-source-status.txt" 2>&1 || true
+          git diff --stat > "$BUILD_EVIDENCE/final-source-generated-diff-stat.txt" 2>&1 || true
+          df -h "$GITHUB_WORKSPACE" > "$BUILD_EVIDENCE/final-disk-after.txt" 2>&1 || true
+
+      - name: Upload local Linux and probe build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dashbeam-linux-local
+          path: ${{ runner.temp }}/dashbeam-linux-local-stage/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload build and test logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dashbeam-linux-local-logs
+          path: ${{ runner.temp }}/dashbeam-linux-local-evidence/
+          if-no-files-found: warn
+          retention-days: 14
