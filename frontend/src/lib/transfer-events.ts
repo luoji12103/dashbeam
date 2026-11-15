@@ -15,6 +15,8 @@ export type TransferProgressUpdate = {
 export type TransferCompletion = {
 	/** Time on the wire, excluding connection setup and disk export. */
 	durationMs: number
+	/** Verified payload size, including fast transfers with no rendered tick. */
+	bytes?: number
 	/** Receiver only: time spent writing the files out to disk. */
 	exportMs?: number
 	/**
@@ -76,6 +78,14 @@ export function parseCompletionPayload(
 			return null
 		}
 		const completion: TransferCompletion = { durationMs }
+		const bytes = parsed.bytes
+		if (
+			typeof bytes === 'number' &&
+			Number.isSafeInteger(bytes) &&
+			bytes >= 0
+		) {
+			completion.bytes = bytes
+		}
 		const exportMs = parsed.exportMs
 		if (typeof exportMs === 'number' && Number.isFinite(exportMs)) {
 			completion.exportMs = exportMs

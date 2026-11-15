@@ -42,7 +42,7 @@ use anyhow::{ensure, Context};
 use data_encoding::BASE64URL_NOPAD;
 use iroh::{
     address_lookup::pkarr::PkarrPublisher,
-    endpoint::{presets, Connection, QuicTransportConfig, RelayMode, VarInt},
+    endpoint::{presets, ConnectOptions, Connection, QuicTransportConfig, RelayMode, VarInt},
     Endpoint, EndpointAddr, SecretKey, TransportAddr,
 };
 use protocol::{DiscoveryModeOption, ReceiveOptions, SendOptions};
@@ -63,6 +63,10 @@ use codec::{
 };
 pub use codec::STREAM_BUFFER_BYTES;
 
+#[path = "stream_host.rs"]
+mod host;
+pub use host::{RegisteredStreamShare, StreamHost};
+
 pub const STREAM_ALPN: &[u8] = b"dashbeam-source-stream/1";
 const TICKET_PREFIX: &str = "dashbeam-stream-v1:";
 const MAX_TICKET_BYTES: usize = 8192;
@@ -77,6 +81,15 @@ const MAX_TRANSPORT_WINDOW: u32 = 16 * 1024 * 1024;
 pub struct StreamTicket {
     addr: EndpointAddr,
     capability: [u8; 32],
+    file_info: Option<StreamFileInfo>,
+}
+
+/// Untrusted UI hints only. The authenticated Offer remains authoritative.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct StreamFileInfo {
+    pub name: String,
+    pub bytes: u64,
 }
 
 impl fmt::Debug for StreamTicket {
@@ -93,15 +106,25 @@ impl fmt::Debug for StreamTicket {
 struct WireTicket {
     addr: EndpointAddr,
     capability: [u8; 32],
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    file_info: Option<StreamFileInfo>,
 }
 
 impl StreamTicket {
     pub fn from_parts(addr: EndpointAddr, capability: [u8; 32]) -> Self {
-        Self { addr, capability }
+        Self { addr, capability, file_info: None }
     }
 
     pub fn addr(&self) -> &EndpointAddr {
         &self.addr
+    }
+
+    pub fn file_info(&self) -> Option<&StreamFileInfo> {
+        self.file_info.as_ref()
+    }
+
+    pub fn is_stream_token(token: &str) -> bool {
+        token.starts_with(TICKET_PREFIX)
     }
 
     /// The returned string grants access. Do not print it or put it in logs.
@@ -109,6 +132,7 @@ impl StreamTicket {
         let bytes = serde_json::to_vec(&WireTicket {
             addr: self.addr.clone(),
             capability: self.capability,
+            file_info: self.file_info.clone(),
         })?;
         let token = format!("{TICKET_PREFIX}{}", BASE64URL_NOPAD.encode(&bytes));
         ensure!(token.len() <= MAX_TICKET_BYTES, "source stream ticket too large");
@@ -125,7 +149,10 @@ impl StreamTicket {
             .map_err(|_| anyhow::anyhow!("invalid source stream ticket encoding"))?;
         let wire: WireTicket = serde_json::from_slice(&bytes)
             .map_err(|_| anyhow::anyhow!("invalid source stream ticket"))?;
-        Ok(Self::from_parts(wire.addr, wire.capability))
+        if let Some(info) = &wire.file_info {
+            validate_name(&info.name)?;
+        }
+        Ok(Self { addr: wire.addr, capability: wire.capability, file_info: wire.file_info })
     }
 }
 
@@ -241,6 +268,7 @@ struct Source {
     original_path: Option<PathBuf>,
     bytes_read: AtomicU64,
     completed: AtomicU64,
+    emitter: protocol::AppHandle,
 }
 
 impl Source {
@@ -257,6 +285,26 @@ impl Source {
         }
         Ok(())
     }
+}
+
+fn prepare_source(
+    mut file: std::fs::File,
+    name: String,
+    original_path: Option<PathBuf>,
+    limits: &StreamLimits,
+    emitter: protocol::AppHandle,
+) -> anyhow::Result<Arc<Source>> {
+    limits.validate()?;
+    validate_name(&name)?;
+    let stamp = SourceStamp::read(&file.metadata()?)?;
+    ensure!(stamp.len <= limits.max_bytes, "source exceeds stream byte limit");
+    file.stream_position().context("source file must be seekable")?;
+    let mut file = File::from_std(file);
+    file.set_max_buf_size(STREAM_BUFFER_BYTES);
+    Ok(Arc::new(Source {
+        file: Mutex::new(file), stamp, name, original_path,
+        bytes_read: AtomicU64::new(0), completed: AtomicU64::new(0), emitter,
+    }))
 }
 
 /// Owns only this experimental share's endpoint, source handle and tasks.
@@ -308,27 +356,13 @@ impl StreamShare {
     }
 
     async fn start_owned(
-        mut file: std::fs::File,
+        file: std::fs::File,
         name: String,
         original_path: Option<PathBuf>,
         options: SendOptions,
         limits: StreamLimits,
     ) -> anyhow::Result<Self> {
-        limits.validate()?;
-        validate_name(&name)?;
-        let stamp = SourceStamp::read(&file.metadata()?)?;
-        ensure!(stamp.len <= limits.max_bytes, "source exceeds stream byte limit");
-        file.stream_position().context("source file must be seekable")?;
-        let mut file = File::from_std(file);
-        file.set_max_buf_size(STREAM_BUFFER_BYTES);
-        let source = Arc::new(Source {
-            file: Mutex::new(file),
-            stamp,
-            name,
-            original_path,
-            bytes_read: AtomicU64::new(0),
-            completed: AtomicU64::new(0),
-        });
+        let source = prepare_source(file, name, original_path, &limits, None)?;
         let relay: RelayMode = options.relay_mode.clone().into();
         let custom = protocol::uses_custom_infra(&options.discovery_mode, &options.relay_mode);
         let mut builder = protocol::with_system_ca_if_custom(
@@ -354,7 +388,7 @@ impl StreamShare {
             builder = builder.bind_addr(addr)?;
         }
         let endpoint = builder.bind().await?;
-        let owner = EndpointOwner(endpoint.clone());
+        let owner = EndpointOwner(endpoint.clone(), true);
         if !matches!(relay, RelayMode::Disabled) {
             timeout(limits.request_timeout, endpoint.online())
                 .await
@@ -430,11 +464,12 @@ fn transport_config(limits: &StreamLimits) -> anyhow::Result<QuicTransportConfig
         .build())
 }
 
-struct EndpointOwner(Endpoint);
+// A borrowed endpoint is never closed, including constructor failure or Drop.
+struct EndpointOwner(Endpoint, bool);
 
 impl Drop for EndpointOwner {
     fn drop(&mut self) {
-        if !self.0.is_closed() {
+        if self.1 && !self.0.is_closed() {
             if let Ok(runtime) = tokio::runtime::Handle::try_current() {
                 let endpoint = self.0.clone();
                 runtime.spawn(async move { close_endpoint(&endpoint).await });
@@ -505,9 +540,23 @@ async fn send_one(
     capability: [u8; 32],
     limits: &StreamLimits,
 ) -> anyhow::Result<()> {
-    let (mut tx, mut rx, mut file) = timeout(limits.request_timeout, async {
-        let (mut tx, mut rx) = connection.accept_bi().await?;
+    let (tx, rx, request) = timeout(limits.request_timeout, async {
+        let (tx, mut rx) = connection.accept_bi().await?;
         let request: Request = read_control(&mut rx, limits.idle_timeout).await?;
+        anyhow::Ok((tx, rx, request))
+    }).await.context("source stream request timeout")??;
+    send_requested(tx, rx, request, source, capability, limits).await
+}
+
+async fn send_requested(
+    mut tx: iroh::endpoint::SendStream,
+    mut rx: iroh::endpoint::RecvStream,
+    request: Request,
+    source: &Source,
+    capability: [u8; 32],
+    limits: &StreamLimits,
+) -> anyhow::Result<()> {
+    let mut file = timeout(limits.request_timeout, async {
         // blake3::Hash equality uses constant-time byte comparison.
         ensure!(
             request.version == VERSION
@@ -531,8 +580,13 @@ async fn send_one(
         ).await?;
         // Payload follows Offer on this same ordered stream. Do not wait for a
         // second application round trip or start a read-ahead producer task.
-        anyhow::Ok((tx, rx, file))
+        anyhow::Ok(file)
     }).await.context("source stream request timeout")??;
+
+    let started = Instant::now();
+    emit_stream_event(&source.emitter, "transfer-started", None);
+    let mut terminal = StreamTerminal { emitter: &source.emitter, completed: false };
+    let mut progress = StreamProgress::new(&source.emitter, "transfer-progress", source.stamp.len);
 
     let mut buffer = vec![0u8; STREAM_BUFFER_BYTES];
     let mut remaining = source.stamp.len;
@@ -548,6 +602,7 @@ async fn send_one(
         write_all(&mut tx, &(len as u32).to_be_bytes(), limits.idle_timeout).await?;
         write_all(&mut tx, &buffer[..len], limits.idle_timeout).await?;
         remaining -= len as u64;
+        progress.record(source.stamp.len - remaining);
     }
     timed(limits.idle_timeout, async {
         ensure!(file.read(&mut buffer[..1]).await? == 0, "source grew during transfer");
@@ -572,7 +627,61 @@ async fn send_one(
         "source stream completion mismatch"
     );
     source.completed.fetch_add(1, Ordering::Relaxed);
+    terminal.completed = true;
+    emit_stream_event(&source.emitter, "transfer-completed", Some(serde_json::json!({
+        "durationMs": started.elapsed().as_millis() as u64,
+        "bytes": source.stamp.len, "totalBytes": source.stamp.len,
+    }).to_string()));
     Ok(())
+}
+
+struct StreamTerminal<'a> {
+    emitter: &'a protocol::AppHandle,
+    completed: bool,
+}
+
+impl Drop for StreamTerminal<'_> {
+    fn drop(&mut self) {
+        // Router abort, host revocation, timeout and ordinary errors all close
+        // an already-started history row; unstarted requests emit no failure.
+        if !self.completed { emit_stream_event(self.emitter, "transfer-failed", None); }
+    }
+}
+
+fn emit_stream_event(emitter: &protocol::AppHandle, event: &str, payload: Option<String>) {
+    if let Some(emitter) = emitter {
+        let _ = match payload {
+            Some(payload) => emitter.emit_event_with_payload(event, &payload),
+            None => emitter.emit_event(event),
+        };
+    }
+}
+
+// Bounded, time-throttled UI reporting; never queues an event per network frame.
+struct StreamProgress<'a> {
+    emitter: &'a protocol::AppHandle,
+    event: &'static str,
+    total: u64,
+    started: Instant,
+    last: Option<Instant>,
+}
+
+impl<'a> StreamProgress<'a> {
+    fn new(emitter: &'a protocol::AppHandle, event: &'static str, total: u64) -> Self {
+        Self { emitter, event, total, started: Instant::now(), last: None }
+    }
+
+    fn record(&mut self, bytes: u64) {
+        if self.emitter.is_none() { return; }
+        let now = Instant::now();
+        if bytes != self.total && self.last.is_some_and(|last| now.duration_since(last) < Duration::from_millis(100)) {
+            return;
+        }
+        self.last = Some(now);
+        let speed = bytes as f64 / self.started.elapsed().as_secs_f64().max(0.001);
+        emit_stream_event(self.emitter, self.event,
+            Some(format!("{bytes}:{}:{}", self.total, (speed * 1000.0) as i64)));
+    }
 }
 
 /// Reuses its own ephemeral endpoint and, for the same share, one QUIC
@@ -618,8 +727,17 @@ impl StreamReceiver {
         if let Some(addr) = options.network.magic_ipv6_addr {
             builder = builder.bind_addr(addr)?;
         }
-        let endpoint = EndpointOwner(builder.bind().await?);
+        let endpoint = EndpointOwner(builder.bind().await?, true);
         Ok(Self { endpoint, limits: options.limits, connection: None })
+    }
+
+    /// Borrow an app-owned endpoint. Only this receiver's STREAM connection is
+    /// closed on shutdown; control/router connections and the node stay alive.
+    /// The app's endpoint hooks still apply to incoming peer connections.
+    pub fn from_endpoint(endpoint: Endpoint, limits: StreamLimits) -> anyhow::Result<Self> {
+        limits.validate()?;
+        ensure!(!endpoint.is_closed(), "source stream endpoint is closed");
+        Ok(Self { endpoint: EndpointOwner(endpoint, false), limits, connection: None })
     }
 
     pub async fn receive(
@@ -628,7 +746,17 @@ impl StreamReceiver {
         output_dir: PathBuf,
         cancel: oneshot::Receiver<()>,
     ) -> anyhow::Result<StreamReceiveResult> {
-        self.receive_started(ticket, output_dir, cancel, Instant::now()).await
+        self.receive_started(ticket, output_dir, cancel, Instant::now(), None).await
+    }
+
+    pub async fn receive_with_emitter(
+        &mut self,
+        ticket: &StreamTicket,
+        output_dir: PathBuf,
+        cancel: oneshot::Receiver<()>,
+        emitter: protocol::AppHandle,
+    ) -> anyhow::Result<StreamReceiveResult> {
+        self.receive_started(ticket, output_dir, cancel, Instant::now(), emitter).await
     }
 
     async fn receive_started(
@@ -637,6 +765,7 @@ impl StreamReceiver {
         output_dir: PathBuf,
         mut cancel: oneshot::Receiver<()>,
         started: Instant,
+        emitter: protocol::AppHandle,
     ) -> anyhow::Result<StreamReceiveResult> {
         let whole_timeout = self.limits.whole_timeout;
         let transfer = async {
@@ -648,7 +777,12 @@ impl StreamReceiver {
                 self.close_connection();
                 let connection = timeout(
                     self.limits.request_timeout,
-                    self.endpoint.0.connect(ticket.addr.clone(), STREAM_ALPN),
+                    async {
+                        anyhow::Ok(self.endpoint.0.connect_with_opts(
+                            ticket.addr.clone(), STREAM_ALPN,
+                            ConnectOptions::new().with_transport_config(transport_config(&self.limits)?),
+                        ).await?.await?)
+                    },
                 ).await.context("source stream connect timeout")??;
                 self.connection = Some(connection);
             }
@@ -672,8 +806,9 @@ impl StreamReceiver {
                 anyhow::Ok((tx, rx, offer))
             }).await.context("source stream request timeout")??;
             let mut partial = PartialFile::create(&output_dir)?;
-            let verified = receive_payload(
-                &mut rx, &mut partial, &offer, &self.limits, started,
+            emit_stream_event(&emitter, "receive-started", None);
+            let verified = receive_payload_with_emitter(
+                &mut rx, &mut partial, &offer, &self.limits, started, &emitter,
             ).await?;
             anyhow::Ok((tx, verified, partial, output_dir, offer.name, initial_path))
         };
@@ -746,7 +881,9 @@ impl StreamReceiver {
 
     pub async fn shutdown(mut self) {
         self.close_connection();
-        close_endpoint(&self.endpoint.0).await;
+        if self.endpoint.1 {
+            close_endpoint(&self.endpoint.0).await;
+        }
     }
 }
 
@@ -771,7 +908,7 @@ pub async fn receive(
         result = timeout(request_timeout, StreamReceiver::new(options)) =>
             result.context("source stream endpoint timeout")??,
     };
-    let result = receiver.receive_started(ticket, output_dir, cancel, started).await;
+    let result = receiver.receive_started(ticket, output_dir, cancel, started, None).await;
     receiver.shutdown().await;
     result
 }
@@ -811,6 +948,7 @@ struct VerifiedPayload {
     first_payload: Option<Duration>,
 }
 
+#[cfg(test)]
 async fn receive_payload<R: tokio::io::AsyncRead + Unpin>(
     rx: &mut R,
     partial: &mut PartialFile,
@@ -818,10 +956,22 @@ async fn receive_payload<R: tokio::io::AsyncRead + Unpin>(
     limits: &StreamLimits,
     started: Instant,
 ) -> anyhow::Result<VerifiedPayload> {
+    receive_payload_with_emitter(rx, partial, offer, limits, started, &None).await
+}
+
+async fn receive_payload_with_emitter<R: tokio::io::AsyncRead + Unpin>(
+    rx: &mut R,
+    partial: &mut PartialFile,
+    offer: &Offer,
+    limits: &StreamLimits,
+    started: Instant,
+    emitter: &protocol::AppHandle,
+) -> anyhow::Result<VerifiedPayload> {
     let mut buffer = vec![0u8; STREAM_BUFFER_BYTES];
     let mut bytes = 0u64;
     let mut first_payload = None;
     let mut hasher = blake3::Hasher::new();
+    let mut progress = StreamProgress::new(emitter, "receive-progress", offer.bytes);
     loop {
         let len = read_frame_length(rx, offer.bytes - bytes, limits.idle_timeout).await?;
         if len == 0 { break; }
@@ -838,6 +988,7 @@ async fn receive_payload<R: tokio::io::AsyncRead + Unpin>(
             Ok(())
         }).await?;
         bytes += len as u64;
+        progress.record(bytes);
     }
     let manifest: Manifest = read_control(rx, limits.idle_timeout).await?;
     require_eof(rx, limits.idle_timeout).await?;
@@ -865,6 +1016,9 @@ fn private_output_directory(path: &Path) -> anyhow::Result<PathBuf> {
     for component in absolute.components() {
         ensure!(!matches!(component, Component::ParentDir), "output directory contains ..");
         checked.push(component);
+        // A Windows drive/verbatim prefix is not yet a complete root path.
+        // canonicalize returns \\?\C:\...; inspect after RootDir is appended.
+        if matches!(component, Component::Prefix(_)) { continue; }
         let metadata = std::fs::symlink_metadata(&checked)?;
         ensure!(
             metadata.is_dir() && !metadata.file_type().is_symlink(),

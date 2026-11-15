@@ -26,6 +26,7 @@ import { getDiscoveryConfigArg } from '../lib/discovery'
 import { getRelayConfigArg } from '../lib/relay'
 import { getTextByteLength, validateTextDraft } from '../lib/send-text'
 import { prepareShare, type SharePreparation } from '../lib/share-preparation'
+import { isSourceStreamTicket } from '../lib/source-stream'
 import {
 	parseCompletionPayload,
 	parseProgressPayload,
@@ -41,6 +42,7 @@ type PreparedShare = {
 	generation: number
 	preparation: SharePreparation<string>
 	sendMode: 'file' | 'text'
+	sourceStream: boolean
 	textDraft: string
 	selectedPaths: string[]
 	totalSize?: Promise<number>
@@ -77,6 +79,7 @@ export interface UseSenderReturn {
 	transferMetadata: TransferMetadata | null
 	transferProgress: TransferProgress | null
 	sendMode: 'file' | 'text'
+	sourceStream: boolean
 	textDraft: string
 	isBroadcastMode: boolean
 	activeConnectionCount: number
@@ -98,6 +101,7 @@ export interface UseSenderReturn {
 	clearSelectedPath: () => void
 	removeSelectedPath: (path: string) => void
 	setSendMode: (mode: 'file' | 'text') => void
+	setSourceStream: (enabled: boolean) => void
 	setTextDraft: (text: string) => void
 	clearTextDraft: () => void
 	startSharing: () => Promise<void>
@@ -124,6 +128,7 @@ export function useSender(): UseSenderReturn {
 		transferMetadata,
 		transferProgress,
 		sendMode,
+		sourceStream,
 		textDraft,
 		isBroadcastMode,
 		activeConnectionCount,
@@ -138,6 +143,7 @@ export function useSender(): UseSenderReturn {
 		setTransferMetadata,
 		setTransferProgress,
 		setSendMode,
+		setSourceStream,
 		setTextDraft,
 		clearTextDraft,
 		setIsBroadcastMode,
@@ -464,7 +470,8 @@ export function useSender(): UseSenderReturn {
 					const pathToUse = storeState.selectedPath || currentPath
 					if (pathToUse) {
 						const fileName = pathToUse.split('/').pop() || 'Unknown'
-						const estimatedFileSize = latestProgressRef.current?.totalBytes || 0
+						const estimatedFileSize =
+							completion?.bytes ?? latestProgressRef.current?.totalBytes ?? 0
 						const pathTypeToUse = storeState.pathType || currentPathType
 						const itemCount = storeState.selectedPaths.length
 						const shouldResolveExactSize = itemCount <= 1
@@ -780,11 +787,28 @@ export function useSender(): UseSenderReturn {
 			return
 		}
 
+		const useSourceStream =
+			sourceStream &&
+			IS_PAIRING_CAPABLE &&
+			isNodeReady &&
+			sendMode === 'file' &&
+			selectedPaths.length === 1 &&
+			pathType === 'file'
+		if (sourceStream && !useSourceStream) {
+			showAlert(
+				t('common:errors.sharingFailed'),
+				t('common:sender.sourceStream.unavailable'),
+				'error'
+			)
+			return
+		}
 		const generation = ++shareGenerationRef.current
+		if (useSourceStream) setIsBroadcastMode(false)
 		const previous = preparedShareRef.current
 		const share: PreparedShare = {
 			generation,
 			sendMode,
+			sourceStream: useSourceStream,
 			textDraft,
 			selectedPaths: [...selectedPaths],
 			preparation: prepareShare({
@@ -803,6 +827,7 @@ export function useSender(): UseSenderReturn {
 							})
 						: invoke<string>('send_items', {
 								paths: selectedPaths,
+								sourceStream: useSourceStream,
 								relay: getRelayConfigArg(),
 								discovery: getDiscoveryConfigArg(),
 							}),
@@ -814,8 +839,7 @@ export function useSender(): UseSenderReturn {
 		totalSizeCacheRef.current = null
 		setPairedInviteStatus({})
 		try {
-			// The target picker and cancel control are usable while the legacy
-			// engine still imports/hashes. No ticket or payload is claimed yet.
+			// Target selection and cancellation remain usable during preparation.
 			setTicket(null)
 			setViewState('SHARING')
 			setTransferMetadata(null)
@@ -1110,6 +1134,8 @@ export function useSender(): UseSenderReturn {
 	const onInviteNearbyDevice = async (endpointId: string): Promise<boolean> => {
 		const context = getInviteContext()
 		if (!context) return false
+		if (context.share?.sourceStream || isSourceStreamTicket(context.ticket))
+			return false
 		if (!isNodeReady) {
 			toastManager.add({
 				title: t('common:settings.devices.nodeUnavailableTitle'),
@@ -1196,7 +1222,7 @@ export function useSender(): UseSenderReturn {
 	}
 
 	const copyTicket = async () => {
-		if (ticket) {
+		if (ticket && !isSourceStreamTicket(ticket)) {
 			try {
 				await copyTextToClipboard(ticket)
 				setCopySuccess(true)
@@ -1232,6 +1258,7 @@ export function useSender(): UseSenderReturn {
 		transferMetadata,
 		transferProgress,
 		sendMode,
+		sourceStream,
 		textDraft,
 		isBroadcastMode,
 		activeConnectionCount,
@@ -1247,6 +1274,7 @@ export function useSender(): UseSenderReturn {
 		clearSelectedPath,
 		removeSelectedPath,
 		setSendMode,
+		setSourceStream,
 		setTextDraft,
 		clearTextDraft,
 		startSharing,

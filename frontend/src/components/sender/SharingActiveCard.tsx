@@ -17,6 +17,7 @@ export function SharingActiveCard({
 	selectedPaths,
 	selectedPath,
 	sendMode = 'file',
+	sourceStream = false,
 	ticket,
 	isLoading,
 	copySuccess,
@@ -48,6 +49,7 @@ export function SharingActiveCard({
 				selectedPaths={selectedPaths}
 				selectedPath={selectedPath}
 				sendMode={sendMode}
+				sourceStream={sourceStream}
 				ticket={ticket}
 				isPreparing={isLoading && !ticket}
 				copySuccess={copySuccess}
@@ -79,7 +81,11 @@ export function SharingActiveCard({
 								{t('common:sender.sharingActive.devices.title')}
 							</SheetTitle>
 							<SheetDescription>
-								{t('common:sender.sharingActive.devices.hint')}
+								{t(
+									sourceStream
+										? 'common:sender.sourceStream.activeHint'
+										: 'common:sender.sharingActive.devices.hint'
+								)}
 							</SheetDescription>
 						</SheetHeader>
 						<SheetPanel
@@ -93,7 +99,9 @@ export function SharingActiveCard({
 								isNodeStatusPending={isNodeStatusPending}
 								canSelectTarget={Boolean(ticket) || isLoading}
 								onInvitePairedDevice={onInvitePairedDevice}
-								onInviteNearbyDevice={onInviteNearbyDevice}
+								onInviteNearbyDevice={
+									sourceStream ? undefined : onInviteNearbyDevice
+								}
 								onInviteSuccess={() => setDevicesOpen(false)}
 								showHeader={false}
 								showSearch

@@ -36,6 +36,7 @@ interface ShareLinkPanelProps {
 	selectedPaths: string[]
 	selectedPath: string | null
 	sendMode: SenderMode
+	sourceStream?: boolean
 	ticket: string | null
 	isPreparing?: boolean
 	copySuccess: boolean
@@ -55,6 +56,7 @@ export function ShareLinkPanel({
 	selectedPaths,
 	selectedPath,
 	sendMode,
+	sourceStream = false,
 	ticket,
 	isPreparing = false,
 	copySuccess,
@@ -131,7 +133,13 @@ export function ShareLinkPanel({
 					{t('common:sender.keepAppOpen')}
 				</p>
 
-				{!isTransporting && ticket && (
+				{sourceStream ? (
+					<p className="text-xs text-center text-muted-foreground">
+						{t('common:sender.sourceStream.activeHint')}
+					</p>
+				) : null}
+
+				{!sourceStream && !isTransporting && ticket && (
 					<div className="w-full space-y-3 mt-2 sm:mt-0">
 						<TicketDisplay
 							ticket={ticket}
@@ -149,7 +157,7 @@ export function ShareLinkPanel({
 
 				{!isTransporting && showPairedDevicesOption && onOpenPairedDevices ? (
 					<div className="flex flex-col items-center gap-3 pt-1">
-						{ticket ? (
+						{ticket && !sourceStream ? (
 							<p className="text-xs text-center text-muted-foreground">
 								{t('common:sender.sharingActive.or')}
 							</p>

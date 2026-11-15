@@ -15,6 +15,8 @@ import {
 	AlertDialogTitle,
 } from '../ui/alert-dialog'
 import { Button } from '../ui/button'
+import { Label } from '../ui/label'
+import { Switch } from '../ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group'
 import { DragDrop } from './DragDrop'
 import { ShareActionCard } from './ShareActionCard'
@@ -41,6 +43,7 @@ export function Sender({ isActive, onTransferStateChange }: SenderProps) {
 		transferMetadata,
 		transferProgress,
 		sendMode,
+		sourceStream,
 		textDraft,
 		isBroadcastMode,
 		activeConnectionCount,
@@ -55,6 +58,7 @@ export function Sender({ isActive, onTransferStateChange }: SenderProps) {
 		clearSelectedPath,
 		removeSelectedPath,
 		setSendMode,
+		setSourceStream,
 		setTextDraft,
 		clearTextDraft,
 		startSharing,
@@ -150,6 +154,28 @@ export function Sender({ isActive, onTransferStateChange }: SenderProps) {
 									onRemoveSelectedPath={removeSelectedPath}
 								/>
 
+								{IS_PAIRING_CAPABLE &&
+								isNodeReady &&
+								selectedPaths.length === 1 &&
+								pathType === 'file' ? (
+									<div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-muted/30 p-3">
+										<div className="space-y-1">
+											<Label htmlFor="source-stream">
+												{t('common:sender.sourceStream.label')}
+											</Label>
+											<p className="text-xs text-muted-foreground">
+												{t('common:sender.sourceStream.description')}
+											</p>
+										</div>
+										<Switch
+											id="source-stream"
+											checked={sourceStream}
+											onCheckedChange={setSourceStream}
+											disabled={isLoading}
+											aria-label={t('common:sender.sourceStream.label')}
+										/>
+									</div>
+								) : null}
 								<ShareActionCard
 									selectedPaths={selectedPaths}
 									selectedPath={selectedPath}
@@ -186,6 +212,7 @@ export function Sender({ isActive, onTransferStateChange }: SenderProps) {
 						selectedPaths={selectedPaths}
 						selectedPath={selectedPath}
 						sendMode={sendMode}
+						sourceStream={sourceStream}
 						pathType={pathType}
 						ticket={ticket}
 						copySuccess={copySuccess}

@@ -76,6 +76,13 @@
 		"scanToReceive": "Scan to receive",
 		"shareMessageIntro": "Private transfer - Sent with DashBeam",
 		"description": "Description (optional)",
+		"sourceStream": {
+			"label": "Fast sending (experimental)",
+			"unavailable": "Fast sending needs one regular file and an available paired-device service. Turn it off to use a normal transfer.",
+			"pairFirst": "Pair the other device in Settings before sending.",
+			"description": "For this file only, up to 8 GiB. Both paired devices need a compatible new app. Keep the source unchanged; interrupted transfers cannot resume.",
+			"activeHint": "Fast sending to paired devices only. Both devices need a compatible new app; browser links are unavailable. Keep the source file unchanged."
+		},
 		"text": {
 			"file": "File",
 			"text": "Text",

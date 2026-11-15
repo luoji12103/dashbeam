@@ -76,6 +76,13 @@
 		"scanToReceive": "扫码以接收",
 		"shareMessageIntro": "私密传输 - 使用 DashBeam 发送",
 		"description": "描述（可选）",
+		"sourceStream": {
+			"label": "快速发送（实验）",
+			"unavailable": "快速发送需要单个普通文件及可用的配对设备服务。关闭此开关后可使用普通传输。",
+			"pairFirst": "请先在设置中配对对方设备。",
+			"description": "仅用于本次单文件，最大 8 GiB。已配对的两端均需兼容新版，请保持源文件不变；中断后需重新发送。",
+			"activeHint": "快速发送仅支持已配对设备，两端均需兼容新版，暂不支持浏览器链接。请保持源文件不变。"
+		},
 		"text": {
 			"file": "文件",
 			"text": "文字",

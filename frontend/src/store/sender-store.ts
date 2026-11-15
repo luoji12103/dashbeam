@@ -19,6 +19,8 @@ export interface SenderStore {
 	transferMetadata: TransferMetadata | null
 	transferProgress: TransferProgress | null
 	sendMode: SenderMode
+	/** Per-share opt-in; never persisted or used by automatic/Flash Drop sends. */
+	sourceStream: boolean
 	/** Runtime-only text draft. It must never be written to settings or history. */
 	textDraft: string
 
@@ -43,6 +45,7 @@ export interface SenderStore {
 	setTransferMetadata: (metadata: TransferMetadata | null) => void
 	setTransferProgress: (progress: TransferProgress | null) => void
 	setSendMode: (mode: SenderMode) => void
+	setSourceStream: (enabled: boolean) => void
 	setTextDraft: (text: string) => void
 	clearTextDraft: () => void
 	setIsLoading: (loading: boolean) => void
@@ -71,6 +74,7 @@ export const useSenderStore = create<SenderStore>()((set) => ({
 	transferMetadata: null,
 	transferProgress: null,
 	sendMode: 'file',
+	sourceStream: false,
 	textDraft: '',
 	isLoading: false,
 	copySuccess: false,
@@ -93,6 +97,7 @@ export const useSenderStore = create<SenderStore>()((set) => ({
 		set({
 			selectedPaths,
 			selectedPath: selectedPaths[0] ?? null,
+			sourceStream: false,
 		}),
 	addSelectedPaths: (paths) =>
 		set((state) => {
@@ -104,6 +109,7 @@ export const useSenderStore = create<SenderStore>()((set) => ({
 			return {
 				selectedPaths,
 				selectedPath: selectedPaths[0] ?? null,
+				sourceStream: false,
 			}
 		}),
 	removeSelectedPath: (path) =>
@@ -113,17 +119,27 @@ export const useSenderStore = create<SenderStore>()((set) => ({
 				selectedPaths,
 				selectedPath: selectedPaths[0] ?? null,
 				pathType: selectedPaths.length ? state.pathType : null,
+				sourceStream: false,
 			}
 		}),
 	setSelectedPath: (selectedPath) =>
-		set({ selectedPath, selectedPaths: selectedPath ? [selectedPath] : [] }),
-	setPathType: (pathType) => set({ pathType }),
+		set({
+			selectedPath,
+			selectedPaths: selectedPath ? [selectedPath] : [],
+			sourceStream: false,
+		}),
+	setPathType: (pathType) =>
+		set((state) => ({
+			pathType,
+			sourceStream: pathType === 'file' ? state.sourceStream : false,
+		})),
 	setThumbnailUrl: (thumbnailUrl) => set({ thumbnailUrl }),
 	setTransferMetadata: (transferMetadata) => {
 		set({ transferMetadata })
 	},
 	setTransferProgress: (transferProgress) => set({ transferProgress }),
-	setSendMode: (sendMode) => set({ sendMode }),
+	setSendMode: (sendMode) => set({ sendMode, sourceStream: false }),
+	setSourceStream: (sourceStream) => set({ sourceStream }),
 	setTextDraft: (textDraft) => set({ textDraft }),
 	clearTextDraft: () => set({ textDraft: '' }),
 	setIsLoading: (isLoading) => set({ isLoading }),
@@ -168,6 +184,7 @@ export const useSenderStore = create<SenderStore>()((set) => ({
 			transferProgress: null,
 			isLoading: false,
 			isBroadcastMode: false,
+			sourceStream: false,
 			activeConnectionCount: 0,
 		})
 	},

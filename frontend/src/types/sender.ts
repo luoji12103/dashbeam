@@ -34,6 +34,7 @@ export interface SharingControlsProps {
 	selectedPaths: string[]
 	selectedPath: string | null
 	sendMode?: SenderMode
+	sourceStream?: boolean
 	pathType: 'file' | 'directory' | null
 	ticket: string | null
 	copySuccess: boolean

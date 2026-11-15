@@ -33,6 +33,7 @@ use crate::paired_connections::{invite_wait_timeout, PairedConnectionManager};
 use crate::pairing_util::{build_control_connect_addr, set_presence};
 use crate::rate_limit::UnpairedRateLimiter;
 use crate::runtime::NodeRuntime;
+use crate::stream::{RegisteredStreamShare, StreamHost, StreamLimits, StreamReceiver, STREAM_ALPN};
 
 #[derive(Debug)]
 pub(crate) struct AccessState {
@@ -75,6 +76,19 @@ impl EndpointHooks for PairedOnlyHook {
         if conn.side() != Side::Server {
 
             return AfterHandshakeOutcome::accept();
+        }
+        // Source streaming is an explicit native paired-device feature. It
+        // must not widen the existing control/pairing admission policy.
+        if conn.alpn() == STREAM_ALPN {
+            let remote = conn.remote_id();
+            if !self.blocked.read().await.contains(&remote.to_string())
+                && self.access.read().await.allowed.contains(&remote)
+            {
+                return AfterHandshakeOutcome::accept();
+            }
+            return AfterHandshakeOutcome::Reject {
+                error_code: 403u32.into(), reason: b"source stream requires paired peer".to_vec(),
+            };
         }
         if conn.alpn() != CONTROL_ALPN {
 
@@ -804,6 +818,29 @@ pub struct NodeService {
 }
 
 impl NodeService {
+    /// Explicit single-file fast path on the already-running device node.
+    /// Snapshot host+endpoint together so network rebuild cannot mix runtimes.
+    pub async fn start_stream_share(
+        &self, path: std::path::PathBuf, limits: StreamLimits,
+    ) -> anyhow::Result<RegisteredStreamShare> {
+        self.start_stream_share_with_emitter(path, limits, None).await
+    }
+
+    pub async fn start_stream_share_with_emitter(
+        &self, path: std::path::PathBuf, limits: StreamLimits, emitter: AppHandle,
+    ) -> anyhow::Result<RegisteredStreamShare> {
+        let (host, endpoint) = {
+            let runtime = self.runtime.lock().await;
+            (runtime.stream_host.clone(), runtime.endpoint.clone())
+        };
+        host.register_file(endpoint, path, limits, emitter).await
+    }
+
+    pub async fn stream_receiver(&self, limits: StreamLimits) -> anyhow::Result<StreamReceiver> {
+        let runtime = self.runtime.lock().await;
+        StreamReceiver::from_endpoint(runtime.endpoint.clone(), limits)
+    }
+
     /// `discoverability` is applied before discovery starts, so a device set
     /// to `Off` never registers the mDNS publisher — not even briefly.
     pub async fn start(
@@ -2209,6 +2246,18 @@ async fn build_runtime(
     discovery_mode: DiscoveryModeOption,
 ) -> anyhow::Result<NodeRuntime> {
 
+    let stream_access = access.clone();
+    let stream_blocked = blocked.clone();
+    let stream_host = StreamHost::new(StreamLimits::default())?
+        .with_peer_authorizer(move |peer| {
+            let access = stream_access.clone();
+            let blocked = stream_blocked.clone();
+            async move {
+                !blocked.read().await.contains(&peer.to_string())
+                    && access.read().await.allowed.contains(&peer)
+            }
+        });
+
     let hook = PairedOnlyHook {
         access: access.clone(),
         blocked,
@@ -2246,7 +2295,7 @@ async fn build_runtime(
         .secret_key(identity.secret_key.clone())
         .relay_mode(relay_mode.clone())
         .hooks(hook)
-        .alpns(vec![CONTROL_ALPN.to_vec()])
+        .alpns(vec![CONTROL_ALPN.to_vec(), STREAM_ALPN.to_vec()])
         .bind()
         .await?;
 
@@ -2269,6 +2318,7 @@ async fn build_runtime(
 
     let router = Router::builder(endpoint.clone())
         .accept(CONTROL_ALPN, control)
+        .accept(STREAM_ALPN, stream_host.clone())
         .spawn();
 
     let mark_network_ready = {
@@ -2293,7 +2343,7 @@ async fn build_runtime(
         });
     }
 
-    Ok(NodeRuntime { endpoint, router })
+    Ok(NodeRuntime { endpoint, router, stream_host })
 }
 
 #[cfg(test)]

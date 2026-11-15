@@ -144,7 +144,13 @@ export function PairedDevicesPanel({
 				<p className="font-medium text-foreground">
 					{t('common:sender.sharingActive.devices.emptyTitle')}
 				</p>
-				<p>{t('common:sender.sharingActive.devices.emptyHint')}</p>
+				<p>
+					{t(
+						onInviteNearbyDevice
+							? 'common:sender.sharingActive.devices.emptyHint'
+							: 'common:sender.sourceStream.pairFirst'
+					)}
+				</p>
 				<Link
 					to="/settings/devices"
 					className="inline-block underline underline-offset-2 hover:text-foreground"

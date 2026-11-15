@@ -54,14 +54,25 @@ The current local **pre-release** is [v0.7.1-local.4](https://github.com/luoji12
 - The device picker and cancel action are available while preparing a share. A legacy invitation is sent only once its ticket is ready; preparation/cancellation survives page navigation, and stale cleanup is restricted to its own ticket.
 - These changes preserve the existing BlobTicket wire format. Full-file hashing, Android SAF staging, a shared data endpoint, the new streaming protocol, and the optional encrypted **disk** spool are not eliminated/implemented by this update. No universal three-second or throughput claim is made. See [transport audit and experiments](reports/transport-audit-20261110/README.md) and [release validation](reports/transport-audit-20261110/PRODUCT_UPDATE.md).
 
-### Experimental source streaming (2026-11-12)
+### Experimental source streaming (2026-11-15)
 
-An additional, **unreleased opt-in source-stream experiment** now reads directly
-from an open regular file, without full preparation hashing or a blob-store
-import, and receives directly into the destination filesystem. It preserves
-incremental integrity validation and uses bounded buffers. This is **not wired
-into the GUI/Android picker and is not included in local.4 packages**; legacy
-clients/tickets are unchanged. See the [experiment and API/CLI instructions](experiments/source-stream-20261112/README.md)
+The local.5 candidate integrates source streaming into the native GUI as an
+explicit, **default-off, per-send** “Fast send (experimental)” switch. It supports
+one regular file up to 8 GiB between paired devices running compatible builds.
+It reuses the persistent device endpoint, reads the existing source file without
+a full preparation hash or blob-store import, and writes verified bytes directly
+into the destination filesystem with bounded buffers. Stopping a share revokes
+only that share, not the device's control connection.
+
+Keep the source unchanged until completion. There is no resume, automatic retry,
+capability negotiation with old clients, browser link, QR code, unpaired/Nearby
+delivery or broadcast in this mode. Text, folders, multiple files and Flash Drop
+retain the compatible legacy path. Android SAF picker staging is **not** removed:
+the new path avoids the subsequent blob import/hash, not the initial URI copy.
+No server disk spool, dependency upgrade or universal three-second guarantee is
+implied. local.4 packages do not contain this GUI integration.
+
+See the [experiment and API/CLI instructions](experiments/source-stream-20261112/README.md)
 and the [2026-11-12 data-plane comparison](experiments/source-stream-20261112/REPORT.zh-CN.md).
 
 ### Measured compatible latency (2026-11-11)

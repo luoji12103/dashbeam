@@ -1,5 +1,5 @@
 use crate::history::HistoryRecordingEmitter;
-use engine::{NodeService, SendResult};
+use engine::{NodeService, RegisteredStreamShare, SendResult};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -133,11 +133,11 @@ mod received_text_tests {
 }
 
 /// Handle for an active sharing session
-/// CRITICAL: This struct holds the router and temp_tag which keeps the server alive
+/// Retains either the legacy router/store or one registration on the device node.
 pub struct ShareHandle {
     pub ticket: String,
     pub _path: PathBuf,
-    pub send_result: SendResult,
+    transport: Option<ShareTransport>,
     /// Present only while history recording is enabled. Held here so
     /// `stop_sharing` can close the row a broadcast share left open.
     pub recorder: Option<Arc<HistoryRecordingEmitter>>,
@@ -145,6 +145,11 @@ pub struct ShareHandle {
     /// copy, but retaining the source for the whole session makes lifecycle
     /// explicit and keeps cleanup deterministic.
     pub owned_source_dir: Option<OwnedSourceDir>,
+}
+
+enum ShareTransport {
+    Legacy(SendResult),
+    SourceStream(RegisteredStreamShare),
 }
 
 impl ShareHandle {
@@ -157,7 +162,22 @@ impl ShareHandle {
         Self {
             ticket,
             _path: path,
-            send_result,
+            transport: Some(ShareTransport::Legacy(send_result)),
+            recorder,
+            owned_source_dir: None,
+        }
+    }
+
+    pub fn source_stream(
+        ticket: String,
+        path: PathBuf,
+        share: RegisteredStreamShare,
+        recorder: Option<Arc<HistoryRecordingEmitter>>,
+    ) -> Self {
+        Self {
+            ticket,
+            _path: path,
+            transport: Some(ShareTransport::SourceStream(share)),
             recorder,
             owned_source_dir: None,
         }
@@ -172,19 +192,22 @@ impl ShareHandle {
     pub async fn stop(&mut self) -> Result<(), String> {
         use std::time::Duration;
 
-        match tokio::time::timeout(Duration::from_secs(2), self.send_result.router.shutdown()).await
-        {
-            Ok(Ok(())) => {}
-            Ok(Err(e)) => {
-                tracing::warn!("Router shutdown error: {}", e);
+        match self.transport.take() {
+            Some(ShareTransport::SourceStream(share)) => share.shutdown().await,
+            Some(ShareTransport::Legacy(send_result)) => {
+                match tokio::time::timeout(Duration::from_secs(2), send_result.router.shutdown()).await {
+                    Ok(Ok(())) => {}
+                    Ok(Err(e)) => {
+                        tracing::warn!("Router shutdown error: {}", e);
+                    }
+                    Err(_) => {
+                        tracing::warn!("Router shutdown timeout after 2 seconds");
+                    }
+                }
+                send_result.router.endpoint().close().await;
             }
-            Err(_) => {
-                tracing::warn!("Router shutdown timeout after 2 seconds");
-            }
+            None => {}
         }
-
-        let endpoint = self.send_result.router.endpoint();
-        endpoint.close().await;
 
         Ok(())
     }

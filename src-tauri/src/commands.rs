@@ -10,7 +10,7 @@ use engine::{
     verify_discovery as engine_verify_discovery, verify_relays as engine_verify_relays,
     AddrInfoOptions, AppHandle, DeviceInfo, Discoverability, EventEmitter, FileMetadata,
     FilePreviewItem, NearbyDevice, NodeService, PairedDevice, PairedDeviceInfo, ReceiveOptions,
-    SendOptions, TransferDirection, TransferHistoryStore, TransferPathType, TransferPeer,
+    SendOptions, StreamLimits, StreamTicket, TransferDirection, TransferHistoryStore, TransferPathType, TransferPeer,
     TransferRecord, TransferStatus, TEXT_CONTENT_KIND,
 };
 use std::collections::BTreeMap;
@@ -148,8 +148,11 @@ fn sender_peer_from_ticket(ticket: &str, node: &Option<Arc<NodeService>>) -> Opt
     use iroh_blobs::ticket::BlobTicket;
     use std::str::FromStr;
 
-    let ticket = BlobTicket::from_str(ticket).ok()?;
-    let endpoint_id = ticket.addr().id.to_string();
+    let endpoint_id = if StreamTicket::is_stream_token(ticket) {
+        StreamTicket::from_token(ticket).ok()?.addr().id.to_string()
+    } else {
+        BlobTicket::from_str(ticket).ok()?.addr().id.to_string()
+    };
     Some(name_peer(endpoint_id, node))
 }
 
@@ -237,7 +240,7 @@ pub async fn start_sharing(
     history: State<'_, Arc<TransferHistoryStore>>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
-    send_items(vec![path], relay, discovery, state, history, app_handle).await
+    send_items(vec![path], relay, discovery, None, state, history, app_handle).await
 }
 
 /// New interface to start_sharing multiple items at once
@@ -246,14 +249,97 @@ pub async fn send_items(
     paths: Vec<String>,
     relay: Option<RelayConfigArg>,
     discovery: Option<DiscoveryConfigArg>,
+    source_stream: Option<bool>,
     state: State<'_, AppStateMutex>,
     history: State<'_, Arc<TransferHistoryStore>>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
+    if source_stream.unwrap_or(false) {
+        return send_stream_item(paths, state, history, app_handle).await;
+    }
     send_items_impl(
         paths, relay, discovery, state, history, app_handle, None, None,
     )
     .await
+}
+
+/// Explicit single-file mode. Preparing the ticket opens/stats the source but
+/// never imports, hashes, thumbnails or reads its contents.
+async fn send_stream_item(
+    paths: Vec<String>,
+    state: State<'_, AppStateMutex>,
+    history: State<'_, Arc<TransferHistoryStore>>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    if paths.len() != 1 {
+        return Err("Fast sending requires one regular file".to_string());
+    }
+    let path = PathBuf::from(&paths[0]);
+    let generation = state.lock().await.reserve_share_start()?;
+    let prepared = async {
+        let metadata = tokio::fs::symlink_metadata(&path)
+            .await
+            .map_err(|error| format!("Could not inspect source file: {error}"))?;
+        if !metadata.is_file() || metadata.file_type().is_symlink() {
+            return Err("Fast sending requires one regular file".to_string());
+        }
+        let limits = StreamLimits::default();
+        if metadata.len() > limits.max_bytes {
+            return Err("Fast sending supports files up to 8 GiB; turn it off for larger files".to_string());
+        }
+        let node = app_state_node(&state)
+            .await
+            .ok_or_else(|| "Fast sending requires the paired-device service".to_string())?;
+        if !state.lock().await.share_start_is_current(generation) {
+            return Err("cancelled".to_string());
+        }
+        let (emitter, recorder) = build_emitter(
+            &app_handle,
+            &history,
+            TransferDirection::Send,
+            TransferContext {
+                root_name: path.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+                payload_bytes: metadata.len(),
+                item_count: 1,
+                path_type: Some(TransferPathType::File),
+                ..Default::default()
+            },
+        );
+        let share = node
+            .start_stream_share_with_emitter(path.clone(), limits, emitter)
+            .await
+            .map_err(|error| format!("Could not prepare fast sending: {error}"))?;
+        let ticket = match share.ticket().to_token() {
+            Ok(ticket) => ticket,
+            Err(error) => {
+                share.shutdown().await;
+                return Err(format!("Could not prepare fast sending: {error}"));
+            }
+        };
+        Ok(ShareHandle::source_stream(ticket, path, share, recorder))
+    }.await;
+
+    let mut app_state = state.lock().await;
+    match prepared {
+        Ok(mut handle) => {
+            if !app_state.share_start_is_current(generation) {
+                drop(app_state);
+                let cleanup = handle.stop().await;
+                drop(handle);
+                state.lock().await.is_share_starting = false;
+                cleanup?;
+                return Err("cancelled".to_string());
+            }
+            let ticket = handle.ticket.clone();
+            app_state.current_share = Some(handle);
+            app_state.is_share_starting = false;
+            Ok(ticket)
+        }
+        Err(error) => {
+            app_state.is_share_starting = false;
+            Err(error)
+        }
+    }
 }
 
 async fn send_items_impl(
@@ -651,6 +737,13 @@ pub async fn fetch_ticket_metadata(
     let ticket_len = ticket.len();
     tracing::info!(ticket_len, "fetch_ticket_metadata called");
 
+    if StreamTicket::is_stream_token(&ticket) {
+        let ticket = StreamTicket::from_token(&ticket).map_err(|error| error.to_string())?;
+        // A preview is only an untrusted hint carried in the capability. The
+        // stream receiver validates the actual Offer and verified bytes.
+        return stream_ticket_metadata(&ticket);
+    }
+
     let (relay_mode, _) = resolve_relay_mode_with_fallback(relay).await?;
     let discovery_mode = build_discovery_mode(discovery)?;
     let options = ReceiveOptions {
@@ -673,6 +766,21 @@ pub async fn fetch_ticket_metadata(
         }
         Err(e) => Err(format!("Failed to fetch metadata: {}", e)),
     }
+}
+
+fn stream_ticket_metadata(ticket: &StreamTicket) -> Result<FileMetadata, String> {
+    let info = ticket
+        .file_info()
+        .ok_or_else(|| "This fast-send ticket has no preview".to_string())?;
+    Ok(FileMetadata {
+        file_name: info.name.clone(),
+        size: info.bytes,
+        item_count: 1,
+        mime_type: Some("application/octet-stream".to_string()),
+        thumbnail: None,
+        items: None,
+        content_kind: None,
+    })
 }
 
 /// Stop the current sharing session
@@ -726,15 +834,31 @@ pub async fn receive_file(
     use iroh_blobs::ticket::BlobTicket;
     use std::str::FromStr;
 
+    let stream_ticket = if StreamTicket::is_stream_token(&ticket) {
+        let parsed = StreamTicket::from_token(&ticket).map_err(|error| error.to_string())?;
+        if parsed.file_info().is_some_and(|info| info.bytes > StreamLimits::default().max_bytes) {
+            return Err("Fast receiving supports files up to 8 GiB".to_string());
+        }
+        Some(parsed)
+    } else {
+        None
+    };
+    let is_source_stream = stream_ticket.is_some();
+    let node = app_state_node(&state).await;
+    if is_source_stream && node.is_none() {
+        return Err("Fast receiving requires the paired-device service".to_string());
+    }
+
     // Derive the content hash so we can manage partial store lifecycle. Parsed
     // up front because the folder sanitizer also needs a per-peer fallback, and
     // the sender's endpoint id rides in the same ticket.
     let incoming_hash = BlobTicket::from_str(&ticket)
         .ok()
         .map(|t| t.hash().to_hex().to_string());
-    let folder_fallback = BlobTicket::from_str(&ticket)
-        .ok()
-        .map(|t| t.addr().id.to_string().chars().take(12).collect::<String>())
+    let folder_fallback = stream_ticket.as_ref()
+        .map(|ticket| ticket.addr().id.to_string())
+        .or_else(|| BlobTicket::from_str(&ticket).ok().map(|ticket| ticket.addr().id.to_string()))
+        .map(|id| id.chars().take(12).collect::<String>())
         .unwrap_or_else(|| "Device".to_string());
 
     // Auto-accepted transfers file themselves under the sender's name. The name
@@ -754,21 +878,39 @@ pub async fn receive_file(
     #[cfg(not(target_os = "android"))]
     let output_dir =
         resolve_receive_output_dir(&app_handle, output_path, sanitized_sub_folder.as_deref())?;
-    let (relay_mode, fell_back_to_public) = resolve_relay_mode_with_fallback(relay).await?;
-    let discovery_mode = build_discovery_mode(discovery)?;
-    let metadata_options = ReceiveOptions {
-        output_dir: None,
-        relay_mode: relay_mode.clone(),
-        discovery_mode: discovery_mode.clone(),
-        magic_ipv4_addr: None,
-        magic_ipv6_addr: None,
+    let output_dir = if is_source_stream {
+        // Resolve the user's chosen directory once, including platform aliases
+        // such as /var and /data/data. The engine checks the resolved components
+        // and permissions; never change permissions on a user's download folder.
+        tokio::fs::create_dir_all(&output_dir).await
+            .map_err(|error| format!("Could not prepare download folder: {error}"))?;
+        tokio::fs::canonicalize(&output_dir).await
+            .map_err(|error| format!("Could not resolve download folder: {error}"))?
+    } else {
+        output_dir
     };
-    let options = ReceiveOptions {
-        output_dir: Some(output_dir.clone()),
-        relay_mode,
-        discovery_mode,
-        magic_ipv4_addr: None,
-        magic_ipv6_addr: None,
+    let (legacy_options, fell_back_to_public) = if is_source_stream {
+        // The node already owns the active relay/discovery configuration. Do
+        // not bind a second endpoint or probe a relay before the useful work.
+        (None, false)
+    } else {
+        let (relay_mode, fallback) = resolve_relay_mode_with_fallback(relay).await?;
+        let discovery_mode = build_discovery_mode(discovery)?;
+        let metadata_options = ReceiveOptions {
+            output_dir: None,
+            relay_mode: relay_mode.clone(),
+            discovery_mode: discovery_mode.clone(),
+            magic_ipv4_addr: None,
+            magic_ipv6_addr: None,
+        };
+        let options = ReceiveOptions {
+            output_dir: Some(output_dir.clone()),
+            relay_mode,
+            discovery_mode,
+            magic_ipv4_addr: None,
+            magic_ipv6_addr: None,
+        };
+        (Some((options, metadata_options)), fallback)
     };
 
     // If a previous cancel left a partial store for a *different* hash, delete it now.
@@ -795,7 +937,7 @@ pub async fn receive_file(
     // The sender's endpoint id rides in the ticket, so the peer is known before
     // the connection exists. `resumable_store_path` is set at open, not finalize
     // — a crash never reaches finalize, stranding the partial store.
-    let sender_peer = sender_peer_from_ticket(&ticket, &app_state_node(&state).await);
+    let sender_peer = sender_peer_from_ticket(&ticket, &node);
     // Android receives into app-private staging and only learns where the files
     // really land when the export finishes, so the row stays silent until
     // `note_destination` fills it in. Recording staging here would leave every
@@ -809,6 +951,12 @@ pub async fn receive_file(
         &history,
         TransferDirection::Receive,
         TransferContext {
+            root_name: stream_ticket.as_ref().and_then(StreamTicket::file_info)
+                .map(|info| info.name.clone()).unwrap_or_default(),
+            payload_bytes: stream_ticket.as_ref().and_then(StreamTicket::file_info)
+                .map(|info| info.bytes).unwrap_or_default(),
+            item_count: u32::from(is_source_stream),
+            path_type: is_source_stream.then_some(TransferPathType::File),
             blob_hash: incoming_hash.clone(),
             save_path: recorded_save_path,
             resumable_store_path: incoming_hash
@@ -836,16 +984,37 @@ pub async fn receive_file(
     // Metadata authenticates the explicit text marker, but must never gate
     // connecting and downloading the payload. Its timeout starts concurrently.
     let completion_gate = Arc::new(crate::advisory::CompletionGate::new(boxed_handle));
-    let metadata_lookup = async {
-        tokio::time::timeout(
-            std::time::Duration::from_secs(3),
-            fetch_metadata(ticket.clone(), metadata_options),
-        ).await.ok().and_then(Result::ok)
+    let (result, incoming_metadata) = if let Some(stream_ticket) = stream_ticket {
+        let result = async {
+            let node = node.as_ref().ok_or_else(|| anyhow::anyhow!("Device node unavailable"))?;
+            let mut receiver = node.stream_receiver(StreamLimits::default()).await?;
+            let result = receiver.receive_with_emitter(
+                &stream_ticket, output_dir.clone(), cancel_rx, Some(completion_gate.clone()),
+            ).await;
+            receiver.shutdown().await;
+            match result {
+                Ok(result) => Ok(finish_stream_receive(result, &output_dir, completion_gate.as_ref())),
+                Err(error) if error.to_string().starts_with("source stream cancelled") => {
+                    Err(anyhow::anyhow!("cancelled"))
+                }
+                Err(error) => Err(error),
+            }
+        }.await;
+        // An ordinary streamed .txt is never a typed-text transfer.
+        (result, None)
+    } else {
+        let (options, metadata_options) = legacy_options.expect("legacy receive options");
+        let metadata_lookup = async {
+            tokio::time::timeout(
+                std::time::Duration::from_secs(3),
+                fetch_metadata(ticket.clone(), metadata_options),
+            ).await.ok().and_then(Result::ok)
+        };
+        crate::advisory::cancellable_advisory(
+            |cancel| download(ticket.clone(), options, Some(completion_gate.clone()), cancel),
+            metadata_lookup, cancel_rx,
+        ).await
     };
-    let (result, incoming_metadata) = crate::advisory::cancellable_advisory(
-        |cancel| download(ticket.clone(), options, Some(completion_gate.clone()), cancel),
-        metadata_lookup, cancel_rx,
-    ).await;
 
     let mut text_to_publish = None;
     let mut response = async { match result {
@@ -905,10 +1074,11 @@ pub async fn receive_file(
     } }.await;
     {
         // Commit all terminal state/events under the same reservation. A
-        // cancellation during non-interruptible final export suppresses text
-        // publication and success; it does not delete already exported files.
+        // cancellation during legacy final export suppresses text publication
+        // and success. A stream result has already committed and must remain a
+        // successful receive even if cancellation raced with its final ACK.
         let mut app_state = state.lock().await;
-        if app_state.current_receive_cancelled && response.is_ok() {
+        if app_state.current_receive_cancelled && response.is_ok() && !is_source_stream {
             response = Err("cancelled".to_string());
         }
         if response.is_ok() {
@@ -946,11 +1116,40 @@ pub async fn receive_file(
         app_state.current_receive_cancel = None;
         app_state.current_receive_hash = None;
         app_state.current_receive_active = false;
-        if response.is_err() {
+        if response.is_err() && !is_source_stream {
             app_state.last_cancelled_recv_hash = incoming_hash;
         }
     }
     response
+}
+
+/// Adapt a verified, committed stream to the same final-export, history and
+/// notification path used by a blob receive, without more filesystem work.
+fn finish_stream_receive(
+    result: engine::StreamReceiveResult,
+    output_dir: &Path,
+    emitter: &dyn EventEmitter,
+) -> engine::ReceiveResult {
+    let name = result.path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+    let _ = emitter.emit_event_with_payload(
+        "receive-file-names",
+        &serde_json::json!([name]).to_string(),
+    );
+    let completion = serde_json::json!({
+        "durationMs": result.committed_elapsed.as_millis().min(u64::MAX as u128) as u64,
+        "bytes": result.bytes,
+        "outputDir": output_dir.to_string_lossy(),
+        "exportedPaths": [result.path.to_string_lossy()],
+    });
+    let _ = emitter.emit_event_with_payload("receive-completed", &completion.to_string());
+    engine::ReceiveResult {
+        message: format!("Downloaded 1 file, {} bytes", result.bytes),
+        file_path: result.path.clone(),
+        exported_files: vec![engine::export::ExportedFile {
+            collection_name: name,
+            path: result.path,
+        }],
+    }
 }
 
 fn validate_received_text(
@@ -2259,6 +2458,9 @@ pub async fn invite_nearby_device(
     total_size: u64,
     state: State<'_, AppStateMutex>,
 ) -> Result<InviteDelivered, String> {
+    if StreamTicket::is_stream_token(&blob_ticket) {
+        return Err("Fast sending is available only to already paired devices".to_string());
+    }
     let node = {
         let guard = state.lock().await;
         require_node_arc(&guard)?
@@ -2451,6 +2653,90 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[derive(Default)]
+    struct CaptureStreamEvents(std::sync::Mutex<Vec<(String, Option<String>)>>);
+
+    impl EventEmitter for CaptureStreamEvents {
+        fn emit_event(&self, name: &str) -> Result<(), String> {
+            self.0.lock().unwrap().push((name.to_owned(), None));
+            Ok(())
+        }
+
+        fn emit_event_with_payload(&self, name: &str, payload: &str) -> Result<(), String> {
+            self.0.lock().unwrap().push((name.to_owned(), Some(payload.to_owned())));
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn source_stream_preview_is_local_and_never_reads_payload() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("fast preview.txt");
+        fs::write(&path, b"preview without importing bytes").expect("source");
+        let endpoint = iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .relay_mode(iroh::endpoint::RelayMode::Disabled)
+            .bind().await.expect("local endpoint");
+        let host = engine::StreamHost::new(StreamLimits::default()).expect("host");
+        let share = host.register_file(
+            endpoint.clone(), path, StreamLimits::default(), None,
+        ).await.expect("registration");
+        let token = share.ticket().to_token().expect("ticket");
+        // The endpoint is closed: this command must not contact it or a relay.
+        endpoint.close().await;
+        let metadata = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            fetch_ticket_metadata(token, None, None),
+        ).await.expect("local preview").expect("metadata");
+        assert_eq!(metadata.file_name, "fast preview.txt");
+        assert_eq!(metadata.size, 31);
+        assert_eq!(metadata.item_count, 1);
+        assert!(metadata.content_kind.is_none());
+        assert!(metadata.thumbnail.is_none());
+        assert_eq!(share.source_bytes_read(), 0);
+        share.shutdown().await;
+    }
+
+    #[test]
+    fn source_stream_completion_waits_for_export_and_uses_committed_paths() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("资料 (1).txt");
+        fs::write(&path, b"verified").expect("committed file");
+        let captured = Arc::new(CaptureStreamEvents::default());
+        let gate = crate::advisory::CompletionGate::new(Some(captured.clone()));
+        let received = finish_stream_receive(
+            engine::StreamReceiveResult {
+                path: path.clone(),
+                bytes: 8,
+                blake3: "verified-digest".to_string(),
+                elapsed: std::time::Duration::from_secs(30),
+                committed_elapsed: std::time::Duration::from_millis(7),
+                first_payload_elapsed: Some(std::time::Duration::from_millis(1)),
+                initial_path: engine::StreamPath::Ip,
+                final_path: engine::StreamPath::Ip,
+                completion_ack_sent: false,
+            },
+            dir.path(),
+            &gate,
+        );
+        assert_eq!(received.exported_files[0].path, path);
+        assert_eq!(received.exported_files[0].collection_name, "资料 (1).txt");
+        {
+            let events = captured.0.lock().unwrap();
+            assert_eq!(events.len(), 1);
+            assert_eq!(events[0].0, "receive-file-names");
+        }
+        gate.flush();
+        let events = captured.0.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[1].0, "receive-completed");
+        let payload: serde_json::Value =
+            serde_json::from_str(events[1].1.as_deref().unwrap()).unwrap();
+        assert_eq!(payload["bytes"], 8);
+        assert_eq!(payload["durationMs"], 7);
+        assert_eq!(payload["exportedPaths"][0], path.to_string_lossy().as_ref());
+        assert_eq!(fs::read(&path).unwrap(), b"verified");
+    }
 
     fn unique_temp_file(name_prefix: &str) -> PathBuf {
         let ts = SystemTime::now()

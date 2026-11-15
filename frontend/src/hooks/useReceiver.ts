@@ -31,6 +31,7 @@ import { useTransferTabStore } from '@/store/transfer-tab-store'
 import { useTranslation } from '../i18n/react-i18next-compat'
 import { getDiscoveryConfigArg } from '../lib/discovery'
 import { ticketFromReceiveLink } from '../lib/receive-link'
+import { isSourceStreamTicket } from '../lib/source-stream'
 import type { ReceivedTextReadyPayload } from '../lib/received-text'
 import {
 	isMarkedTextMetadata,
@@ -728,7 +729,13 @@ export function useReceiver(): UseReceiverReturn {
 					transferItemCountRef.current ?? countTopLevelItems(currentFileNames)
 				let displayName = t('common:receiver.downloadedFile')
 
-				if (previewMetadataRef.current?.fileName) {
+				if (
+					isSourceStreamTicket(activeTicketRef.current) &&
+					currentFileNames.length > 0
+				) {
+					displayName =
+						currentFileNames[0].split('/').pop() || currentFileNames[0]
+				} else if (previewMetadataRef.current?.fileName) {
 					displayName = previewMetadataRef.current.fileName
 				} else if (currentFileNames.length > 0) {
 					if (itemCount <= 1) {
@@ -763,7 +770,8 @@ export function useReceiver(): UseReceiverReturn {
 
 				const metadata = {
 					fileName: displayName,
-					fileSize: transferProgressRef.current?.totalBytes || 0,
+					fileSize:
+						completion?.bytes ?? transferProgressRef.current?.totalBytes ?? 0,
 					duration,
 					startTime: transferStartTimeRef.current || endTime,
 					endTime,

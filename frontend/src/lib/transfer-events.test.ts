@@ -44,7 +44,7 @@ test('rejects a payload with unparsable numbers', () => {
 test('reads the wire duration reported by the engine', () => {
 	assert.deepEqual(
 		parseCompletionPayload('{"durationMs":4200,"bytes":1000,"exportMs":800}'),
-		{ durationMs: 4200, exportMs: 800 }
+		{ durationMs: 4200, bytes: 1000, exportMs: 800 }
 	)
 })
 
@@ -52,6 +52,25 @@ test('falls back to no duration when a completion carries no payload', () => {
 	assert.equal(parseCompletionPayload(undefined), null)
 	assert.equal(parseCompletionPayload('not json'), null)
 	assert.equal(parseCompletionPayload('{"bytes":10}'), null)
+})
+
+test('retains a verified empty or instant transfer size without a progress tick', () => {
+	assert.deepEqual(parseCompletionPayload('{"durationMs":0,"bytes":0}'), {
+		durationMs: 0,
+		bytes: 0,
+	})
+	assert.deepEqual(parseCompletionPayload('{"durationMs":1,"bytes":42}'), {
+		durationMs: 1,
+		bytes: 42,
+	})
+	for (const bytes of [-1, 0.5, '42', Number.MAX_SAFE_INTEGER + 1]) {
+		assert.deepEqual(
+			parseCompletionPayload(JSON.stringify({ durationMs: 1, bytes })),
+			{
+				durationMs: 1,
+			}
+		)
+	}
 })
 
 test('carries the receiver output directory when present', () => {
