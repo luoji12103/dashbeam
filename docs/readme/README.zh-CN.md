@@ -38,14 +38,15 @@ macOS 接收完成后的复制文件/路径操作，以及兼容原协议的启�
 完整成品版本、各平台验收边界与下载链接见[主 README](../../README.md)。
 
 本 fork 持续合入官方更新，不固定在 0.7.1。当前开发分支已完整合入官方 v0.7.2
-及 main `c5de165`，包括 Iroh 1.3.0、iroh-blobs 0.103.1；这不表示新安装包已经发布。
+及 main `c5de165`，包括 Iroh 1.3.0、iroh-blobs 0.103.1。
 每次同步保留本地功能，并重新进行旧版/官方版互通验收，见[官方同步策略](../UPSTREAM_SYNC.md)。
 
 ### 实验性源文件流式传输（2026-11-15）
 
-拟发布的 **v0.7.2-local.1** 候选版（macOS/Android build 70201）已在原生 GUI 接入
-“优先快速发送（实验）”，**默认关闭、每次发送单独选择**。这不是发布公告；
-主 README 中现有 `v0.7.1-local.4` 下载链接保持不变，旧安装包不包含此 GUI 功能。
+已发布预发布版 **v0.7.2-local.1**（macOS/Android build 70201），在原生 GUI 接入
+“优先快速发送（实验）”，**默认关闭、每次发送单独选择**。
+macOS、Android、Windows和Linux成品与校验和见[主 README](../../README.md)。
+历史 `v0.7.1-local.4` 仍可下载，但旧包不包含此 GUI 功能。
 
 选择已配对目标后才开始准备，并通过其**当前在线 CONTROL 连接**上的既有
 `WhoAreYou`/`Identity` 交换检查可选 `source-stream-v1` 能力。
@@ -68,8 +69,11 @@ Android SAF picker 的初始 URI 暂存复制**没有移除**，只省去其后�
 未加入服务端磁盘 spool，也没有统一“三秒传完”的保证。
 
 产品源码 `07d999b` 已通过 DEV 的前端 184、protocol 105、native 120 项回归测试，
-以及 TypeScript 检查和 Darwin 目标前端构建。这些是自动化/源码层验证，
-不等于跨平台安装包已经发布或真实设备 GUI/传输验收已经完成。
+以及 TypeScript 检查和 Darwin 目标前端构建；最终native smoke 13/13通过
+（12完整接收、1预期取消），包含连续8MiB、文字和取消后重试。
+本机Mac已原位更新并通过官方0.7.2文件双向互通、快速向旧端回退和完成页复制检查。
+Android、Windows、Linux已打包，但对应真机/桌面GUI、后台、通知仍未验收。
+见[最终验收报告](../../reports/source-stream-20261115/README.zh-CN.md)。
 
 [实验 API/CLI 说明](../../experiments/source-stream-20261112/README.md)与
 [2026-11-12 数据面对照报告](../../experiments/source-stream-20261112/REPORT.zh-CN.md)保留为历史实验记录。

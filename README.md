@@ -35,16 +35,20 @@ This repository is a community fork of [tonyantony300/dashbeam](https://github.c
 This is an upstream-tracking fork, not a frozen 0.7.1 derivative. The development
 branch now merges the full official v0.7.2 baseline and upstream main
 `c5de16552fc946ec9d0ad3b3792875868e826a05`, including Iroh 1.3.0 and
-iroh-blobs 0.103.1. Existing release links below remain unchanged until a new
-tested build is published. See [upstream update and compatibility policy](docs/UPSTREAM_SYNC.md).
+iroh-blobs 0.103.1. See [upstream update and compatibility policy](docs/UPSTREAM_SYNC.md).
 
-The current local **pre-release** is [v0.7.1-local.4](https://github.com/luoji12103/dashbeam/releases/tag/v0.7.1-local.4) (macOS/Android build 70105). All packages use product source `2ef67ab`; real-device acceptance remains separate from build/test verification:
+The current local **pre-release** is [v0.7.2-local.1](https://github.com/luoji12103/dashbeam/releases/tag/v0.7.2-local.1) (macOS/Android build 70201). All packages use frozen product source `07d999b`; real-device acceptance remains separate from build/test verification:
 
-- macOS Apple Silicon: [DashBeam-0.7.1-local-macos-arm64.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.4/DashBeam-0.7.1-local-macos-arm64.zip)
-- Windows x64 installer: [DashBeam_0.7.1_x64-setup.exe](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.4/DashBeam_0.7.1_x64-setup.exe)
-- Windows x64 portable: [DashBeam_0.7.1_x64-portable.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.4/DashBeam_0.7.1_x64-portable.zip)
-- Android ARM64: [DashBeam-0.7.1-local-android-arm64.apk](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.4/DashBeam-0.7.1-local-android-arm64.apk)
-- Integrity checks: [SHA256SUMS](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.4/SHA256SUMS)
+- macOS Apple Silicon: [DashBeam-0.7.2-local-macos-arm64.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.2-local.1/DashBeam-0.7.2-local-macos-arm64.zip)
+- Windows x64 installer: [DashBeam_0.7.2_x64-setup.exe](https://github.com/luoji12103/dashbeam/releases/download/v0.7.2-local.1/DashBeam_0.7.2_x64-setup.exe)
+- Windows x64 portable: [DashBeam_0.7.2_x64-portable.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.2-local.1/DashBeam_0.7.2_x64-portable.zip)
+- Android ARM64: [DashBeam-0.7.2-local-android-arm64.apk](https://github.com/luoji12103/dashbeam/releases/download/v0.7.2-local.1/DashBeam-0.7.2-local-android-arm64.apk)
+- Linux amd64: [DashBeam_0.7.2_amd64.deb](https://github.com/luoji12103/dashbeam/releases/download/v0.7.2-local.1/DashBeam_0.7.2_amd64.deb)
+- Integrity checks: [SHA256SUMS](https://github.com/luoji12103/dashbeam/releases/download/v0.7.2-local.1/SHA256SUMS)
+
+The previous [v0.7.1-local.4](https://github.com/luoji12103/dashbeam/releases/tag/v0.7.1-local.4)
+remains available as a historical build; its download URLs have not been rewritten.
+See [final acceptance and limitations](reports/source-stream-20261115/README.zh-CN.md).
 
 ### Local changes
 
@@ -58,15 +62,14 @@ The current local **pre-release** is [v0.7.1-local.4](https://github.com/luoji12
 - The latency update removes per-transfer relay preflight in Strict mode, overlaps sending endpoint warm-up with import/hash, and enables configured discovery for stale ticket addresses. Startup reads saved network settings before creating the first control endpoint, rather than briefly connecting with public defaults.
 - Payload downloads start alongside the bounded metadata lookup. Completion is held until metadata/final export settles; cancellation retains the receive reservation until cleanup, so old tasks cannot clear a newer transfer's state. Text markers still require strict validation; ordinary text files never auto-copy.
 - The device picker and cancel action are available while preparing a share. A legacy invitation is sent only once its ticket is ready; preparation/cancellation survives page navigation, and stale cleanup is restricted to its own ticket.
-- The compatible latency path preserves the existing BlobTicket wire format and still performs full-file hashing/blob import. It does not remove Android SAF staging or add a server **disk** spool; source streaming is a separate opt-in candidate described below. No universal three-second or throughput claim is made. See [transport audit and experiments](reports/transport-audit-20261110/README.md) and [release validation](reports/transport-audit-20261110/PRODUCT_UPDATE.md).
+- The compatible latency path preserves the existing BlobTicket wire format and still performs full-file hashing/blob import. It does not remove Android SAF staging or add a server **disk** spool; source streaming is the separate opt-in path described below. No universal three-second or throughput claim is made. See [transport audit and experiments](reports/transport-audit-20261110/README.md) and [historical release validation](reports/transport-audit-20261110/PRODUCT_UPDATE.md).
 
 ### Experimental source streaming (2026-11-15)
 
-The proposed **v0.7.2-local.1** candidate (macOS/Android build 70201) integrates
+The **v0.7.2-local.1** pre-release (macOS/Android build 70201) integrates
 source streaming into the native GUI as a **default-off, per-send** “Prefer fast
-sending (experimental)” switch. This is not a release announcement: the local.4
-download links above remain historical packages and do not contain this GUI
-integration.
+sending (experimental)” switch. The historical local.4 packages do not contain
+this GUI integration.
 
 Preparation waits until a paired target is selected. The sender checks that
 device's **current live CONTROL connection** with the existing
@@ -100,10 +103,13 @@ guarantee.
 
 At product source `07d999b`, DEV regression checks passed 184 frontend, 105
 protocol and 120 native tests, together with TypeScript checks and a
-Darwin-target frontend build. These are automated/source-level results, not
-completed release packaging or installed-device acceptance. The new candidate's
-cross-platform packages and real-device GUI/transfer acceptance remain separate
-gates.
+Darwin-target frontend build. A final native smoke run passed 13/13 cases
+(12 complete receives and one expected cancellation), including repeated 8 MiB
+streams, text and retry after cancellation. The installed Mac 0.7.2/70201 passed
+official-v0.7.2 file interop, fast-to-legacy fallback and received-file clipboard
+checks. Android, Windows and Linux packages are built, but their device/desktop
+GUI, background and notification behavior has not been tested on real devices.
+See [final acceptance](reports/source-stream-20261115/README.zh-CN.md).
 
 The [experiment and API/CLI instructions](experiments/source-stream-20261112/README.md)
 and [2026-11-12 data-plane comparison](experiments/source-stream-20261112/REPORT.zh-CN.md)

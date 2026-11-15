@@ -9,7 +9,7 @@
 - 官方稳定版：v0.7.2，tag `e535ceaa6e7ee619c1ab12345cb277b7136fbed5`。
 - 已完整合入的官方 main：`c5de16552fc946ec9d0ad3b3792875868e826a05`。
 - 官方网络依赖：Iroh 1.3.0、iroh-blobs 0.103.1、rustls 0.23.45。
-- 拟发布定制版本：`v0.7.2-local.1`，Mac/Android build 70201；只有实际发布后才视为可下载版本。
+- 定制预发布：`v0.7.2-local.1`，Mac/Android build 70201；产品源码固定 `07d999b`。
 
 ## 每次跟随官方升级
 
