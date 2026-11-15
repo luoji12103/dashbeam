@@ -3,6 +3,14 @@ name: Windows local release
 on:
   workflow_dispatch:
     inputs:
+      platform:
+        description: Build platform (Linux calls the build-only reusable workflow)
+        required: true
+        default: windows
+        type: choice
+        options:
+          - windows
+          - linux
       ref:
         description: Git ref containing the local Windows changes
         required: true
@@ -24,6 +32,7 @@ permissions:
 
 jobs:
   build-windows:
+    if: ${{ inputs.platform != 'linux' }}
     runs-on: windows-latest
     timeout-minutes: 90
     steps:
@@ -107,3 +116,11 @@ jobs:
           path: |
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/portable/*portable.zip
+
+  build-linux:
+    if: ${{ inputs.platform == 'linux' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/linux-local-release.yml
+    with:
+      ref: ${{ inputs.ref }}

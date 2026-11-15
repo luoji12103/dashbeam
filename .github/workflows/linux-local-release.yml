@@ -8,6 +8,12 @@ on:
         required: true
         default: 07d999b479e25657e6374e413210a0c086c0b853
         type: string
+  workflow_call:
+    inputs:
+      ref:
+        description: Frozen product commit (full SHA; no branch or tag)
+        required: true
+        type: string
 
 # This workflow can upload run artifacts, but cannot publish a GitHub release.
 permissions:
