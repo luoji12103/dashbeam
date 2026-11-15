@@ -3,6 +3,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { syncReadmeVersion } from './lib/readme-version.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -28,15 +29,4 @@ let cargoToml = fs.readFileSync(cargoTomlPath, 'utf8')
 cargoToml = cargoToml.replace(/^version = "[\d.]+"/m, `version = "${version}"`)
 fs.writeFileSync(cargoTomlPath, cargoToml)
 
-let readme = fs.readFileSync(readmePath, 'utf8')
-readme = readme.replace(/\/download\/v[\d.]+/g, `/download/v${version}`)
-// Release artifacts are named from tauri productName ("DashBeam").
-readme = readme.replace(/DashBeam_[\d.]+_/g, `DashBeam_${version}_`)
-readme = readme.replace(/DashBeam-v[\d.]+-/g, `DashBeam-v${version}-`)
-readme = readme.replace(/DashBeam-[\d.]+-1\./g, `DashBeam-${version}-1.`)
-readme = readme.replace(
-	/\[badge-version\]:\s*https:\/\/img\.shields\.io\/badge\/version-[\d.]+-blue/g,
-	`[badge-version]: https://img.shields.io/badge/version-${version}-blue`
-)
-
-fs.writeFileSync(readmePath, readme)
+fs.writeFileSync(readmePath, syncReadmeVersion(fs.readFileSync(readmePath, 'utf8'), version))

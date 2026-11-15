@@ -37,7 +37,9 @@ if (!fs.existsSync(key)) {
 }
 const outputDir = path.join(root, 'dist')
 fs.mkdirSync(outputDir, { recursive: true })
-const output = path.join(outputDir, 'DashBeam-0.7.1-local-android-arm64.apk')
+const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
+if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Invalid package version')
+const output = path.join(outputDir, `DashBeam-${version}-local-android-arm64.apk`)
 // Align to 16 KiB boundaries for modern Android devices before signing.
 run(path.join(buildTools, 'zipalign'), ['-f', '-P', '16', '4', input, output])
 run(path.join(buildTools, 'apksigner'), ['sign', '--ks', key, '--ks-key-alias', 'dashbeam-local',

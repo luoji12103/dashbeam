@@ -41,7 +41,7 @@ jobs:
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/v}"
           # Local fork tags carry a release suffix, while the package metadata
-          # remains the upstream-compatible 0.7.1 for installer naming.
+          # remains the corresponding upstream version for installer naming.
           if [[ "$TAG_VERSION" == *-local.* ]]; then
             VERSION="${TAG_VERSION%%-local.*}"
             echo "Local fork tag $TAG_VERSION; building package version $VERSION"

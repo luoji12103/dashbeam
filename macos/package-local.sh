@@ -13,4 +13,7 @@ test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifie
 codesign --verify --strict "$extension"
 codesign --verify --deep --strict "$app"
 mkdir -p dist
-ditto -c -k --sequesterRsrc --keepParent "$app" dist/DashBeam-0.7.1-local-macos-arm64.zip
+version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")"
+test "$version" = "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$extension/Contents/Info.plist")"
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")" = "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$extension/Contents/Info.plist")"
+ditto -c -k --sequesterRsrc --keepParent "$app" "dist/DashBeam-$version-local-macos-arm64.zip"

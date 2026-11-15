@@ -6,8 +6,8 @@
   <key>CFBundleDisplayName</key><string>DashBeam</string>
   <key>CFBundleExecutable</key><string>DashBeamShare</string>
   <key>CFBundlePackageType</key><string>XPC!</string>
-  <key>CFBundleShortVersionString</key><string>0.7.1</string>
-  <key>CFBundleVersion</key><string>70106</string>
+  <key>CFBundleShortVersionString</key><string>0.7.2</string>
+  <key>CFBundleVersion</key><string>70201</string>
   <key>CFBundleIconFile</key><string>icon.icns</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>NSExtension</key><dict>

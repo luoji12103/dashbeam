@@ -32,6 +32,12 @@
 
 This repository is a community fork of [tonyantony300/dashbeam](https://github.com/tonyantony300/dashbeam). It keeps the upstream **AGPL-3.0** license and adds local desktop/mobile integrations maintained in [luoji12103/dashbeam](https://github.com/luoji12103/dashbeam).
 
+This is an upstream-tracking fork, not a frozen 0.7.1 derivative. The development
+branch now merges the full official v0.7.2 baseline and upstream main
+`c5de16552fc946ec9d0ad3b3792875868e826a05`, including Iroh 1.3.0 and
+iroh-blobs 0.103.1. Existing release links below remain unchanged until a new
+tested build is published. See [upstream update and compatibility policy](docs/UPSTREAM_SYNC.md).
+
 The current local **pre-release** is [v0.7.1-local.4](https://github.com/luoji12103/dashbeam/releases/tag/v0.7.1-local.4) (macOS/Android build 70105). All packages use product source `2ef67ab`; real-device acceptance remains separate from build/test verification:
 
 - macOS Apple Silicon: [DashBeam-0.7.1-local-macos-arm64.zip](https://github.com/luoji12103/dashbeam/releases/download/v0.7.1-local.4/DashBeam-0.7.1-local-macos-arm64.zip)
