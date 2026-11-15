@@ -64,6 +64,16 @@
 		"removeFromSelection": "Seçimden kaldır",
 		"copyToClipboard": "Panoya kopyala",
 		"description": "Açıklama (isteğe bağlı)",
+		"sourceStream": {
+			"label": "Hızlı göndermeyi tercih et (deneysel)",
+			"unavailable": "Hızlı gönderme için tek bir normal dosya ve kullanılabilir bir eşleştirilmiş cihaz hizmeti gerekir. Normal aktarım için bu seçeneği kapatın.",
+			"pairFirst": "Göndermeden önce diğer cihazı ayarlardan eşleştirin.",
+			"description": "Hazırlamadan önce seçilen cihazı kontrol eder. Desteklenen, en fazla 8 GiB boyutundaki tek dosya için hızlı gönderme; diğer durumlarda uyumlu normal aktarım kullanılır. Kaynak dosyayı değiştirmeyin.",
+			"activeHint": "Mevcut bağlantısını kontrol etmek için bir cihaz seçin. Eski veya tanınmayan uygulamalar otomatik olarak uyumlu normal aktarım kullanır.",
+			"preparing": "Aktarımı hazırlamak için bir cihaz seçin",
+			"negotiating": "Uyumluluk kontrol ediliyor ve hazırlanıyor...",
+			"compatibilityUsed": "Bu cihaz için uyumlu normal aktarım kullanılıyor. Karşı taraf kabul ettiğinde indirme başlar."
+		},
 		"broadcastMode": {
 			"index": "Yayın",
 			"on": {

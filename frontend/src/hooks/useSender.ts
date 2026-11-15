@@ -7,7 +7,7 @@ import {
 import { incrementPairedSendCount } from '@/lib/paired-send-counts'
 import {
 	inviteNearbyDevice,
-	invitePairedDevice,
+	invitePairedDeviceWithResult,
 	isPairedDeviceActive,
 	listPairedDevices,
 	type PairedDevice,
@@ -25,7 +25,11 @@ import { useTranslation } from '../i18n/react-i18next-compat'
 import { getDiscoveryConfigArg } from '../lib/discovery'
 import { getRelayConfigArg } from '../lib/relay'
 import { getTextByteLength, validateTextDraft } from '../lib/send-text'
-import { prepareShare, type SharePreparation } from '../lib/share-preparation'
+import {
+	prepareShare,
+	prepareTargetedShare,
+	type SharePreparation,
+} from '../lib/share-preparation'
 import { isSourceStreamTicket } from '../lib/source-stream'
 import {
 	parseCompletionPayload,
@@ -45,6 +49,8 @@ type PreparedShare = {
 	sourceStream: boolean
 	textDraft: string
 	selectedPaths: string[]
+	/** Replacement tickets must also update cancellation's expected ticket. */
+	ticketRef: { current: string | null }
 	totalSize?: Promise<number>
 }
 
@@ -805,34 +811,47 @@ export function useSender(): UseSenderReturn {
 		const generation = ++shareGenerationRef.current
 		if (useSourceStream) setIsBroadcastMode(false)
 		const previous = preparedShareRef.current
+		const ticketRef: PreparedShare['ticketRef'] = { current: null }
+		const preparationOptions = {
+			previous: Promise.all([
+				previous?.preparation.isCancelled()
+					? previous.preparation.result
+					: previous?.preparation.result.catch(() => {}),
+				pendingStopRef.current,
+			]),
+			prepare: async (targetEndpointId?: string) => {
+				const ticket =
+					sendMode === 'text'
+						? await invoke<string>('send_text', {
+								text: textDraft,
+								relay: getRelayConfigArg(),
+								discovery: getDiscoveryConfigArg(),
+							})
+						: await invoke<string>('send_items', {
+								paths: selectedPaths,
+								sourceStream: useSourceStream,
+								targetEndpointId,
+								relay: getRelayConfigArg(),
+								discovery: getDiscoveryConfigArg(),
+							})
+				ticketRef.current = ticket
+				return ticket
+			},
+			dispose: (expectedTicket: string) =>
+				invoke('stop_sharing', {
+					expectedTicket: ticketRef.current ?? expectedTicket,
+				}),
+		}
 		const share: PreparedShare = {
 			generation,
 			sendMode,
 			sourceStream: useSourceStream,
 			textDraft,
 			selectedPaths: [...selectedPaths],
-			preparation: prepareShare({
-				previous: Promise.all([
-					previous?.preparation.isCancelled()
-						? previous.preparation.result
-						: previous?.preparation.result.catch(() => {}),
-					pendingStopRef.current,
-				]),
-				prepare: () =>
-					sendMode === 'text'
-						? invoke<string>('send_text', {
-								text: textDraft,
-								relay: getRelayConfigArg(),
-								discovery: getDiscoveryConfigArg(),
-							})
-						: invoke<string>('send_items', {
-								paths: selectedPaths,
-								sourceStream: useSourceStream,
-								relay: getRelayConfigArg(),
-								discovery: getDiscoveryConfigArg(),
-							}),
-				dispose: (expectedTicket) => invoke('stop_sharing', { expectedTicket }),
-			}),
+			ticketRef,
+			preparation: useSourceStream
+				? prepareTargetedShare(preparationOptions)
+				: prepareShare(preparationOptions),
 		}
 		preparedShareRef.current = share
 		inviteInFlightRef.current = null
@@ -853,7 +872,7 @@ export function useSender(): UseSenderReturn {
 			const result = await share.preparation.result
 			if (generation !== shareGenerationRef.current || result === null) return
 			setTicket(result)
-			setViewState('SHARING')
+			setSourceStream(isSourceStreamTicket(result))
 		} catch (error) {
 			if (generation !== shareGenerationRef.current) return
 			preparedShareRef.current = null
@@ -1078,28 +1097,48 @@ export function useSender(): UseSenderReturn {
 		inviteInFlightRef.current = endpointId
 		setInviteStatus(endpointId, context.ticket ? 'sending' : 'preparing')
 		try {
+			context.share?.preparation.selectTarget?.(endpointId)
 			// The user's selection and the size lookup can overlap legacy
 			// import/hash work. Only a finished ticket may reach the peer.
-			const [readyTicket, totalSize] = await Promise.all([
+			const [preparedTicket, totalSize] = await Promise.all([
 				context.share?.preparation.result ?? Promise.resolve(context.ticket),
 				resolveShareTotalSize(context.share),
 			])
+			const readyTicket = context.share?.ticketRef.current ?? preparedTicket
 			if (!context.isCurrent() || !readyTicket) return false
 			setInviteStatus(endpointId, 'sending')
-			const delivered = await invitePairedDevice(
+			const invitation = await invitePairedDeviceWithResult(
 				endpointId,
 				readyTicket,
 				context.fileCount,
-				totalSize
+				totalSize,
+				getRelayConfigArg(),
+				getDiscoveryConfigArg()
 			)
-			if (!context.isCurrent()) return false
-			if (delivered) {
+			if (!context.isCurrent()) {
+				if (invitation.actual_ticket) {
+					await invoke('stop_sharing', {
+						expectedTicket: invitation.actual_ticket,
+					})
+				}
+				return false
+			}
+			const actualTicket = invitation.actual_ticket ?? readyTicket
+			if (context.share) context.share.ticketRef.current = actualTicket
+			setTicket(actualTicket)
+			setSourceStream(isSourceStreamTicket(actualTicket))
+			if (invitation.delivery_error) throw new Error(invitation.delivery_error)
+			if (invitation.delivered) {
 				setInviteStatus(endpointId, 'sent')
 				toastManager.add({
 					title: t('common:sender.pairedDevices.inviteSentTo', {
 						name: deviceName,
 					}),
-					description: t('common:sender.pairedDevices.inviteSentDesc'),
+					description: t(
+						context.share?.sourceStream && !isSourceStreamTicket(actualTicket)
+							? 'common:sender.sourceStream.compatibilityUsed'
+							: 'common:sender.pairedDevices.inviteSentDesc'
+					),
 					type: 'success',
 				})
 				return true
@@ -1134,7 +1173,12 @@ export function useSender(): UseSenderReturn {
 	const onInviteNearbyDevice = async (endpointId: string): Promise<boolean> => {
 		const context = getInviteContext()
 		if (!context) return false
-		if (context.share?.sourceStream || isSourceStreamTicket(context.ticket))
+		if (
+			isSourceStreamTicket(
+				context.share?.ticketRef.current ?? context.ticket
+			) ||
+			(context.share?.sourceStream && !context.share.ticketRef.current)
+		)
 			return false
 		if (!isNodeReady) {
 			toastManager.add({
@@ -1164,10 +1208,11 @@ export function useSender(): UseSenderReturn {
 		inviteInFlightRef.current = endpointId
 		setInviteStatus(endpointId, context.ticket ? 'sending' : 'preparing')
 		try {
-			const [readyTicket, totalSize] = await Promise.all([
+			const [preparedTicket, totalSize] = await Promise.all([
 				context.share?.preparation.result ?? Promise.resolve(context.ticket),
 				resolveShareTotalSize(context.share),
 			])
+			const readyTicket = context.share?.ticketRef.current ?? preparedTicket
 			if (!context.isCurrent() || !readyTicket) return false
 			setInviteStatus(endpointId, 'sending')
 			const delivered = await inviteNearbyDevice(

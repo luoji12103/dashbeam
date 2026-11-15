@@ -2,6 +2,45 @@ export type SharePreparation<T> = {
 	result: Promise<T | null>
 	cancel: () => void
 	isCancelled: () => boolean
+	selectTarget?: (endpointId: string) => boolean
+}
+
+/** A fast-send preference does no native preparation until a peer is chosen. */
+export function prepareTargetedShare<T>(args: {
+	previous?: Promise<unknown>
+	prepare: (endpointId: string) => Promise<T>
+	dispose: (value: T) => Promise<unknown>
+}): SharePreparation<T> {
+	let resolveTarget!: (endpointId: string | null) => void
+	const target = new Promise<string | null>((resolve) => {
+		resolveTarget = resolve
+	})
+	let selected = false
+	const preparation = prepareShare({
+		previous: args.previous,
+		prepare: async () => {
+			const endpointId = await target
+			if (endpointId === null || preparation.isCancelled()) {
+				throw new Error('cancelled')
+			}
+			return args.prepare(endpointId)
+		},
+		dispose: args.dispose,
+	})
+	return {
+		result: preparation.result,
+		isCancelled: preparation.isCancelled,
+		selectTarget: (endpointId) => {
+			if (selected || preparation.isCancelled()) return false
+			selected = true
+			resolveTarget(endpointId)
+			return true
+		},
+		cancel: () => {
+			preparation.cancel()
+			resolveTarget(null)
+		},
+	}
 }
 
 /**

@@ -64,6 +64,16 @@
 		"removeFromSelection": "Eltávolítás a kijelölésből",
 		"copyToClipboard": "Vágólapra másolás",
 		"description": "Leírás (opcionális)",
+		"sourceStream": {
+			"label": "Gyors küldés előnyben részesítése (kísérleti)",
+			"unavailable": "A gyors küldéshez egyetlen normál fájl és elérhető párosított eszközszolgáltatás szükséges. Normál átvitelhez kapcsold ki ezt a lehetőséget.",
+			"pairFirst": "Küldés előtt párosítsd a másik eszközt a beállításokban.",
+			"description": "Előkészítés előtt ellenőrzi a kiválasztott eszközt. Egyetlen támogatott, legfeljebb 8 GiB-os fájlhoz gyors küldést, más esetben kompatibilis normál átvitelt használ. Ne módosítsd a forrásfájlt.",
+			"activeHint": "Válassz eszközt az aktuális kapcsolat ellenőrzéséhez. A régi vagy fel nem ismert alkalmazások automatikusan kompatibilis normál átvitelt használnak.",
+			"preparing": "Válassz eszközt az átvitel előkészítéséhez",
+			"negotiating": "Kompatibilitás ellenőrzése és előkészítés...",
+			"compatibilityUsed": "Ehhez az eszközhöz kompatibilis normál átvitel használatos. A letöltés az elfogadás után indul."
+		},
 		"broadcastMode": {
 			"index": "Nyilvános",
 			"on": {

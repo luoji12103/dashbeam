@@ -74,7 +74,11 @@ export function ShareLinkPanel({
 	const { t } = useTranslation()
 
 	const statusText = isPreparing
-		? t('common:sender.startingShare')
+		? t(
+				sourceStream
+					? 'common:sender.sourceStream.preparing'
+					: 'common:sender.startingShare'
+			)
 		: isCompleted
 			? t('common:sender.transferCompleted')
 			: isTransporting

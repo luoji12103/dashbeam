@@ -64,6 +64,16 @@
 		"removeFromSelection": "Odebrat z výběru",
 		"copyToClipboard": "Kopírovat do schránky",
 		"description": "Popis (volitelné)",
+		"sourceStream": {
+			"label": "Upřednostnit rychlé odesílání (experimentální)",
+			"unavailable": "Rychlé odesílání vyžaduje jeden běžný soubor a dostupnou službu spárovaných zařízení. Vypněte tuto volbu pro běžný přenos.",
+			"pairFirst": "Před odesláním spárujte druhé zařízení v nastavení.",
+			"description": "Před přípravou ověří vybrané zařízení. Pro jeden podporovaný soubor do 8 GiB použije rychlé odesílání, jinak kompatibilní běžný přenos. Zdrojový soubor neměňte.",
+			"activeHint": "Vyberte zařízení pro ověření jeho aktuálního připojení. Starší nebo nerozpoznané aplikace automaticky použijí kompatibilní běžný přenos.",
+			"preparing": "Vyberte zařízení pro přípravu přenosu",
+			"negotiating": "Ověřování kompatibility a příprava...",
+			"compatibilityUsed": "Pro toto zařízení se používá kompatibilní běžný přenos. Stahování začne po přijetí."
+		},
 		"broadcastMode": {
 			"index": "Vysílání",
 			"on": {

@@ -64,6 +64,16 @@
 		"removeFromSelection": "Fjern fra utvalg",
 		"copyToClipboard": "Kopier til utklippstavle",
 		"description": "Beskrivelse (valgfritt)",
+		"sourceStream": {
+			"label": "Foretrekk rask sending (eksperimentelt)",
+			"unavailable": "Rask sending krever én vanlig fil og en tilgjengelig tjeneste for parede enheter. Slå av valget for en vanlig overføring.",
+			"pairFirst": "Par den andre enheten i innstillingene før du sender.",
+			"description": "Kontroller den valgte enheten før klargjøring. Bruk rask sending for én støttet fil på opptil 8 GiB; ellers brukes en kompatibel vanlig overføring. Ikke endre kildefilen.",
+			"activeHint": "Velg en enhet for å kontrollere den gjeldende tilkoblingen. Eldre eller ukjente apper bruker automatisk en kompatibel vanlig overføring.",
+			"preparing": "Velg en enhet for å klargjøre overføringen",
+			"negotiating": "Kontrollerer kompatibilitet og klargjør...",
+			"compatibilityUsed": "En kompatibel vanlig overføring brukes for denne enheten. Nedlastingen starter når mottakeren godtar."
+		},
 		"broadcastMode": {
 			"index": "Kringkasting",
 			"on": {

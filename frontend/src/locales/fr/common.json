@@ -64,6 +64,16 @@
 		"removeFromSelection": "Retirer de la sélection",
 		"copyToClipboard": "Copier dans le presse-papiers",
 		"description": "Description (facultatif)",
+		"sourceStream": {
+			"label": "Privilégier l’envoi rapide (expérimental)",
+			"unavailable": "L’envoi rapide nécessite un seul fichier ordinaire et un service d’appareils associés disponible. Désactivez cette option pour un transfert normal.",
+			"pairFirst": "Associez l’autre appareil dans les paramètres avant l’envoi.",
+			"description": "L’appareil choisi est vérifié avant la préparation. L’envoi rapide est utilisé pour un seul fichier pris en charge de 8 Gio maximum ; sinon, un transfert normal compatible est utilisé. Ne modifiez pas le fichier source.",
+			"activeHint": "Choisissez un appareil pour vérifier sa connexion actuelle. Les applications anciennes ou non reconnues utilisent automatiquement un transfert normal compatible.",
+			"preparing": "Choisissez un appareil pour préparer le transfert",
+			"negotiating": "Vérification de la compatibilité et préparation...",
+			"compatibilityUsed": "Un transfert normal compatible est utilisé pour cet appareil. Le téléchargement commence après acceptation."
+		},
 		"broadcastMode": {
 			"index": "Diffusion",
 			"on": {

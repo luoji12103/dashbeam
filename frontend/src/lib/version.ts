@@ -1,4 +1,5 @@
 import packageJson from '../../../package.json'
+import { IS_LOCAL_BUILD } from './platform'
 
 export const VERSION = packageJson.version
 export const VERSION_DISPLAY = `v${VERSION}`
@@ -7,7 +8,9 @@ export const PRIVACY_LINK =
 export const LICENSE_LINK =
 	'https://github.com/tonyantony300/dashbeam/blob/main/LICENSE'
 export const DONATE_LINK = 'https://buymeacoffee.com/tny_antny'
-export const GITHUB_REPO_LINK = 'https://github.com/tonyantony300/dashbeam'
+export const GITHUB_REPO_LINK = IS_LOCAL_BUILD
+	? 'https://github.com/luoji12103/dashbeam'
+	: 'https://github.com/tonyantony300/dashbeam'
 export const RELAY_DOCS_LINK =
 	'https://github.com/tonyantony300/dashbeam/blob/main/infra/relay/README.md'
 export const DISCOVERY_DOCS_LINK =

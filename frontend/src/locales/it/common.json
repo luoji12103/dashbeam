@@ -64,6 +64,16 @@
 		"removeFromSelection": "Rimuovi dalla selezione",
 		"copyToClipboard": "Copia negli appunti",
 		"description": "Descrizione (facoltativa)",
+		"sourceStream": {
+			"label": "Preferisci invio rapido (sperimentale)",
+			"unavailable": "L’invio rapido richiede un solo file normale e il servizio dei dispositivi associati disponibile. Disattivalo per un trasferimento normale.",
+			"pairFirst": "Associa l’altro dispositivo nelle impostazioni prima di inviare.",
+			"description": "Verifica il dispositivo scelto prima della preparazione. Usa l’invio rapido per un solo file supportato fino a 8 GiB; altrimenti usa un trasferimento normale compatibile. Non modificare il file originale.",
+			"activeHint": "Scegli un dispositivo per verificarne la connessione attuale. Le app meno recenti o non riconosciute usano automaticamente un trasferimento normale compatibile.",
+			"preparing": "Scegli un dispositivo per preparare il trasferimento",
+			"negotiating": "Verifica della compatibilità e preparazione...",
+			"compatibilityUsed": "Per questo dispositivo viene usato un trasferimento normale compatibile. Il download inizia dopo l’accettazione."
+		},
 		"broadcastMode": {
 			"index": "Trasmissione",
 			"on": {

@@ -64,6 +64,16 @@
 		"removeFromSelection": "Aus Auswahl entfernen",
 		"copyToClipboard": "In Zwischenablage kopieren",
 		"description": "Beschreibung (optional)",
+		"sourceStream": {
+			"label": "Schnelles Senden bevorzugen (experimentell)",
+			"unavailable": "Schnelles Senden benötigt eine einzelne reguläre Datei und einen verfügbaren Dienst für gekoppelte Geräte. Deaktivieren Sie die Option für eine normale Übertragung.",
+			"pairFirst": "Koppeln Sie das andere Gerät vor dem Senden in den Einstellungen.",
+			"description": "Das gewählte Gerät wird vor der Vorbereitung geprüft. Für eine unterstützte einzelne Datei bis 8 GiB wird schnelles Senden verwendet, sonst eine kompatible normale Übertragung. Lassen Sie die Quelldatei unverändert.",
+			"activeHint": "Wählen Sie ein Gerät, um die aktuelle Verbindung zu prüfen. Ältere oder nicht erkannte Apps verwenden automatisch eine kompatible normale Übertragung.",
+			"preparing": "Wählen Sie ein Gerät, um die Übertragung vorzubereiten",
+			"negotiating": "Kompatibilität wird geprüft und Übertragung vorbereitet...",
+			"compatibilityUsed": "Für dieses Gerät wird eine kompatible normale Übertragung verwendet. Der Download beginnt nach der Annahme."
+		},
 		"broadcastMode": {
 			"index": "Broadcast",
 			"on": {

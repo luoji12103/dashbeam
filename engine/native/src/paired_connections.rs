@@ -188,6 +188,28 @@ impl PairedConnectionManager {
         self.sessions.read().await.get(&key).cloned()
     }
 
+    /// The sessions read lock makes checking a capability's connection and
+    /// beginning its Invite atomic with respect to session replacement. None
+    /// means no write started; an error must never trigger a second Invite.
+    pub(crate) async fn send_if_current(
+        &self,
+        expected: &Connection,
+        message: &ControlMessage,
+    ) -> anyhow::Result<Option<()>> {
+        let sessions = self.sessions.read().await;
+        let current = sessions.get(&expected.remote_id().to_string());
+        if !current.is_some_and(|connection| {
+            connection.stable_id() == expected.stable_id() && connection.close_reason().is_none()
+        }) {
+            return Ok(None);
+        }
+        tokio::time::timeout(Duration::from_millis(750), async {
+            let (mut send, _recv) = expected.open_bi().await?;
+            write_message(&mut send, message).await
+        }).await.context("paired invite write timeout")??;
+        Ok(Some(()))
+    }
+
     pub async fn shutdown(&self) {
         self.shutdown.store(true, Ordering::SeqCst);
         let mut tasks = self.tasks.lock().await;
@@ -436,7 +458,7 @@ impl PairedConnectionManager {
             }
         };
         loop {
-            let (_send, mut recv) = match conn.accept_bi().await {
+            let (mut send, mut recv) = match conn.accept_bi().await {
                 Ok(streams) => streams,
                 Err(_err) => {
 
@@ -453,6 +475,16 @@ impl PairedConnectionManager {
             };
 
             match msg {
+                ControlMessage::WhoAreYou => {
+                    let reply = ControlMessage::Identity {
+                        endpoint_id: self.identity.endpoint_id(),
+                        display_name: self.identity.display_name(),
+                        device_type: self.identity.device_type(),
+                        os: self.identity.os(),
+                        capabilities: vec![protocol::control::SOURCE_STREAM_CAPABILITY.into()],
+                    };
+                    let _ = write_message(&mut send, &reply).await;
+                }
                 ControlMessage::Invite {
                     blob_ticket,
                     file_count,

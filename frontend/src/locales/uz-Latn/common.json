@@ -64,6 +64,16 @@
 		"removeFromSelection": "Tanlovdan olib tashlash",
 		"copyToClipboard": "Buferga nusxalash",
 		"description": "Tavsif (ixtiyoriy)",
+		"sourceStream": {
+			"label": "Tez yuborishni afzal ko‘rish (tajribaviy)",
+			"unavailable": "Tez yuborish uchun bitta oddiy fayl va ishlayotgan juftlangan qurilmalar xizmati kerak. Oddiy uzatish uchun bu parametrni o‘chiring.",
+			"pairFirst": "Yuborishdan oldin boshqa qurilmani sozlamalarda juftlang.",
+			"description": "Tayyorlashdan oldin tanlangan qurilma tekshiriladi. Qo‘llab-quvvatlanadigan, hajmi 8 GiB gacha bo‘lgan bitta fayl tez yuboriladi; aks holda mos oddiy uzatish ishlatiladi. Manba faylni o‘zgartirmang.",
+			"activeHint": "Joriy ulanishini tekshirish uchun qurilmani tanlang. Eski yoki aniqlanmagan ilovalar avtomatik ravishda mos oddiy uzatishdan foydalanadi.",
+			"preparing": "Uzatishni tayyorlash uchun qurilmani tanlang",
+			"negotiating": "Moslik tekshirilmoqda va tayyorlanmoqda...",
+			"compatibilityUsed": "Bu qurilma uchun mos oddiy uzatish ishlatilmoqda. Qabul qilingach, yuklab olish boshlanadi."
+		},
 		"broadcastMode": {
 			"index": "Ommaviy ulashish",
 			"on": {

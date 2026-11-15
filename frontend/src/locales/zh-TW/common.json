@@ -64,6 +64,16 @@
 		"removeFromSelection": "從選取中移除",
 		"copyToClipboard": "複製到剪貼簿",
 		"description": "說明（選填）",
+		"sourceStream": {
+			"label": "優先快速傳送（實驗）",
+			"unavailable": "快速傳送需要單一一般檔案及可用的配對裝置服務。關閉此選項後可使用一般傳輸。",
+			"pairFirst": "請先在設定中配對對方裝置。",
+			"description": "選擇裝置後再準備；對方支援且單一檔案不超過 8 GiB 時使用快速傳輸，其餘情況自動使用相容的一般傳輸。請保持來源檔案不變。",
+			"activeHint": "選擇裝置後檢查其目前連線。舊版或無法確認能力的應用程式會自動使用相容的一般傳輸。",
+			"preparing": "選擇裝置後準備傳輸",
+			"negotiating": "正在檢查相容性並準備...",
+			"compatibilityUsed": "已為此裝置選擇相容的一般傳輸，對方接受後開始下載。"
+		},
 		"broadcastMode": {
 			"index": "廣播",
 			"on": {

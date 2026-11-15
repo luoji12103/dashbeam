@@ -23,6 +23,24 @@ pub struct DeviceIdentity {
 }
 
 impl DeviceIdentity {
+    /// Isolated unit-test identity: never reads or synchronizes an OS keychain.
+    #[cfg(test)]
+    pub(crate) fn temporary_for_tests(data_dir: &Path) -> Self {
+        let secret_key = SecretKey::generate();
+        let meta = DeviceMetaFile::new(
+            secret_key.public().to_string(),
+            "temporary test device".into(),
+            "desktop".into(),
+        );
+        Self {
+            secret_key,
+            meta: RwLock::new(meta),
+            meta_path: data_dir.join("device.json"),
+            identity_rotated: false,
+            previous_endpoint_id: None,
+        }
+    }
+
     pub fn endpoint_id(&self) -> String {
         HEXLOWER.encode(self.secret_key.public().as_bytes())
     }

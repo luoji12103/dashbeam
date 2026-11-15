@@ -518,6 +518,7 @@ impl ControlProtocol {
                     display_name: info.display_name,
                     device_type: info.device_type,
                     os: info.os,
+                    capabilities: vec![protocol::control::SOURCE_STREAM_CAPABILITY.into()],
                 };
                 if let Err(err) = write_message(&mut send, &reply).await {
                     tracing::debug!("identity reply failed: {err:#}");
@@ -779,6 +780,19 @@ impl ProtocolHandler for ControlProtocol {
     }
 }
 
+/// A positive reply from this exact live control connection. It is deliberately
+/// not serializable or persisted, and is invalid after session replacement.
+#[derive(Clone)]
+pub struct SourceStreamPeer {
+    connection: Connection,
+}
+
+impl SourceStreamPeer {
+    pub fn endpoint_id(&self) -> String {
+        self.connection.remote_id().to_string()
+    }
+}
+
 pub struct NodeService {
     pub(crate) runtime: Arc<Mutex<NodeRuntime>>,
     pub(crate) identity: Arc<DeviceIdentity>,
@@ -818,6 +832,65 @@ pub struct NodeService {
 }
 
 impl NodeService {
+    /// Probe only when a caller requests fast sending. Absence, an old reply,
+    /// timeout, or a changed session all mean "use legacy". Dropping the query
+    /// streams never closes the paired control connection.
+    pub async fn negotiate_source_stream(
+        &self,
+        endpoint_id: &str,
+    ) -> anyhow::Result<Option<SourceStreamPeer>> {
+        let remote: EndpointId = endpoint_id.parse()?;
+        anyhow::ensure!(self.access.read().await.allowed.contains(&remote), "unknown paired device");
+        let Some(connection) = self.paired_connections.live_session(endpoint_id).await else {
+            return Ok(None);
+        };
+        if connection.remote_id() != remote || connection.close_reason().is_some() {
+            return Ok(None);
+        }
+        let reply = tokio::time::timeout(Duration::from_millis(750), async {
+            let (mut send, mut recv) = connection.open_bi().await?;
+            write_message(&mut send, &ControlMessage::WhoAreYou).await?;
+            read_message(&mut recv).await
+        }).await;
+        let Ok(Ok(ControlMessage::Identity { endpoint_id, capabilities, .. })) = reply else {
+            return Ok(None);
+        };
+        if !endpoint_id.eq_ignore_ascii_case(&remote.to_string())
+            || capabilities.len() > 16
+            || !capabilities.iter().any(|capability| capability == protocol::control::SOURCE_STREAM_CAPABILITY)
+        {
+            return Ok(None);
+        }
+        let current = self.paired_connections.live_session(&endpoint_id).await;
+        if connection.close_reason().is_some()
+            || !current.is_some_and(|current| current.stable_id() == connection.stable_id())
+        {
+            return Ok(None);
+        }
+        Ok(Some(SourceStreamPeer { connection }))
+    }
+
+    /// None guarantees no Invite write started and permits a legacy
+    /// preparation. Err may follow a partial write and must never be replayed.
+    pub async fn invite_source_stream_peer(
+        &self,
+        peer: &SourceStreamPeer,
+        ticket: &str,
+        total_size: u64,
+    ) -> anyhow::Result<Option<bool>> {
+        let remote = peer.connection.remote_id();
+        let access = self.access.read().await;
+        let blocked = self.blocked.read().await;
+        anyhow::ensure!(access.allowed.contains(&remote) && !blocked.contains(&remote.to_string()),
+            "peer is no longer paired");
+        let invite = ControlMessage::Invite {
+            blob_ticket: ticket.into(), file_count: 1, total_size,
+            sender_name: self.identity.display_name(),
+        };
+        self.paired_connections.send_if_current(&peer.connection, &invite).await
+            .map(|sent| sent.map(|()| true))
+    }
+
     /// Explicit single-file fast path on the already-running device node.
     /// Snapshot host+endpoint together so network rebuild cannot mix runtimes.
     pub async fn start_stream_share(
@@ -850,8 +923,20 @@ impl NodeService {
         discoverability: Discoverability,
         app_handle: AppHandle,
     ) -> anyhow::Result<Self> {
-
         let identity = Arc::new(load_or_create_identity(data_dir)?);
+        Self::start_with_identity(
+            data_dir, identity, relay_mode, discovery_mode, discoverability, app_handle,
+        ).await
+    }
+
+    async fn start_with_identity(
+        data_dir: &Path,
+        identity: Arc<DeviceIdentity>,
+        relay_mode: RelayMode,
+        discovery_mode: DiscoveryModeOption,
+        discoverability: Discoverability,
+        app_handle: AppHandle,
+    ) -> anyhow::Result<Self> {
         let paired_store = Arc::new(PairedDeviceStore::new(data_dir));
         let allowed = load_allowed_from_store(&paired_store)?;
 
@@ -1233,6 +1318,26 @@ impl NodeService {
         file_count: u32,
         total_size: u64,
     ) -> anyhow::Result<bool> {
+        self.invite_paired_device_guarded(
+            remote_endpoint_id, blob_ticket, file_count, total_size, || async { Some(()) },
+        ).await
+    }
+
+    /// Establish a connection before taking the caller's share-operation gate.
+    /// The returned guard is held only over the bounded Invite write. If the
+    /// share was cancelled meanwhile, None prevents any Invite bytes.
+    pub async fn invite_paired_device_guarded<G, F, Fut>(
+        &self,
+        remote_endpoint_id: &str,
+        blob_ticket: &str,
+        file_count: u32,
+        total_size: u64,
+        gate: F,
+    ) -> anyhow::Result<bool>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Option<G>>,
+    {
         let remote = EndpointId::from_str(remote_endpoint_id)?;
         debug!(
             target: "dashbeam::_events::pairing::invite_sent",
@@ -1249,8 +1354,9 @@ impl NodeService {
             anyhow::bail!("unknown paired device");
         }
 
-        self.deliver_invite(remote_endpoint_id, blob_ticket, file_count, total_size, true)
-            .await
+        self.deliver_invite_guarded(
+            remote_endpoint_id, blob_ticket, file_count, total_size, true, gate,
+        ).await
     }
 
     /// Sends an already-minted share ticket to a nearby device — the same wire
@@ -1361,6 +1467,25 @@ impl NodeService {
         total_size: u64,
         use_cached_session: bool,
     ) -> anyhow::Result<bool> {
+        self.deliver_invite_guarded(
+            remote_endpoint_id, blob_ticket, file_count, total_size,
+            use_cached_session, || async { Some(()) },
+        ).await
+    }
+
+    async fn deliver_invite_guarded<G, F, Fut>(
+        &self,
+        remote_endpoint_id: &str,
+        blob_ticket: &str,
+        file_count: u32,
+        total_size: u64,
+        use_cached_session: bool,
+        gate: F,
+    ) -> anyhow::Result<bool>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Option<G>>,
+    {
         let remote = EndpointId::from_str(remote_endpoint_id)?;
         let stored_relay = self
             .paired_store
@@ -1418,27 +1543,22 @@ impl NodeService {
             }
         };
 
-        let (mut send, _recv) = match conn.open_bi().await {
-            Ok(streams) => streams,
-            Err(err) => {
-                return Err(err).context("open bi stream for invite");
-            }
-        };
-
         let invite = ControlMessage::Invite {
             blob_ticket: blob_ticket.to_string(),
             file_count,
             total_size,
             sender_name: self.identity.display_name(),
         };
-        if let Err(err) = write_message(&mut send, &invite).await {
-
-            return Err(err).context("write Invite message");
-        }
+        let share_guard = gate().await.context("share cancelled before invite")?;
+        tokio::time::timeout(Duration::from_millis(750), async {
+            let (mut send, _recv) = conn.open_bi().await
+                .context("open bi stream for invite")?;
+            write_message(&mut send, &invite).await.context("write Invite message")
+        }).await.context("paired invite write timeout")??;
+        drop(share_guard);
 
         // Hold the connection open in the background so the receiver can read
         // the invite, without blocking the caller.
-        drop(send);
         tokio::spawn(async move {
 
             match tokio::time::timeout(Duration::from_secs(15), conn.closed()).await {
@@ -2129,6 +2249,7 @@ async fn probe_identity_via(
             display_name,
             device_type,
             os,
+            ..
         } => Ok(DeviceInfo {
             endpoint_id,
             display_name,
@@ -2345,6 +2466,10 @@ async fn build_runtime(
 
     Ok(NodeRuntime { endpoint, router, stream_host })
 }
+
+#[cfg(test)]
+#[path = "node_capability_tests.rs"]
+mod capability_tests;
 
 #[cfg(test)]
 mod tests {

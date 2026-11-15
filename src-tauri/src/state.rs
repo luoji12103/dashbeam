@@ -1,5 +1,5 @@
 use crate::history::HistoryRecordingEmitter;
-use engine::{NodeService, RegisteredStreamShare, SendResult};
+use engine::{NodeService, RegisteredStreamShare, SendResult, SourceStreamPeer};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -141,6 +141,9 @@ pub struct ShareHandle {
     /// Present only while history recording is enabled. Held here so
     /// `stop_sharing` can close the row a broadcast share left open.
     pub recorder: Option<Arc<HistoryRecordingEmitter>>,
+    /// Positive capability bound to the exact live control session used by
+    /// this share. Never serialized or copied into paired-device settings.
+    pub source_stream_peer: Option<SourceStreamPeer>,
     /// Owned only by typed-text shares. The blob store has its own imported
     /// copy, but retaining the source for the whole session makes lifecycle
     /// explicit and keeps cleanup deterministic.
@@ -164,6 +167,7 @@ impl ShareHandle {
             _path: path,
             transport: Some(ShareTransport::Legacy(send_result)),
             recorder,
+            source_stream_peer: None,
             owned_source_dir: None,
         }
     }
@@ -173,12 +177,14 @@ impl ShareHandle {
         path: PathBuf,
         share: RegisteredStreamShare,
         recorder: Option<Arc<HistoryRecordingEmitter>>,
+        peer: SourceStreamPeer,
     ) -> Self {
         Self {
             ticket,
             _path: path,
             transport: Some(ShareTransport::SourceStream(share)),
             recorder,
+            source_stream_peer: Some(peer),
             owned_source_dir: None,
         }
     }

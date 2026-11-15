@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 pub const CONTROL_ALPN: &[u8] = b"altsendme/control/1";
 
 pub const AUTH_LABEL: &[u8] = b"altsendme-device-auth-v1";
+pub const SOURCE_STREAM_CAPABILITY: &str = "source-stream-v1";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
@@ -49,6 +50,10 @@ pub enum ControlMessage {
         /// Optional for parity with `PairingInfo`.
         #[serde(default)]
         os: String,
+        /// Optional extension: old peers ignore it, and absence means unknown.
+        /// Never persist this hint as a device capability.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        capabilities: Vec<String>,
     },
     /// Asks an unpaired LAN peer to become a paired contact (no file share).
     /// Accept replies with `InviteResponse` and both sides commit records, as a
@@ -235,6 +240,7 @@ mod nearby_message_tests {
             display_name: "Tony's MacBook".to_string(),
             device_type: "laptop".to_string(),
             os: "macos".to_string(),
+            capabilities: vec![super::SOURCE_STREAM_CAPABILITY.into()],
         };
         write_message(&mut client, &sent).await.unwrap();
         match read_message(&mut server).await.unwrap() {
@@ -243,11 +249,13 @@ mod nearby_message_tests {
                 display_name,
                 device_type,
                 os,
+                capabilities,
             } => {
                 assert_eq!(endpoint_id, "aa".repeat(32));
                 assert_eq!(display_name, "Tony's MacBook");
                 assert_eq!(device_type, "laptop");
                 assert_eq!(os, "macos");
+                assert_eq!(capabilities, [super::SOURCE_STREAM_CAPABILITY]);
             }
             other => panic!("expected Identity, got {other:?}"),
         }
@@ -263,6 +271,7 @@ mod nearby_message_tests {
             display_name: "n".to_string(),
             device_type: "desktop".to_string(),
             os: "linux".to_string(),
+            capabilities: Vec::new(),
         })
         .unwrap();
         assert_eq!(identity["type"], "identity");
@@ -306,6 +315,7 @@ mod nearby_message_tests {
                 display_name: String::new(),
                 device_type: String::new(),
                 os: String::new(),
+                capabilities: Vec::new(),
             },
             ControlMessage::PairRequest {
                 sender_name: String::new(),
@@ -333,8 +343,43 @@ mod nearby_message_tests {
             "device_type": "phone",
         });
         match serde_json::from_value::<ControlMessage>(json).unwrap() {
-            ControlMessage::Identity { os, .. } => assert_eq!(os, ""),
+            ControlMessage::Identity { os, capabilities, .. } => {
+                assert_eq!(os, "");
+                assert!(capabilities.is_empty());
+            }
             other => panic!("expected Identity, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn optional_capability_is_ignored_by_the_legacy_identity_shape() {
+        // Same serde strategy/fields as the official control Identity variant:
+        // no deny_unknown_fields, and no new message tag or ALPN.
+        #[derive(serde::Deserialize)]
+        #[serde(tag = "type", rename_all = "kebab-case")]
+        enum LegacyMessage {
+            Identity {
+                endpoint_id: String,
+                display_name: String,
+                device_type: String,
+                #[serde(default)]
+                os: String,
+            },
+        }
+        let wire = serde_json::to_vec(&ControlMessage::Identity {
+            endpoint_id: "aa".repeat(32), display_name: "fixture".into(),
+            device_type: "desktop".into(), os: "linux".into(),
+            capabilities: vec![super::SOURCE_STREAM_CAPABILITY.into()],
+        }).unwrap();
+        let LegacyMessage::Identity { endpoint_id, display_name, device_type, os } =
+            serde_json::from_slice(&wire).unwrap();
+        assert_eq!(endpoint_id, "aa".repeat(32));
+        assert_eq!(display_name, "fixture");
+        assert_eq!(device_type, "desktop");
+        assert_eq!(os, "linux");
+        let without_cap = serde_json::to_value(&ControlMessage::Identity {
+            endpoint_id, display_name, device_type, os, capabilities: Vec::new(),
+        }).unwrap();
+        assert!(without_cap.get("capabilities").is_none());
     }
 }

@@ -240,7 +240,7 @@ pub async fn start_sharing(
     history: State<'_, Arc<TransferHistoryStore>>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
-    send_items(vec![path], relay, discovery, None, state, history, app_handle).await
+    send_items(vec![path], relay, discovery, None, None, state, history, app_handle).await
 }
 
 /// New interface to start_sharing multiple items at once
@@ -250,15 +250,50 @@ pub async fn send_items(
     relay: Option<RelayConfigArg>,
     discovery: Option<DiscoveryConfigArg>,
     source_stream: Option<bool>,
+    target_endpoint_id: Option<String>,
     state: State<'_, AppStateMutex>,
     history: State<'_, Arc<TransferHistoryStore>>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
+    if paths.is_empty() {
+        return Err("No paths provided".to_string());
+    }
     if source_stream.unwrap_or(false) {
-        return send_stream_item(paths, state, history, app_handle).await;
+        let endpoint_id = target_endpoint_id
+            .ok_or_else(|| "Choose a paired device before preparing fast sending".to_string())?;
+        let generation = state.lock().await.reserve_share_start()?;
+        let negotiation = async {
+            let eligible = if paths.len() == 1 {
+                let metadata = tokio::fs::symlink_metadata(&paths[0]).await
+                    .map_err(|error| format!("Could not inspect source file: {error}"))?;
+                metadata.is_file() && !metadata.file_type().is_symlink()
+                    && metadata.len() <= StreamLimits::default().max_bytes
+            } else { false };
+            let peer = if eligible {
+                let node = app_state_node(&state).await
+                    .ok_or_else(|| "Paired-device service is unavailable".to_string())?;
+                node.negotiate_source_stream(&endpoint_id).await.map_err(|error| error.to_string())?
+            } else { None };
+            if !state.lock().await.share_start_is_current(generation) {
+                return Err("cancelled".to_string());
+            }
+            Ok(peer)
+        }.await;
+        let peer = match negotiation {
+            Ok(peer) => peer,
+            Err(error) => {
+                state.lock().await.is_share_starting = false;
+                return Err(error);
+            }
+        };
+        return match peer {
+            Some(peer) => send_stream_item(paths, &state, &history, app_handle, generation, peer).await,
+            None => send_items_impl(paths, relay, discovery, &state, &history, app_handle,
+                None, None, Some(generation)).await,
+        };
     }
     send_items_impl(
-        paths, relay, discovery, state, history, app_handle, None, None,
+        paths, relay, discovery, &state, &history, app_handle, None, None, None,
     )
     .await
 }
@@ -267,15 +302,16 @@ pub async fn send_items(
 /// never imports, hashes, thumbnails or reads its contents.
 async fn send_stream_item(
     paths: Vec<String>,
-    state: State<'_, AppStateMutex>,
-    history: State<'_, Arc<TransferHistoryStore>>,
+    state: &State<'_, AppStateMutex>,
+    history: &State<'_, Arc<TransferHistoryStore>>,
     app_handle: tauri::AppHandle,
+    generation: u64,
+    peer: engine::SourceStreamPeer,
 ) -> Result<String, String> {
     if paths.len() != 1 {
         return Err("Fast sending requires one regular file".to_string());
     }
     let path = PathBuf::from(&paths[0]);
-    let generation = state.lock().await.reserve_share_start()?;
     let prepared = async {
         let metadata = tokio::fs::symlink_metadata(&path)
             .await
@@ -316,7 +352,7 @@ async fn send_stream_item(
                 return Err(format!("Could not prepare fast sending: {error}"));
             }
         };
-        Ok(ShareHandle::source_stream(ticket, path, share, recorder))
+        Ok(ShareHandle::source_stream(ticket, path, share, recorder, peer))
     }.await;
 
     let mut app_state = state.lock().await;
@@ -346,11 +382,12 @@ async fn send_items_impl(
     paths: Vec<String>,
     relay: Option<RelayConfigArg>,
     discovery: Option<DiscoveryConfigArg>,
-    state: State<'_, AppStateMutex>,
-    history: State<'_, Arc<TransferHistoryStore>>,
+    state: &State<'_, AppStateMutex>,
+    history: &State<'_, Arc<TransferHistoryStore>>,
     app_handle: tauri::AppHandle,
     content_kind: Option<&'static str>,
     owned_source_dir: Option<OwnedSourceDir>,
+    reserved_generation: Option<u64>,
 ) -> Result<String, String> {
     // Validate input before doing any work.
     if paths.is_empty() {
@@ -360,9 +397,15 @@ async fn send_items_impl(
     let path_bufs: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
 
     // Reserve slot before expensive setup to avoid concurrent start_sharing races.
-    let generation = state.lock().await.reserve_share_start()?;
+    let generation = match reserved_generation {
+        Some(generation) => generation,
+        None => state.lock().await.reserve_share_start()?,
+    };
 
     let start_result = async {
+        if !state.lock().await.share_start_is_current(generation) {
+            return Err("cancelled".to_string());
+        }
         // Prepare metadata outside the state mutex.
         let mut metadata = build_send_metadata(&path_bufs).await?;
         if !state.lock().await.share_start_is_current(generation) {
@@ -485,11 +528,12 @@ pub async fn send_text(
         vec![source_path.to_string_lossy().into_owned()],
         relay,
         discovery,
-        state,
-        history,
+        &state,
+        &history,
         app_handle,
         Some(TEXT_CONTENT_KIND),
         Some(source_guard),
+        None,
     )
     .await
 }
@@ -2321,9 +2365,30 @@ pub async fn forget_paired_device(
     Ok(())
 }
 
-#[derive(serde::Serialize)]
+#[derive(Default, serde::Serialize)]
 pub struct InviteDelivered {
     pub delivered: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actual_ticket: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transport: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delivery_error: Option<String>,
+}
+
+impl InviteDelivered {
+    fn legacy(actual_ticket: String, delivery: Result<bool, String>) -> Self {
+        let (delivered, delivery_error) = match delivery {
+            Ok(delivered) => (delivered, None),
+            Err(error) => (false, Some(error)),
+        };
+        Self {
+            delivered,
+            actual_ticket: Some(actual_ticket),
+            transport: Some("legacy"),
+            delivery_error,
+        }
+    }
 }
 
 #[cfg(any(desktop, target_os = "android"))]
@@ -2333,7 +2398,11 @@ pub async fn invite_paired_device(
     blob_ticket: String,
     file_count: u32,
     total_size: u64,
+    relay: Option<RelayConfigArg>,
+    discovery: Option<DiscoveryConfigArg>,
     state: State<'_, AppStateMutex>,
+    history: State<'_, Arc<TransferHistoryStore>>,
+    app_handle: tauri::AppHandle,
 ) -> Result<InviteDelivered, String> {
     let node = {
         let guard = state.lock().await;
@@ -2341,12 +2410,63 @@ pub async fn invite_paired_device(
         note_share_peer(&guard, name_peer(endpoint_id.clone(), &guard.node));
         require_node_arc(&guard)?
     };
-    let delivered = node
-        .invite_paired_device(&endpoint_id, &blob_ticket, file_count, total_size)
-        .await
-        .map_err(|e| e.to_string())?;
+    let mut actual_ticket = blob_ticket;
+    if StreamTicket::is_stream_token(&actual_ticket) {
+        // Cancellation cannot revoke the handle between the final check and
+        // the bounded control write. None means no Invite byte was written.
+        let mut guard = state.lock().await;
+        let current = guard.current_share.as_ref()
+            .filter(|share| share.ticket == actual_ticket)
+            .ok_or_else(|| "cancelled".to_string())?;
+        let peer = current.source_stream_peer.as_ref()
+            .filter(|peer| peer.endpoint_id().eq_ignore_ascii_case(&endpoint_id))
+            .cloned();
+        let delivery = if let Some(peer) = peer {
+            node.invite_source_stream_peer(&peer, &actual_ticket, total_size)
+                .await.map_err(|error| error.to_string())?
+        } else { None };
+        if let Some(delivered) = delivery {
+            return Ok(InviteDelivered {
+                delivered, actual_ticket: Some(actual_ticket), transport: Some("stream"),
+                ..Default::default()
+            });
+        }
 
-    Ok(InviteDelivered { delivered })
+        // The positive capability belonged to a connection that disappeared
+        // or was replaced. Its stream source has not been invited or read.
+        // Reserve the replacement before releasing the old handle so cancel
+        // or another preparation cannot overtake this conversion.
+        let mut old = guard.current_share.take().expect("matched active share");
+        let path = old._path.to_string_lossy().into_owned();
+        let generation = guard.reserve_share_start()?;
+        drop(guard);
+        let cleanup = old.stop().await;
+        drop(old);
+        if let Err(error) = cleanup {
+            state.lock().await.is_share_starting = false;
+            return Err(error);
+        }
+        actual_ticket = send_items_impl(
+            vec![path], relay, discovery, &state, &history, app_handle,
+            None, None, Some(generation),
+        ).await?;
+    }
+    let delivery = node
+        .invite_paired_device_guarded(
+            &endpoint_id, &actual_ticket, file_count, total_size, || async {
+                let guard = state.lock().await;
+                if !guard.current_share.as_ref().is_some_and(|share| share.ticket == actual_ticket) {
+                    return None;
+                }
+                note_share_peer(&guard, name_peer(endpoint_id.clone(), &guard.node));
+                Some(guard)
+            },
+        )
+        .await;
+    // A fallback has already replaced the backend handle. Always return its
+    // ticket, including on a failed/partial write, so an explicit user retry
+    // cannot reuse the revoked stream ticket. Never retry automatically.
+    Ok(InviteDelivered::legacy(actual_ticket, delivery.map_err(|error| error.to_string())))
 }
 
 #[cfg(any(desktop, target_os = "android"))]
@@ -2489,7 +2609,7 @@ pub async fn invite_nearby_device(
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(InviteDelivered { delivered })
+    Ok(InviteDelivered { delivered, ..Default::default() })
 }
 
 /// Asks a Nearby device to pair (no file share). Receiver confirms on name /
@@ -2509,7 +2629,7 @@ pub async fn request_nearby_pair(
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(InviteDelivered { delivered })
+    Ok(InviteDelivered { delivered, ..Default::default() })
 }
 
 #[cfg(any(desktop, target_os = "android"))]
@@ -2649,6 +2769,18 @@ pub async fn autostart_set(app_handle: tauri::AppHandle, enabled: bool) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_legacy_delivery_retains_actual_ticket_for_explicit_retry() {
+        let result = InviteDelivered::legacy(
+            "actual-legacy-ticket".into(), Err("synthetic partial write".into()),
+        );
+        let payload = serde_json::to_value(result).unwrap();
+        assert_eq!(payload["delivered"], false);
+        assert_eq!(payload["actual_ticket"], "actual-legacy-ticket");
+        assert_eq!(payload["transport"], "legacy");
+        assert_eq!(payload["delivery_error"], "synthetic partial write");
+    }
     use engine::{start_share, RelayModeOption};
     use std::fs;
     use std::path::PathBuf;

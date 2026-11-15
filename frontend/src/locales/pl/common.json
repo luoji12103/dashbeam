@@ -64,6 +64,16 @@
 		"removeFromSelection": "Usuń z wyboru",
 		"copyToClipboard": "Kopiuj do schowka",
 		"description": "Opis (opcjonalnie)",
+		"sourceStream": {
+			"label": "Preferuj szybkie wysyłanie (eksperymentalne)",
+			"unavailable": "Szybkie wysyłanie wymaga jednego zwykłego pliku i dostępnej usługi sparowanych urządzeń. Wyłącz tę opcję, aby użyć zwykłego transferu.",
+			"pairFirst": "Przed wysłaniem sparuj drugie urządzenie w ustawieniach.",
+			"description": "Sprawdza wybrane urządzenie przed przygotowaniem. Używa szybkiego wysyłania dla jednego obsługiwanego pliku do 8 GiB, a w pozostałych przypadkach zgodnego zwykłego transferu. Nie zmieniaj pliku źródłowego.",
+			"activeHint": "Wybierz urządzenie, aby sprawdzić jego bieżące połączenie. Starsze lub nierozpoznane aplikacje automatycznie używają zgodnego zwykłego transferu.",
+			"preparing": "Wybierz urządzenie, aby przygotować transfer",
+			"negotiating": "Sprawdzanie zgodności i przygotowywanie...",
+			"compatibilityUsed": "Dla tego urządzenia używany jest zgodny zwykły transfer. Pobieranie rozpocznie się po zaakceptowaniu."
+		},
 		"broadcastMode": {
 			"index": "Rozgłaszanie",
 			"on": {

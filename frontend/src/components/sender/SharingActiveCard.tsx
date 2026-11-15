@@ -93,6 +93,7 @@ export function SharingActiveCard({
 							className="flex h-full min-h-0 flex-col overflow-hidden !pt-0 !pb-4 max-sm:px-4"
 						>
 							<PairedDevicesPanel
+								preferSourceStream={sourceStream}
 								pairedDevices={pairedDevices}
 								pairedInviteStatus={pairedInviteStatus}
 								isNodeReady={isNodeReady}

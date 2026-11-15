@@ -37,6 +37,7 @@ interface PairedDevicesPanelProps {
 	showHeader?: boolean
 	showSearch?: boolean
 	isOpen?: boolean
+	preferSourceStream?: boolean
 }
 
 /**
@@ -62,6 +63,7 @@ export function PairedDevicesPanel({
 	showHeader = true,
 	showSearch = false,
 	isOpen = false,
+	preferSourceStream = false,
 }: PairedDevicesPanelProps) {
 	const { t } = useTranslation()
 	const [searchQuery, setSearchQuery] = useState('')
@@ -206,7 +208,11 @@ export function PairedDevicesPanel({
 										</span>
 										<span className="block truncate text-xs text-muted-foreground">
 											{inviteStatus === 'preparing'
-												? t('common:sender.startingShare')
+												? t(
+														preferSourceStream
+															? 'common:sender.sourceStream.negotiating'
+															: 'common:sender.startingShare'
+													)
 												: isSending
 													? t('common:sender.pairedDevices.sending')
 													: deviceSubtitle(device)}

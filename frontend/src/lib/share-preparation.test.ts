@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { prepareShare } from './share-preparation.js'
+import { prepareShare, prepareTargetedShare } from './share-preparation.js'
 
 function deferred<T>() {
 	let resolve!: (value: T) => void
@@ -13,6 +13,83 @@ function deferred<T>() {
 }
 
 describe('prepareShare', () => {
+	it('does no preparation before a target and releases a cancelled target gate', async () => {
+		let preparations = 0
+		const waiting = prepareTargetedShare({
+			prepare: async () => {
+				preparations++
+				return 'ticket'
+			},
+			dispose: async () => {},
+		})
+		await Promise.resolve()
+		assert.equal(preparations, 0)
+		waiting.cancel()
+		assert.equal(waiting.selectTarget?.('old-peer'), false)
+		assert.equal(await waiting.result, null)
+		const replacement = prepareShare({
+			previous: waiting.result,
+			prepare: async () => {
+				preparations++
+				return 'replacement'
+			},
+			dispose: async () => {},
+		})
+		assert.equal(await replacement.result, 'replacement')
+		assert.equal(preparations, 1)
+	})
+
+	it('prepares once for the first selected target and rejects a second selection', async () => {
+		const targets: string[] = []
+		const share = prepareTargetedShare({
+			prepare: async (target) => {
+				targets.push(target)
+				return 'legacy-ticket'
+			},
+			dispose: async () => {},
+		})
+		assert.equal(share.selectTarget?.('old-client'), true)
+		assert.equal(share.selectTarget?.('other-client'), false)
+		assert.equal(await share.result, 'legacy-ticket')
+		assert.deepEqual(targets, ['old-client'])
+	})
+
+	it('does not prepare when target selection and cancellation happen in the same tick', async () => {
+		let preparations = 0
+		const share = prepareTargetedShare({
+			prepare: async () => {
+				preparations++
+				return 'ticket'
+			},
+			dispose: async () => {},
+		})
+		await Promise.resolve()
+		share.selectTarget?.('peer')
+		share.cancel()
+		assert.equal(await share.result, null)
+		assert.equal(preparations, 0)
+	})
+
+	it('cleans up the actual replacement ticket when cancellation races with fallback', async () => {
+		const prepared = deferred<string>()
+		const ticketRef = { current: 'stream-ticket' }
+		const disposed: string[] = []
+		const share = prepareTargetedShare({
+			prepare: () => prepared.promise,
+			dispose: async (ticket) => {
+				disposed.push(ticketRef.current || ticket)
+			},
+		})
+		share.selectTarget?.('peer')
+		await Promise.resolve()
+		await Promise.resolve()
+		share.cancel()
+		ticketRef.current = 'actual-legacy-ticket'
+		prepared.resolve('original-ticket')
+		assert.equal(await share.result, null)
+		assert.deepEqual(disposed, ['actual-legacy-ticket'])
+	})
+
 	it('disposes a late ticket after cancellation before starting its replacement', async () => {
 		const prepared = deferred<string>()
 		const cleaned = deferred<void>()

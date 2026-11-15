@@ -54,9 +54,9 @@ export function AutoUpdate() {
 		return (
 			<Frame>
 				<FramePanel>
-					<FrameTitle>本地构建</FrameTitle>
+					<FrameTitle>定制版本更新</FrameTitle>
 					<FrameDescription>
-						此版本不检查或安装官方更新，以保留本地包标识和改动。
+						此定制版本持续合入官方更新，并保留本地功能。请安装本仓库发布的定制更新包；不会直接用官方二进制覆盖，以免丢失定制功能或无法沿用应用身份。
 					</FrameDescription>
 				</FramePanel>
 			</Frame>

@@ -55,6 +55,9 @@ export interface PairedInviteResponsePayload {
 
 export interface InviteDelivered {
 	delivered: boolean
+	actual_ticket?: string
+	transport?: 'legacy' | 'stream'
+	delivery_error?: string
 }
 
 export type NodeStatusKind = 'ready' | 'starting' | 'unavailable'
@@ -170,14 +173,33 @@ export async function invitePairedDevice(
 	fileCount: number,
 	totalSize: number
 ): Promise<boolean> {
-	if (!pairingCapable()) return false
-	const result = await invoke<InviteDelivered>('invite_paired_device', {
+	return (
+		await invitePairedDeviceWithResult(
+			endpointId,
+			blobTicket,
+			fileCount,
+			totalSize
+		)
+	).delivered
+}
+
+export async function invitePairedDeviceWithResult(
+	endpointId: string,
+	blobTicket: string,
+	fileCount: number,
+	totalSize: number,
+	relay?: RelayConfigArg,
+	discovery?: DiscoveryConfigArg
+): Promise<InviteDelivered> {
+	if (!pairingCapable()) return { delivered: false }
+	return invoke<InviteDelivered>('invite_paired_device', {
 		endpointId,
 		blobTicket,
 		fileCount,
 		totalSize,
+		relay,
+		discovery,
 	})
-	return result.delivered
 }
 
 export async function respondPairedInvite(

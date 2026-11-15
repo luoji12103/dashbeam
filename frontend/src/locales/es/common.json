@@ -64,6 +64,16 @@
 		"removeFromSelection": "Quitar de la selección",
 		"copyToClipboard": "Copiar al portapapeles",
 		"description": "Descripción (opcional)",
+		"sourceStream": {
+			"label": "Preferir envío rápido (experimental)",
+			"unavailable": "El envío rápido requiere un único archivo normal y un servicio de dispositivos emparejados disponible. Desactívalo para una transferencia normal.",
+			"pairFirst": "Empareja el otro dispositivo en Ajustes antes de enviar.",
+			"description": "Comprueba el dispositivo elegido antes de preparar. Usa envío rápido para un único archivo compatible de hasta 8 GiB; en los demás casos, una transferencia normal compatible. No modifiques el archivo original.",
+			"activeHint": "Elige un dispositivo para comprobar su conexión actual. Las aplicaciones antiguas o no reconocidas usan automáticamente una transferencia normal compatible.",
+			"preparing": "Elige un dispositivo para preparar la transferencia",
+			"negotiating": "Comprobando compatibilidad y preparando...",
+			"compatibilityUsed": "Se usará una transferencia normal compatible con este dispositivo. La descarga empieza cuando acepte."
+		},
 		"broadcastMode": {
 			"index": "Difusión",
 			"on": {
